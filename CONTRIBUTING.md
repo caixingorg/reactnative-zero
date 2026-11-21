@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你愿意参与。本仓库是一个企业级 React Native(Expo)应用模板,提交前请先阅读 [README](README.md) 和 `docs/ARCHITECTURE.md`,并遵守其中的四层架构红线。
+感谢你愿意参与。本仓库是一个企业级 React Native(Expo)应用模板，提交前请先阅读 [README](README.md) 和 `docs/ARCHITECTURE.md`，并遵守其中的四层架构红线。
 
 ## 开发环境
 
@@ -12,25 +12,25 @@ pnpm test:coverage      # 采集覆盖率,阈值写在 jest.config.js
 
 ## 分支
 
-- `main` 受保护,只通过 Pull Request 合并,禁止强推和删除。
-- 分支命名为 `<type>/<slug>`,type 取 `feat`、`fix`、`chore`、`docs`、`ci`、`build` 等 Conventional Commits 类型,例如 `fix/webview-bridge-nonce`。
-- 一个分支只做一件事,保持 diff 小而聚焦。
+- `main` 受保护，只通过 Pull Request 合并，禁止强推和删除。
+- 分支命名为 `<type>/<slug>`，type 取 `feat`、`fix`、`chore`、`docs`、`ci`、`build` 等 Conventional Commits 类型，例如 `fix/webview-bridge-nonce`。
+- 一个分支只做一件事，保持 diff 小而聚焦。
 
 ## 提交信息
 
-遵循 [Conventional Commits](https://www.conventionalcommits.org/),由 commitlint 在 `commit-msg` 钩子里校验。提交时 `pre-commit` 钩子会运行 lint-staged、与改动相关的测试和类型检查,请不要用 `--no-verify` 绕过。
+遵循 [Conventional Commits](https://www.conventionalcommits.org/)，由 commitlint 在 `commit-msg` 钩子里校验。提交时 `pre-commit` 钩子会运行 lint-staged、与改动相关的测试和类型检查，请不要用 `--no-verify` 绕过。
 
 ## Pull Request
 
-- 使用 squash 合并,**PR 标题本身必须符合 Conventional Commits**,CHANGELOG 由此生成。
-- 描述里写清动机、改动范围和验证方式;涉及界面的改动请附截图。
-- 必需检查只有 CI 中名为 `Format, 4-Layer Lint, Typecheck & Seam Tests` 的 job。`android-native-build` 与 `e2e-maestro` 带路径或标签过滤,不是必需检查。
-- 发布标签 `v*` 只能从 `main` 上打,标签会触发 iOS 端到端流程。
+- 使用 squash 合并，**PR 标题本身必须符合 Conventional Commits**，它会成为合并后 `main` 上的提交信息。
+- 描述里写清动机、改动范围和验证方式；涉及界面的改动请附截图。
+- 必需检查只有 CI 中名为 `Format, 4-Layer Lint, Typecheck & Seam Tests` 的 job。`android-native-build` 与 `e2e-maestro` 带路径或标签过滤，不是必需检查。
+- 发布标签 `v*` 只能从 `main` 上打，标签会触发 iOS 端到端流程。
 
 ## 不要提交的内容
 
 - 任何凭据、证书、keystore、DSN、API Key 或真实的生产地址。
-- 个人本地工作文件:`.scratch/`、`docs/superpowers/`、`docs/agents/` 与 `AGENTS.md` 已在 `.gitignore` 中,仅保留在本地。
+- 个人本地工作文件：`.scratch/`、`docs/superpowers/`、`docs/agents/` 与 `AGENTS.md` 已在 `.gitignore` 中，仅保留在本地。
 - 构建产物与原生目录(`ios/`、`android/`、`dist/`、`coverage/`)。
 
 ## 报告问题

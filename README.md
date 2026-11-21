@@ -45,7 +45,7 @@ enterprise-rn-template/
 │   └── verify-variant-config.cjs 🛠 [门禁脚本] 防止根目录 .env 文件污染多变体配置的回归检查
 └── src/
     ├── app/                     ★ [1. Route Shell 路由装配壳] 极薄页面路由映射与 <Stack.Protected> 守卫（单文件 ≤15 行）
-    ├── features/                ★ [2. Feature Slice 业务切片] 垂直业务模块（每個切片仅通过 index.ts 对外暴露）
+    ├── features/                ★ [2. Feature Slice 业务切片] 垂直业务模块（每个切片仅通过 index.ts 对外暴露）
     ├── shared/                  ★ [3. Shared Layer 应用共享层] 当前 App 跨多个业务切片复用的业务组件与词条
     └── core/                    🔒 [4. Template Core 底座内核] 跨项目通用基建（业务开发保持零改动，随时可从上游同步升级）
         ├── auth/                └── 硬件加密会话存储、重装残留自动擦除与单飞刷新状态机
@@ -92,7 +92,7 @@ REACT_NATIVE_PACKAGER_HOSTNAME=localhost pnpm ios
 
 ```bash
 # 1. 克隆底座仓库到你的新业务目录
-git clone <template-repo-url> my-business-app
+git clone https://github.com/caixingorg/reactnative-zero.git my-business-app
 cd my-business-app
 
 # 2. 安装依赖（仓库已锁定 pnpm 与国内 npmmirror 镜像源）
@@ -585,8 +585,9 @@ git fetch template-upstream
 # 2A. 方式一：精准拣选上游某个修复 Commit
 git cherry-pick <commit-sha>
 
-# 2B. 方式二：直接将 src/core 与 config 对齐到上游最新 main 分支并跑全量验证
-git checkout template-upstream/main -- src/core config
+# 2B. 方式二：将 src/core 与 config 下的底座代码对齐到上游最新 main 分支并跑全量验证
+# 注意：不要整体覆盖 config/，其中 config/env/*.env 是你的业务环境变量，只同步其中的 example.env 模板
+git checkout template-upstream/main -- src/core 'config/*.ts' config/env/example.env
 pnpm verify
 ```
 
@@ -621,7 +622,7 @@ pnpm verify
 
 ## 参与贡献
 
-分支命名、提交规范、合并策略与必需检查见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告,不要公开提 issue。
+分支命名、提交规范、合并策略与必需检查见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告，不要公开提 issue。
 
 ## 许可证
 

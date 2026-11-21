@@ -1,13 +1,13 @@
-# 模板占位：用该模板起新项目时，请把 @your-org/* 替换为真实的团队或个人
+# 派生项目请把下方的 @caixingorg 替换为自己的团队或个人
 # 默认评审人
-*                       @your-org/mobile-maintainers
+*                       @caixingorg
 
 # 构建、发布与签名相关，需要发布负责人评审
-/fastlane/              @your-org/release-owners
-/config/                @your-org/release-owners
-/scripts/               @your-org/release-owners
-/.github/workflows/     @your-org/release-owners
+/fastlane/              @caixingorg
+/config/                @caixingorg
+/scripts/               @caixingorg
+/.github/workflows/     @caixingorg
 
 # 架构红线与隐私门控
-/src/core/              @your-org/mobile-maintainers
-/docs/adr/              @your-org/mobile-maintainers
+/src/core/              @caixingorg
+/docs/adr/              @caixingorg
