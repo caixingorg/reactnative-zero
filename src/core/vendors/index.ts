@@ -150,3 +150,9 @@ export function useCommercialVendorAdapters(): CommercialVendorAdapters {
     };
   }, [env.appVariant, vendors]);
 }
+
+export {
+  createSentryErrorReporter,
+  type SentryClientLike,
+  type SentryErrorReporterOptions,
+} from './sentry-error-reporter';
