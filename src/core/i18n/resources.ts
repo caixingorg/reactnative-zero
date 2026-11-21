@@ -20,6 +20,11 @@ export const coreTranslationResources: TranslationBundleMap = {
       selectPlaceholder: '请选择',
       offlineBanner: '当前网络不可用，请检查网络设置',
     },
+    versionPolicy: {
+      updateRequiredTitle: '需要更新应用',
+      updateRequiredDescription: '当前版本已不再支持，请更新到最新版本后继续使用。',
+      updateAction: '前往更新',
+    },
     privacy: {
       title: '个人信息保护指引',
       summary:
@@ -97,6 +102,11 @@ export const coreTranslationResources: TranslationBundleMap = {
       loading: 'Loading...',
       selectPlaceholder: 'Select an option',
       offlineBanner: 'You are currently offline. Check your connection.',
+    },
+    versionPolicy: {
+      updateRequiredTitle: 'Update required',
+      updateRequiredDescription: 'This version is no longer supported. Please update to continue.',
+      updateAction: 'Update now',
     },
     privacy: {
       title: 'Privacy & Data Protection Notice',
