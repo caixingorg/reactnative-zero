@@ -149,6 +149,7 @@ flowchart LR
     Loader["app.config.ts<br/>tsx/cjs 加载 + 变体 env 合并"]
     Resolver["config/expo-config-resolver.ts<br/>Zod 强校验 + 变体后缀/图标推导 + 权限插件组装"]
     Mirrors["config/with-china-build-mirrors.ts<br/>可选注入阿里云 Maven / 清华 CocoaPods 源"]
+    Signing["config/with-android-release-signing.ts<br/>release 签名由环境变量注入，production 缺失即失败"]
     Sanitizer["config/with-capability-manifest-sanitizer.ts<br/>位于 plugins[0] (LIFO 末端兜底清洗)"]
   end
 
@@ -165,7 +166,7 @@ flowchart LR
   Id --> Loader
   Env --> Loader
   Loader --> Resolver
-  Resolver --> Mirrors --> Sanitizer
+  Resolver --> Mirrors --> Signing --> Sanitizer
   Sanitizer --> Plist & Manifest
   Env -->|"APP_VARIANT"| Metro --> ProdStubs
 ```
@@ -211,7 +212,7 @@ flowchart LR
 | 模块路径 | 核心职责（做什么） | 入口文件 | 边界不变量 / 修改注意事项 |
 | :--- | :--- | :--- | :--- |
 | 根身份与入口 | `app.identity.ts` 声明派生应用唯一身份、品牌色板种子、合规与能力总闸；`app.config.ts` 按 `APP_VARIANT` 加载 `config/env/<variant>.env` 并委托纯函数解析；`metro.config.js` 按变体隔离缓存并物理剔除生产调试桩 | [`app.identity.ts`](../app.identity.ts)<br/>[`app.config.ts`](../app.config.ts)<br/>[`metro.config.js`](../metro.config.js) | `app.identity.ts` 故意位于 `src/core` 之外，确保克隆改名与上游同步零冲突 |
-| `config/` | `expo-config-resolver.ts`（纯函数推导三变体包名/图标/插件）、`with-capability-manifest-sanitizer.ts`（`plugins[0]` LIFO 兜底清洗权限、FGS、ATS、明文 HTTP、渠道 meta-data、第三方自动初始化 Provider）、`with-china-build-mirrors.ts`（可选阿里云 Maven / 清华 CocoaPods 源）、`env/*.env` | [`expo-config-resolver.ts`](../config/expo-config-resolver.ts)<br/>[`with-capability-manifest-sanitizer.ts`](../config/with-capability-manifest-sanitizer.ts)<br/>[`with-china-build-mirrors.ts`](../config/with-china-build-mirrors.ts) | `withCapabilityManifestSanitizer` 必须保持在 `plugins[0]`；镜像开关独立于隐私开关，需显式开启或由 `EXPO_USE_CHINA_MIRRORS` 控制 |
+| `config/` | `expo-config-resolver.ts`（纯函数推导三变体包名/图标/插件）、`with-capability-manifest-sanitizer.ts`（`plugins[0]` LIFO 兜底清洗权限、FGS、ATS、明文 HTTP、渠道 meta-data、第三方自动初始化 Provider）、`with-china-build-mirrors.ts`（可选阿里云 Maven / 清华 CocoaPods 源）、`with-android-release-signing.ts`（release 签名由 `ANDROID_KEYSTORE_*` 环境变量注入，production 缺失时打包失败，绝不回退 debug 密钥）、`env/*.env` | [`expo-config-resolver.ts`](../config/expo-config-resolver.ts)<br/>[`with-capability-manifest-sanitizer.ts`](../config/with-capability-manifest-sanitizer.ts)<br/>[`with-china-build-mirrors.ts`](../config/with-china-build-mirrors.ts)<br/>[`with-android-release-signing.ts`](../config/with-android-release-signing.ts) | `withCapabilityManifestSanitizer` 必须保持在 `plugins[0]`；镜像开关独立于隐私开关，需显式开启或由 `EXPO_USE_CHINA_MIRRORS` 控制；签名插件在 production 下找不到 Gradle 锚点必须抛错，不得静默回退 |
 | `scripts/` & `fastlane/` | `init-app.ts`（克隆初始化与 `--clean-starter` 裁剪）、`distribute-internal.ts`（蒲公英上传与飞书/企微/钉钉群机器人通知）、`verify-variant-config.cjs`（多变体配置快照校验）、`Fastfile`（本地 Android 多渠道打包与 iOS 归档） | [`init-app.ts`](../scripts/init-app.ts)<br/>[`distribute-internal.ts`](../scripts/distribute-internal.ts)<br/>[`Fastfile`](../fastlane/Fastfile) | 核心纯逻辑拆分在 `scripts/lib/*-core.ts` 便于单测覆盖 |
 | `tests/` & `.maestro/` | 分层接缝测试：`seam-build-config/`（变体配置、清单权限裁剪、ESLint 边界红线、初始化脚本）与 `seam-runtime/`（隐私门禁、鉴权刷新锁、离线缓存、安全 WebView JSBridge、权限告知、厂商适配器、DevTools、键盘与 UI 表单/反馈组件）；`.maestro/flows/` 提供模块化 E2E 回归子流 | [`create-test-runtime.tsx`](../tests/helpers/create-test-runtime.tsx)<br/>[`smoke.yaml`](../.maestro/smoke.yaml) | 全量门禁命令：`pnpm verify`（`typecheck` + `lint` + `verify:maestro` + `jest --runInBand`） |
 

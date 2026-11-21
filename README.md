@@ -36,7 +36,8 @@ enterprise-rn-template/
 │   ├── env/                     ★ [业务必改] 按变体隔离的环境变量（development / staging / production.env）
 │   ├── expo-config-resolver.ts  ⚙️ [底座托管] 纯函数配置推导器（多变体包名后缀、自适应图标与权限插件装配）
 │   ├── with-capability-manifest-sanitizer.ts ⚙️ [底座托管] 编译期 Info.plist / AndroidManifest 权限与自启动清洗插件
-│   └── with-china-build-mirrors.ts           ⚙️ [底座托管] 国内/海外 Gradle 阿里云 Maven 与 Podfile 镜像注入插件
+│   ├── with-china-build-mirrors.ts           ⚙️ [底座托管] 国内/海外 Gradle 阿里云 Maven 与 Podfile 镜像注入插件
+│   └── with-android-release-signing.ts       ⚙️ [底座托管] Android release 签名注入插件（密钥来自环境变量，production 缺失即失败）
 ├── fastlane/
 │   └── Fastfile                 ⚙️ [底座托管] 本地 iOS/Android 归档及国内华米OV多渠道矩阵打包流水线
 ├── scripts/
