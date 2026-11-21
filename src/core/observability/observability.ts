@@ -118,7 +118,12 @@ export function createConsentGatedErrorReporter(
     },
     suspend(): void {
       consentActive = false;
-      delegate?.suspend?.();
+      // 原因：只有实现了 suspend 的委托方才会被真正关闭（如 Sentry client.close），重新同意时必须让它能再次初始化；
+      // 没有 suspend 的委托方保持「只初始化一次」，避免重复挂载原生监听
+      if (delegate?.suspend) {
+        delegateInitialized = false;
+        delegate.suspend();
+      }
       logger.info('ErrorReporter suspended after privacy consent reset');
     },
     captureException(error: unknown, context?: Record<string, unknown>): void {

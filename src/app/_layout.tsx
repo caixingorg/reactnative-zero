@@ -1,4 +1,4 @@
-import { Stack, usePathname } from 'expo-router';
+import { Stack, useSegments } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
 import { appIdentity } from '@root/app.identity';
 import { AuthHydrationGate } from '@/core/auth/AuthHydrationGate';
@@ -52,17 +52,19 @@ export function GuardedRootStack(): React.JSX.Element {
   );
 }
 
-// 原因：只在根布局记录标记——首次提交即「首屏可交互」的近似点，路径变化记录为路由切换；标记只保存在内存里
+// 原因：只在根布局记录标记——根布局首次挂载是「首屏」的近似点（早于登录态恢复与隐私门禁，并非真正可交互）；
+// 路由标记用路由模式（如 feed/[id]）而不是具体路径，避免把记录 ID 写进标记名、标记数量也有上限；同名标记只记首次
 function PerformanceMarkers(): null {
-  const pathname = usePathname();
+  const segments = useSegments();
+  const routePattern = segments.join('/');
 
   useEffect(() => {
-    appPerformanceMarks.mark('first-interactive');
+    appPerformanceMarks.mark('root-mounted');
   }, []);
 
   useEffect(() => {
-    appPerformanceMarks.mark(`route:${pathname}`);
-  }, [pathname]);
+    appPerformanceMarks.mark(`route:/${routePattern}`);
+  }, [routePattern]);
 
   return null;
 }
