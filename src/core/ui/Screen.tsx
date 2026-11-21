@@ -7,6 +7,8 @@ import { useAppTheme } from '../theme/theme-context';
 export interface ScreenProps {
   scrollable?: boolean;
   edges?: Edge[];
+  /** 可选页面背景色，默认使用语义画布色 tokens.colors.background。 */
+  backgroundColor?: string;
   /** 可滚动表单页软键盘弹起时，聚焦输入框与键盘顶部的额外间距（默认 24）。 */
   keyboardBottomOffset?: number;
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -17,6 +19,7 @@ export interface ScreenProps {
 export function Screen({
   scrollable = false,
   edges = ['top', 'left', 'right'],
+  backgroundColor,
   keyboardBottomOffset = 24,
   contentContainerStyle,
   children,
@@ -26,7 +29,7 @@ export function Screen({
   return (
     <SafeAreaView
       edges={edges}
-      style={[styles.safeArea, { backgroundColor: tokens.colors.background }]}
+      style={[styles.safeArea, { backgroundColor: backgroundColor ?? tokens.colors.background }]}
     >
       {scrollable ? (
         <KeyboardAwareScrollView

@@ -36,11 +36,11 @@ export function BottomSheetModal({
             styles.sheet,
             {
               backgroundColor: tokens.colors.surface,
-              borderTopLeftRadius: tokens.radii.lg,
-              borderTopRightRadius: tokens.radii.lg,
+              borderTopLeftRadius: 22,
+              borderTopRightRadius: 22,
               paddingHorizontal: tokens.spacing.lg,
               paddingTop: tokens.spacing.md,
-              paddingBottom: Math.max(insets.bottom, tokens.spacing.lg),
+              paddingBottom: insets.bottom + tokens.spacing.xl,
               gap: tokens.spacing.md,
             },
           ]}
