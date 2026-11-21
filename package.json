@@ -23,6 +23,7 @@
     "distribute": "tsx scripts/distribute-internal.ts",
     "distribute:dry-run": "tsx scripts/distribute-internal.ts --dry-run",
     "changelog": "tsx scripts/changelog.ts",
+    "check:cycles": "tsx scripts/check-cycles.ts",
     "release:meta": "tsx scripts/release-meta.ts",
     "ios": "pnpm preflight && APP_VARIANT=development expo run:ios",
     "android": "pnpm preflight && APP_VARIANT=development expo run:android",
