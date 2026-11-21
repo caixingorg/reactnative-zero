@@ -1,3 +1,9 @@
+export {
+  AppHeader,
+  type AppHeaderAction,
+  type AppHeaderProps,
+  type AppHeaderVariant,
+} from './AppHeader';
 export { AppImage, type AppImageProps } from './AppImage';
 export { AppText, type AppTextProps, type TextTone, type TypographyVariant } from './AppText';
 export { BottomSheetModal, type BottomSheetModalProps } from './BottomSheetModal';
@@ -32,13 +38,16 @@ export {
 } from './page-shell-logic';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { KeyboardStickyFooter, type KeyboardStickyFooterProps } from './KeyboardStickyFooter';
+export { PageTemplate, type PageStatus, type PageTemplateProps } from './PageTemplate';
 export { Screen, type ScreenProps } from './Screen';
 export { Select, type SelectOption, type SelectProps } from './Select';
 export { Skeleton, type SkeletonProps } from './Skeleton';
 export { HStack, Stack, VStack, type StackProps } from './Stack';
 export { Switch, type SwitchProps } from './Switch';
+export { TabPager, type TabPagerProps } from './TabPager';
 export { TextField, type TextFieldHandle, type TextFieldProps } from './TextField';
 export { ToastHost, type ToastHostProps } from './ToastHost';
+export { TopTabs, type TopTabItem, type TopTabsProps } from './TopTabs';
 export {
   createToastStore,
   type ActiveToast,

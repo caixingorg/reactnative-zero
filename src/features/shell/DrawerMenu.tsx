@@ -1,0 +1,208 @@
+/**
+ * @module features/shell/DrawerMenu
+ * 职责：全局侧边抽屉的业务菜单内容（用户头像/登录入口、快捷导航项、深色模式开关、版本号与退出登录）。
+ * 边界：归属业务层而非 Template Core，由 Route Shell 根布局注入 DrawerHost；路由跳转由外层回调提供，未接入路由时在本层提示。
+ */
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useAppRuntime, useAuthSession, useToast } from '@/core/runtime';
+import { useAppTheme } from '@/core/theme/theme-context';
+import { AppText, Button, HStack, Switch, VStack } from '@/core/ui';
+
+export type DrawerNavTarget =
+  'profile' | 'login' | 'favorites' | 'history' | 'settings' | 'feedback' | 'about';
+
+export interface DrawerMenuProps {
+  onClose: () => void;
+  /** 返回 false 表示外层尚未为该目标挂载路由，由菜单自身给出友好提示。 */
+  onNavigate?: (target: DrawerNavTarget) => boolean | void;
+  versionLabel?: string;
+}
+
+interface MenuItemConfig {
+  target: Exclude<DrawerNavTarget, 'profile' | 'login'>;
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+}
+
+const MENU_ITEMS: readonly MenuItemConfig[] = [
+  { target: 'favorites', label: '收藏', icon: 'bookmark-outline' },
+  { target: 'history', label: '历史', icon: 'time-outline' },
+  { target: 'settings', label: '设置', icon: 'settings-outline' },
+  { target: 'feedback', label: '意见反馈', icon: 'chatbox-ellipses-outline' },
+  { target: 'about', label: '关于', icon: 'information-circle-outline' },
+];
+
+export function DrawerMenu({
+  onClose,
+  onNavigate,
+  versionLabel,
+}: DrawerMenuProps): React.JSX.Element {
+  const { authSessionStore } = useAppRuntime();
+  const status = useAuthSession((state) => state.status);
+  const user = useAuthSession((state) => state.user);
+  const { tokens, setThemePreference } = useAppTheme();
+  const toast = useToast();
+
+  const resolvedVersion = versionLabel ?? Constants.expoConfig?.version ?? '1.0.0';
+  const isAuthenticated = status === 'authenticated' && user !== null;
+  const avatarText = isAuthenticated ? user.displayName.slice(0, 1).toUpperCase() : '?';
+
+  const handleNav = (target: DrawerNavTarget): void => {
+    onClose();
+    const handled = onNavigate?.(target);
+    if (handled === false) {
+      toast.show({ message: '该页面将在后续切片上线', tone: 'info' });
+    }
+  };
+
+  const handleSignOut = async (): Promise<void> => {
+    await authSessionStore.getState().clearSession();
+    onClose();
+  };
+
+  return (
+    <VStack flex={1} justify="space-between" style={styles.root}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <Pressable
+          testID="drawer-profile-entry"
+          accessibilityRole="button"
+          onPress={() => handleNav(isAuthenticated ? 'profile' : 'login')}
+          style={({ pressed }) => [
+            styles.profileCard,
+            {
+              backgroundColor: tokens.colors.surfaceMuted,
+              borderRadius: tokens.radii.lg,
+            },
+            pressed && styles.pressed,
+          ]}
+        >
+          <HStack align="center" gap="md">
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: tokens.colors.primary,
+                  borderRadius: tokens.radii.full,
+                },
+              ]}
+            >
+              <AppText variant="titleMd" tone="inverse" weight="700">
+                {avatarText}
+              </AppText>
+            </View>
+            <VStack flex={1} gap="xs">
+              {isAuthenticated ? (
+                <>
+                  <AppText variant="titleMd" numberOfLines={1}>
+                    {user.displayName}
+                  </AppText>
+                  <AppText variant="caption" tone="secondary" numberOfLines={1}>
+                    @{user.username}
+                  </AppText>
+                </>
+              ) : (
+                <>
+                  <AppText variant="titleMd">去登录</AppText>
+                  <AppText variant="caption" tone="secondary">
+                    登录后同步个人数据
+                  </AppText>
+                </>
+              )}
+            </VStack>
+            <Ionicons name="chevron-forward" size={18} color={tokens.colors.textSecondary} />
+          </HStack>
+        </Pressable>
+
+        <VStack gap="xs" style={styles.menuList}>
+          {MENU_ITEMS.map((item) => (
+            <Pressable
+              key={item.target}
+              accessibilityRole="button"
+              onPress={() => handleNav(item.target)}
+              style={({ pressed }) => [
+                styles.menuRow,
+                { borderRadius: tokens.radii.md },
+                pressed && { backgroundColor: tokens.colors.surfaceMuted },
+              ]}
+            >
+              <HStack align="center" gap="md">
+                <Ionicons name={item.icon} size={20} color={tokens.colors.textPrimary} />
+                <AppText variant="bodyMd">{item.label}</AppText>
+              </HStack>
+            </Pressable>
+          ))}
+
+          <View style={[styles.switchRow, { borderTopColor: tokens.colors.border }]}>
+            <Switch
+              testID="drawer-dark-mode-switch"
+              label="深色模式"
+              value={tokens.isDark}
+              onValueChange={(nextDark) => setThemePreference(nextDark ? 'dark' : 'light')}
+            />
+          </View>
+        </VStack>
+      </ScrollView>
+
+      <VStack gap="sm" style={[styles.footer, { borderTopColor: tokens.colors.border }]}>
+        <HStack justify="space-between" align="center">
+          <AppText variant="caption" tone="secondary">
+            版本
+          </AppText>
+          <AppText variant="caption" tone="secondary">
+            v{resolvedVersion}
+          </AppText>
+        </HStack>
+        {isAuthenticated ? (
+          <Button
+            label="退出登录"
+            variant="outline"
+            onPress={() => {
+              void handleSignOut();
+            }}
+          />
+        ) : null}
+      </VStack>
+    </VStack>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  scrollContent: {
+    gap: 16,
+    paddingBottom: 16,
+  },
+  profileCard: {
+    padding: 14,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuList: {
+    marginTop: 4,
+  },
+  menuRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  switchRow: {
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
+  },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 12,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+});

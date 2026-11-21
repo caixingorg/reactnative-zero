@@ -1,4 +1,4 @@
-import { Stack, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
 import { appIdentity } from '@root/app.identity';
 import { AuthHydrationGate } from '@/core/auth/AuthHydrationGate';
@@ -12,7 +12,8 @@ import {
   useAppRuntime,
 } from '@/core/runtime';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppText, DrawerHost } from '@/core/ui';
+import { DrawerHost } from '@/core/ui';
+import { DrawerMenu, type DrawerNavTarget } from '@/features/shell';
 import { appTranslationResources, createDemoHttpTransport } from '@/shared';
 
 // 原因：Route Shell 仅声明路由树与守卫布尔条件，零状态副作用编排且零具体界面元素
@@ -76,9 +77,24 @@ function PerformanceMarkers(): null {
 function AppDrawer(): React.JSX.Element {
   const { drawerStore } = useAppRuntime();
   const segments = useSegments();
+  const router = useRouter();
+
+  const handleNavigate = (target: DrawerNavTarget): boolean => {
+    switch (target) {
+      case 'settings':
+        router.push('/(tabs)/settings');
+        return true;
+      case 'login':
+        router.push('/login');
+        return true;
+      default:
+        return false;
+    }
+  };
+
   return (
     <DrawerHost drawerStore={drawerStore} edgeSwipeEnabled={segments[0] === '(tabs)'}>
-      <AppText variant="titleLg">Drawer</AppText>
+      <DrawerMenu onClose={() => drawerStore.getState().close()} onNavigate={handleNavigate} />
     </DrawerHost>
   );
 }
