@@ -33,7 +33,7 @@ export function KeyboardStickyFooter({
             borderTopColor: tokens.colors.border,
             paddingHorizontal: tokens.spacing.lg,
             paddingTop: tokens.spacing.md,
-            paddingBottom: Math.max(insets.bottom, tokens.spacing.md),
+            paddingBottom: insets.bottom + tokens.spacing.md,
           },
           style,
         ]}

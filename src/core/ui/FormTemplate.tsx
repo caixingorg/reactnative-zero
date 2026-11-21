@@ -4,6 +4,9 @@
  * 边界：具体字段控件由 children 注入，校验规则与提交副作用由回调提供。
  */
 import React, { useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppTheme } from '../theme/theme-context';
 import { AppHeader } from './AppHeader';
 import { AppText } from './AppText';
 import { Box } from './Box';
@@ -32,6 +35,7 @@ export function FormTemplate({
   onSubmit,
   children,
 }: FormTemplateProps): React.JSX.Element {
+  const { tokens } = useAppTheme();
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = (): void => {
@@ -44,8 +48,12 @@ export function FormTemplate({
     void onSubmit();
   };
 
+  // 原因：外层使用纯 SafeAreaView 而非带 KeyboardAvoidingView 的 Screen，避免与底部 KeyboardStickyFooter 叠加产生双重键盘位移
   return (
-    <Screen edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.root, { backgroundColor: tokens.colors.background }]}
+    >
       <AppHeader title={title} showBack={Boolean(onBack)} onBack={onBack} />
       <Screen scrollable edges={[]}>
         <VStack gap="md">
@@ -62,6 +70,12 @@ export function FormTemplate({
       <KeyboardStickyFooter>
         <Button label={submitLabel} loading={submitting} onPress={handleSubmit} />
       </KeyboardStickyFooter>
-    </Screen>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
