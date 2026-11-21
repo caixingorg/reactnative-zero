@@ -50,6 +50,11 @@ export function GuardedRootStack(): React.JSX.Element {
           <Stack.Screen name="feed/[id]" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="developer-lab" />
+          <Stack.Screen name="list" />
+          <Stack.Screen name="detail" />
+          <Stack.Screen name="search" />
+          <Stack.Screen name="form" />
+          <Stack.Screen name="status" />
           <Stack.Screen name="index" />
         </Stack.Protected>
       </Stack>
@@ -89,11 +94,21 @@ function AppDrawer(): React.JSX.Element {
       case 'profile':
         router.push('/(tabs)/profile');
         return true;
+      case 'favorites':
+        router.push({ pathname: '/list', params: { title: '收藏' } });
+        return true;
+      case 'history':
+        router.push({ pathname: '/list', params: { title: '历史' } });
+        return true;
+      case 'feedback':
+        router.push('/form');
+        return true;
+      case 'about':
+        router.push({ pathname: '/status', params: { kind: 'empty', title: '关于' } });
+        return true;
       case 'login':
         router.push('/login');
         return true;
-      default:
-        return false;
     }
   };
 

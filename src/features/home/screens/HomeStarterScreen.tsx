@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import React, { useMemo, useRef, useState } from 'react';
@@ -6,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { AppApiError } from '@/core/network/types';
 import { useAppRuntime, useConnectivity, useDevTools, useDrawer } from '@/core/runtime';
+import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppImage,
   AppText,
@@ -31,6 +33,7 @@ import type { FeedSummaryItem } from '../types';
 
 export interface HomeStarterScreenProps {
   onSelectItem?: (itemId: string) => void;
+  onOpenSearch?: () => void;
 }
 
 const HOME_TABS: readonly TopTabItem[] = [
@@ -336,7 +339,9 @@ function TrendingTab({ isActive }: { isActive: boolean }): React.JSX.Element {
 
 export function HomeStarterScreen({
   onSelectItem,
+  onOpenSearch,
 }: HomeStarterScreenProps = {}): React.JSX.Element {
+  const { tokens } = useAppTheme();
   const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
@@ -349,6 +354,20 @@ export function HomeStarterScreen({
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
         leftSlot={<DrawerTriggerButton testID="home-drawer-button" onPress={drawer.open} />}
+        rightSlot={
+          onOpenSearch ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="搜索"
+              testID="home-search-button"
+              onPress={onOpenSearch}
+              hitSlop={8}
+              style={styles.iconBtn}
+            >
+              <Ionicons name="search-outline" size={22} color={tokens.colors.textPrimary} />
+            </Pressable>
+          ) : undefined
+        }
       />
       <TabPager
         pageCount={HOME_TABS.length}
@@ -374,5 +393,11 @@ const styles = StyleSheet.create({
   subTabContent: {
     padding: 16,
     gap: 12,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
