@@ -45,7 +45,7 @@ enterprise-rn-template/
 │   └── verify-variant-config.cjs 🛠 [门禁脚本] 防止根目录 .env 文件污染多变体配置的回归检查
 └── src/
     ├── app/                     ★ [1. Route Shell 路由装配壳] 极薄页面路由映射与 <Stack.Protected> 守卫（单文件 ≤15 行）
-    ├── features/                ★ [2. Feature Slice 业务切片] 垂直业务模块（每個切片仅通过 index.ts 对外暴露）
+    ├── features/                ★ [2. Feature Slice 业务切片] 垂直业务模块（每个切片仅通过 index.ts 对外暴露）
     ├── shared/                  ★ [3. Shared Layer 应用共享层] 当前 App 跨多个业务切片复用的业务组件与词条
     └── core/                    🔒 [4. Template Core 底座内核] 跨项目通用基建（业务开发保持零改动，随时可从上游同步升级）
         ├── auth/                └── 硬件加密会话存储、重装残留自动擦除与单飞刷新状态机
@@ -92,7 +92,7 @@ REACT_NATIVE_PACKAGER_HOSTNAME=localhost pnpm ios
 
 ```bash
 # 1. 克隆底座仓库到你的新业务目录
-git clone <template-repo-url> my-business-app
+git clone https://github.com/caixingorg/reactnative-zero.git my-business-app
 cd my-business-app
 
 # 2. 安装依赖（仓库已锁定 pnpm 与国内 npmmirror 镜像源）
@@ -505,7 +505,27 @@ createAppRuntime({
 
 ### 8.2 安卓国内应用市场多渠道打包 (`APP_CHANNEL`)
 
-国内上架需要为华为（`huawei`）、小米（`xiaomi`）、OPPO（`oppo`）、vivo（`vivo`）、荣耀（`honor`）、应用宝（`yingyongbao`）及官网（`official`）注入不同渠道号：
+国内上架需要为华为（`huawei`）、小米（`xiaomi`）、OPPO（`oppo`）、vivo（`vivo`）、荣耀（`honor`）、应用宝（`yingyongbao`）及官网（`official`）注入不同渠道号。
+
+首次使用前需要安装 Ruby 与 Bundler，并在仓库根目录安装已锁定版本的 fastlane（`Gemfile` / `Gemfile.lock`）：
+
+```bash
+bundle install
+bundle exec fastlane lanes   # 确认能列出 android / ios 的 lane
+```
+
+若 `bundle install` 因镜像证书失败，可临时绕过镜像直连官方源（变量名含 `/`，必须通过 `env` 传入）：
+
+```bash
+env 'BUNDLE_MIRROR__HTTPS://RUBYGEMS__ORG/=https://rubygems.org' bundle install
+```
+
+**版本号与 build number**：应用版本以 `package.json` 的 `version` 为唯一来源，Expo 配置与 `pnpm distribute` 共用同一读取逻辑。
+
+- 升级版本：`pnpm version:bump patch`（或 `minor` / `major` / 具体版本号），不会创建 git tag。
+- 版本覆盖：设置 `APP_VERSION` 可临时覆盖；`DISTRIBUTE_APP_VERSION` 或 `--version` 只影响分发通知文案。
+- iOS build number：`IOS_BUILD_NUMBER` → CI 流水线序号（`GITHUB_RUN_NUMBER` / `CI_PIPELINE_IID`）→ `1`。
+- Android versionCode：`ANDROID_VERSION_CODE` → CI 流水线序号 → `1`。本地构建没有 CI 序号时固定为 `1`，需要递增请显式传入环境变量。
 
 ```bash
 # 1. 打单个指定渠道的 Android Release 包（自动注入 AndroidManifest APP_CHANNEL 与 UMENG_CHANNEL meta-data）
@@ -565,8 +585,9 @@ git fetch template-upstream
 # 2A. 方式一：精准拣选上游某个修复 Commit
 git cherry-pick <commit-sha>
 
-# 2B. 方式二：直接将 src/core 与 config 对齐到上游最新 main 分支并跑全量验证
-git checkout template-upstream/main -- src/core config
+# 2B. 方式二：将 src/core 与 config 下的底座代码对齐到上游最新 main 分支并跑全量验证
+# 注意：不要整体覆盖 config/，其中 config/env/*.env 是你的业务环境变量，只同步其中的 example.env 模板
+git checkout template-upstream/main -- src/core 'config/*.ts' config/env/example.env
 pnpm verify
 ```
 
@@ -598,3 +619,11 @@ pnpm verify
 | `pnpm lint`               | 运行 ESLint（含四层单向依赖禁令与禁用 `any` 检查）                                                            |
 | `pnpm test`               | 运行 Jest 双接缝（Seam 1 运行时接缝 + Seam 2 原生预构建配置接缝）自动化测试套件                               |
 | `pnpm format`             | 使用 Prettier 统一格式化仓库代码与文档                                                                        |
+
+## 参与贡献
+
+分支命名、提交规范、合并策略与必需检查见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告，不要公开提 issue。
+
+## 许可证
+
+[MIT](LICENSE)

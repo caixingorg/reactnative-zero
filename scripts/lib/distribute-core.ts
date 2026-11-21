@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveAppVersion } from '../../config/app-version';
 import type { AppVariant } from '../../src/core/config/types';
 
 export type DistributePlatform = 'android' | 'ios';
@@ -97,7 +98,8 @@ export function parseDistributeCliArgs(
   let channel = env.APP_CHANNEL ?? 'official';
   let artifactPath = env.DISTRIBUTE_ARTIFACT_PATH;
   let appName = env.DISTRIBUTE_APP_NAME ?? '企业移动底座';
-  let version = env.DISTRIBUTE_APP_VERSION ?? '1.0.0';
+  // 原因：缺省版本与二进制同源（APP_VERSION 或 package.json），避免通知里的版本与包内版本不一致
+  let version = env.DISTRIBUTE_APP_VERSION ?? resolveAppVersion(env);
   let commitSha = env.CI_COMMIT_SHORT_SHA ?? env.GITHUB_SHA?.slice(0, 7);
   let releaseNotes = env.DISTRIBUTE_RELEASE_NOTES ?? '内网自动化构建提测包';
   let pgyerApiKey = env.PGYER_API_KEY;

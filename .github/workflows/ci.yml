@@ -53,5 +53,14 @@ jobs:
       - name: Validate Maestro E2E flow syntax and runFlow references
         run: pnpm verify:maestro
 
-      - name: Run Seam 1 & Seam 2 automated test suites (including compiled prebuild manifest introspection)
-        run: pnpm exec jest --runInBand --ci
+      - name: Run Seam 1 & Seam 2 automated test suites with coverage thresholds (including compiled prebuild manifest introspection)
+        run: pnpm exec jest --runInBand --ci --coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,4 +1,4 @@
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# 原因：lint-staged 内会对暂存的源码执行 jest --findRelatedTests；全量 Jest 交给 CI，避免提交耗时随测试数量线性增长
 pnpm lint-staged
 pnpm typecheck
-pnpm exec jest --runInBand
