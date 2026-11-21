@@ -9,9 +9,9 @@ export const appIdentity: AppIdentity = {
   scheme: 'enterprisern',
   defaultLanguage: 'zh-CN',
   theme: {
-    primaryLight: '#2563EB',
-    primaryDark: '#60A5FA',
-    radiusBase: 10,
+    primaryLight: '#D7191A',
+    primaryDark: '#F04438',
+    radiusBase: 12,
     spacingUnit: 4,
   },
   privacyPolicyVersion: '1.0.0',

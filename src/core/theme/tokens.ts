@@ -5,24 +5,24 @@ export type ResolvedColorScheme = 'light' | 'dark';
 
 // 原因：第一层底层基础调色板（Primitive Palette），与具体界面语义解耦，供第二层语义令牌按亮暗主题映射
 export const PRIMITIVE_PALETTE = {
-  slate50: '#F8FAFC',
-  slate100: '#F1F5F9',
-  slate200: '#E2E8F0',
-  slate400: '#94A3B8',
-  slate500: '#64748B',
-  slate700: '#334155',
-  slate800: '#1F2937',
-  slate900: '#111827',
-  slate950: '#090D16',
+  slate50: '#F6F7F9',
+  slate100: '#F2F3F5',
+  slate200: '#ECEEF2',
+  slate400: '#A1A1AA',
+  slate500: '#71717A',
+  slate700: '#23262F',
+  slate800: '#22252E',
+  slate900: '#181A20',
+  slate950: '#0E0F12',
   white: '#FFFFFF',
   green500: '#22C55E',
   green600: '#16A34A',
   amber500: '#F59E0B',
   amber600: '#D97706',
-  red500: '#EF4444',
-  red600: '#DC2626',
-  scrimLight: 'rgba(15, 23, 42, 0.45)',
-  scrimDark: 'rgba(2, 6, 23, 0.72)',
+  red500: '#F04438',
+  red600: '#D7191A',
+  scrimLight: 'rgba(15, 23, 42, 0.42)',
+  scrimDark: 'rgba(0, 0, 0, 0.72)',
 } as const;
 
 export interface SemanticColors {

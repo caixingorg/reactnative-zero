@@ -116,6 +116,43 @@ export function DrawerMenu({
           </HStack>
         </Pressable>
 
+        <HStack
+          justify="space-around"
+          align="center"
+          style={[
+            styles.statsRow,
+            {
+              borderTopColor: tokens.colors.border,
+              borderBottomColor: tokens.colors.border,
+            },
+          ]}
+        >
+          <VStack align="center">
+            <AppText variant="bodyMd" weight="700">
+              24
+            </AppText>
+            <AppText variant="caption" tone="secondary">
+              已收藏
+            </AppText>
+          </VStack>
+          <VStack align="center">
+            <AppText variant="bodyMd" weight="700">
+              86
+            </AppText>
+            <AppText variant="caption" tone="secondary">
+              足迹
+            </AppText>
+          </VStack>
+          <VStack align="center">
+            <AppText variant="bodyMd" weight="700">
+              12
+            </AppText>
+            <AppText variant="caption" tone="secondary">
+              发布
+            </AppText>
+          </VStack>
+        </HStack>
+
         <VStack gap="xs" style={styles.menuList}>
           {MENU_ITEMS.map((item) => (
             <Pressable
@@ -238,6 +275,11 @@ const styles = StyleSheet.create({
   },
   menuList: {
     marginTop: 4,
+  },
+  statsRow: {
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   menuRow: {
     paddingVertical: 12,

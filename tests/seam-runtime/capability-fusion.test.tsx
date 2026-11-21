@@ -54,7 +54,7 @@ function createFusionRuntime() {
 }
 
 describe('Seam: Capability fusion across main tabs and Settings', () => {
-  it('renders scan button, QuickComposerCard on 关注, and H5 banner on 热榜 in HomeStarterScreen', async () => {
+  it('renders editorial hero without scan clutter on Home, QuickComposerCard on 关注, and H5 banner on 热榜', async () => {
     const { runtime } = createFusionRuntime();
     let webViewOpened = 0;
 
@@ -68,7 +68,8 @@ describe('Seam: Capability fusion across main tabs and Settings', () => {
       </AppRuntimeProvider>,
     );
 
-    expect(screen.getByTestId('home-scan-button')).toBeTruthy();
+    expect(screen.queryByTestId('home-scan-button')).toBeNull();
+    expect(await screen.findByTestId('home-hero-card')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('tab', { name: '关注' }));
     expect(await screen.findByTestId('quick-composer-card')).toBeTruthy();
@@ -79,7 +80,7 @@ describe('Seam: Capability fusion across main tabs and Settings', () => {
     expect(webViewOpened).toBe(1);
   });
 
-  it('renders 6-tile tools grid on 广场 and QuickMusicBar on 榜单 in DiscoverScreen', async () => {
+  it('renders Bento plaza (music, scan, location, weekly poster) on 广场 and QuickMusicBar on 榜单', async () => {
     const { runtime } = createFusionRuntime();
 
     await render(
@@ -89,8 +90,10 @@ describe('Seam: Capability fusion across main tabs and Settings', () => {
     );
 
     expect(await screen.findByTestId('discover-tools-grid')).toBeTruthy();
+    expect(screen.getByTestId('discover-tool-music')).toBeTruthy();
     expect(screen.getByTestId('discover-tool-scan')).toBeTruthy();
     expect(screen.getByTestId('discover-tool-location')).toBeTruthy();
+    expect(screen.getByTestId('discover-weekly-poster')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('tab', { name: '榜单' }));
     expect(await screen.findByTestId('quick-music-bar')).toBeTruthy();

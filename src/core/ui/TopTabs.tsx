@@ -42,7 +42,7 @@ interface TabRect {
   width: number;
 }
 
-const INDICATOR_WIDTH = 24;
+const INDICATOR_WIDTH = 18;
 
 function formatBadgeCount(count: number): string {
   return count > 99 ? '99+' : String(count);
@@ -151,7 +151,8 @@ export function TopTabs({
                     <AppText
                       variant="bodyMd"
                       tone={isSelected ? 'primary' : 'secondary'}
-                      weight={isSelected ? '600' : '400'}
+                      weight={isSelected ? '700' : '500'}
+                      style={isSelected ? styles.activeLabel : styles.inactiveLabel}
                     >
                       {tab.label}
                     </AppText>
@@ -211,8 +212,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
   },
   sideSlot: {
     alignItems: 'center',
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
   tabRow: {
     flexDirection: 'row',
@@ -231,18 +231,26 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   tabItem: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  activeLabel: {
+    fontSize: 17,
+    lineHeight: 22,
+  },
+  inactiveLabel: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
   indicator: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 6,
     left: 0,
     width: INDICATOR_WIDTH,
     height: 3,
-    borderRadius: 2,
+    borderRadius: 99,
   },
   dot: {
     width: 7,

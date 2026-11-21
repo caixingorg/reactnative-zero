@@ -3,16 +3,14 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { BarcodeScannerView } from '@/core/capabilities/camera';
 import { AppApiError } from '@/core/network/types';
-import { useAppRuntime, useConnectivity, useDrawer, useToast } from '@/core/runtime';
+import { useAppRuntime, useConnectivity, useDrawer } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppImage,
   AppText,
-  BottomSheetModal,
   Box,
   Button,
   DrawerTriggerButton,
@@ -52,6 +50,53 @@ const HOME_TABS: readonly TopTabItem[] = [
   { key: 'trending', label: '热榜' },
 ];
 
+const FEATURED_CAROUSEL = [
+  {
+    id: 'col-1',
+    tag: '效率工具',
+    title: '年度 App 精选榜单',
+    bg: '#1E293B',
+    summary: '精选今年最值得长期使用的效率与专注工具组合。',
+  },
+  {
+    id: 'col-2',
+    tag: '桌面美学',
+    title: '极简工作流改造计划',
+    bg: '#14532D',
+    summary: '从灯光、理线到屏幕布局，打造零干扰桌面空间。',
+  },
+  {
+    id: 'col-3',
+    tag: '硬件评测',
+    title: '随身音频与蓝牙体验',
+    bg: '#7C2D12',
+    summary: '对比多款随身音频设备的延迟、续航与多设备切换体验。',
+  },
+] as const;
+
+const MAGAZINE_CARDS = [
+  {
+    id: 'mag-1',
+    kicker: '深度指南',
+    title: '效率工具进阶搭配手册',
+    lightBg: '#EDE9FE',
+    darkBg: '#2E2646',
+    lightKicker: '#5B21B6',
+    darkKicker: '#C4B5FD',
+    summary: '系统化串联笔记、任务与自动化脚本，减少上下文切换成本。',
+  },
+  {
+    id: 'mag-2',
+    kicker: '年度精选',
+    title: '2026 极简桌面好物推荐',
+    lightBg: '#DCFCE7',
+    darkBg: '#193529',
+    lightKicker: '#166534',
+    darkKicker: '#86EFAC',
+    summary: '从支架、键盘到拓展坞，精选高质感实用外设清单。',
+  },
+] as const;
+
 // 原因：仅允许后端信封明确返回的可读业务错误提示呈现给终端用户，屏蔽底层网关超时/状态码/连接栈等技术细节泄露
 function formatUserFacingError(error: unknown, fallbackCopy: string): string {
   if (error instanceof AppApiError && error.kind === 'business') {
@@ -63,11 +108,13 @@ function formatUserFacingError(error: unknown, fallbackCopy: string): string {
 interface RecommendedFeedTabProps {
   isActive: boolean;
   onSelectItem?: (itemId: string) => void;
+  onSelectRecord?: (record: MockListRecord) => void;
 }
 
 function RecommendedFeedTab({
   isActive,
   onSelectItem,
+  onSelectRecord,
 }: RecommendedFeedTabProps): React.JSX.Element {
   const { t } = useTranslation();
   const { httpClient } = useAppRuntime();
@@ -120,6 +167,134 @@ function RecommendedFeedTab({
           ? 'error'
           : 'ready';
 
+  const editorialHeader = (
+    <VStack gap="lg" style={styles.editorialHeader}>
+      {/* 1. Hero Featured Cover Card */}
+      <Pressable
+        testID="home-hero-card"
+        accessibilityRole="button"
+        onPress={() =>
+          onSelectRecord?.({
+            id: 'hero-featured',
+            title: '打造高效率的极简桌面工作流',
+            tag: '编辑精选',
+            summary:
+              '从信息架构、空间照明到跨设备同步，拆解一套真正让人专注且可持续迭代的个人数字工作流。',
+            meta: '编辑部 · 8 分钟阅读',
+          })
+        }
+        style={({ pressed }) => [styles.heroCard, pressed && styles.pressed]}
+      >
+        <View style={styles.heroOverlay}>
+          <HStack justify="space-between" align="center">
+            <View
+              style={[
+                styles.heroBadge,
+                { backgroundColor: tokens.colors.primary, borderRadius: tokens.radii.full },
+              ]}
+            >
+              <AppText variant="caption" tone="inverse" weight="700">
+                编辑精选
+              </AppText>
+            </View>
+            <AppText variant="caption" style={styles.heroMetaText}>
+              深度长文 · 8 分钟
+            </AppText>
+          </HStack>
+
+          <VStack gap="xs">
+            <AppText variant="titleLg" style={styles.heroTitle} numberOfLines={2}>
+              打造高效率的极简桌面工作流
+            </AppText>
+            <HStack align="center" gap="xs">
+              <View style={styles.heroAuthorDot}>
+                <AppText variant="caption" style={styles.heroAuthorInitial}>
+                  编
+                </AppText>
+              </View>
+              <AppText variant="caption" style={styles.heroMetaText}>
+                编辑部 · 刚刚更新
+              </AppText>
+            </HStack>
+          </VStack>
+        </View>
+      </Pressable>
+
+      {/* 2. Horizontal Topic Carousel */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carouselRow}
+      >
+        {FEATURED_CAROUSEL.map((col) => (
+          <Pressable
+            key={col.id}
+            accessibilityRole="button"
+            onPress={() =>
+              onSelectRecord?.({
+                id: col.id,
+                title: col.title,
+                tag: col.tag,
+                summary: col.summary,
+                meta: '精选栏目',
+              })
+            }
+            style={({ pressed }) => [
+              styles.carouselCard,
+              { backgroundColor: col.bg, borderRadius: tokens.radii.md },
+              pressed && styles.pressed,
+            ]}
+          >
+            <AppText variant="caption" style={styles.carouselTag}>
+              {col.tag}
+            </AppText>
+            <AppText variant="bodySm" weight="700" style={styles.carouselTitle} numberOfLines={2}>
+              {col.title}
+            </AppText>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* 3. 2-Column Pastel Editorial Magazine Cards */}
+      <HStack gap="sm">
+        {MAGAZINE_CARDS.map((card) => (
+          <Pressable
+            key={card.id}
+            accessibilityRole="button"
+            onPress={() =>
+              onSelectRecord?.({
+                id: card.id,
+                title: card.title,
+                tag: card.kicker,
+                summary: card.summary,
+                meta: '专题精选',
+              })
+            }
+            style={({ pressed }) => [
+              styles.magazineCard,
+              {
+                backgroundColor: tokens.isDark ? card.darkBg : card.lightBg,
+                borderRadius: tokens.radii.lg,
+              },
+              pressed && styles.pressed,
+            ]}
+          >
+            <AppText
+              variant="caption"
+              weight="700"
+              style={{ color: tokens.isDark ? card.darkKicker : card.lightKicker }}
+            >
+              {card.kicker}
+            </AppText>
+            <AppText variant="bodyMd" weight="700" numberOfLines={2}>
+              {card.title}
+            </AppText>
+          </Pressable>
+        ))}
+      </HStack>
+    </VStack>
+  );
+
   return (
     <PageTemplate
       status={status}
@@ -132,120 +307,119 @@ function RecommendedFeedTab({
         void refetch();
       }}
       skeleton={
-        <>
-          <Skeleton height={108} />
-          <Skeleton height={108} />
-          <Skeleton height={108} />
-        </>
+        <VStack gap="md">
+          <Skeleton height={184} />
+          <HStack gap="sm">
+            <Box flex={1}>
+              <Skeleton height={104} />
+            </Box>
+            <Box flex={1}>
+              <Skeleton height={104} />
+            </Box>
+          </HStack>
+          <Skeleton height={84} />
+        </VStack>
       }
     >
-      <Box flex={1} px="md">
-        <VStack flex={1} gap="sm">
-          {error ? (
-            <HStack
-              p="sm"
-              gap="sm"
-              bg="surfaceMuted"
-              radius="md"
-              bordered
-              justify="space-between"
-              align="center"
+      <View style={[styles.flex, { backgroundColor: tokens.colors.surface }]}>
+        {error ? (
+          <HStack
+            p="sm"
+            gap="sm"
+            bg="surfaceMuted"
+            radius="md"
+            justify="space-between"
+            align="center"
+            style={styles.errorBanner}
+          >
+            <Box flex={1}>
+              <AppText variant="caption" tone="danger">
+                {formatUserFacingError(error, t('home.errorNetworkDescription'))}
+              </AppText>
+            </Box>
+            <Button
+              label={t('common.retry')}
+              variant="outline"
+              onPress={() => {
+                void refetch();
+              }}
+            />
+          </HStack>
+        ) : null}
+
+        <FlashList
+          ref={listRef}
+          data={items}
+          keyExtractor={(item) => item.id}
+          refreshing={isRefetching}
+          onRefresh={() => {
+            void refetch();
+          }}
+          onScroll={(event) => {
+            scrollOffsetYRef.current = event.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage && !error) {
+              void fetchNextPage();
+            }
+          }}
+          ListHeaderComponent={editorialHeader}
+          contentContainerStyle={styles.feedListContent}
+          ListEmptyComponent={
+            <EmptyState title={t('home.emptyTitle')} description={t('home.emptyDescription')} />
+          }
+          ItemSeparatorComponent={() => (
+            <View style={[styles.hairlineDivider, { backgroundColor: tokens.colors.border }]} />
+          )}
+          renderItem={({ item }) => (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onSelectItem?.(item.id)}
+              style={({ pressed }) => [styles.articleRow, pressed && styles.pressed]}
             >
-              <Box flex={1}>
-                <AppText variant="caption" tone="danger">
-                  {formatUserFacingError(error, t('home.errorNetworkDescription'))}
-                </AppText>
+              <HStack gap="md" align="center">
+                <VStack flex={1} gap="xs">
+                  <AppText variant="bodyMd" weight="700" numberOfLines={2}>
+                    {item.title}
+                  </AppText>
+                  <AppText variant="bodySm" tone="secondary" numberOfLines={1}>
+                    {item.summary}
+                  </AppText>
+                  <HStack align="center" gap="sm" style={styles.articleMetaRow}>
+                    <AppText variant="caption" tone="brand" weight="600">
+                      {item.category}
+                    </AppText>
+                    <FeedStatusBadge status={item.status} />
+                  </HStack>
+                </VStack>
+                <AppImage uri={item.coverUrl} width={92} height={68} />
+              </HStack>
+            </Pressable>
+          )}
+          ListFooterComponent={
+            items.length > 0 ? (
+              <Box py="lg">
+                {hasNextPage ? (
+                  <Button
+                    label={t('home.loadMoreButton')}
+                    variant="outline"
+                    loading={isFetchingNextPage}
+                    onPress={() => {
+                      void fetchNextPage();
+                    }}
+                  />
+                ) : (
+                  <AppText variant="caption" tone="secondary" align="center">
+                    {t('home.allLoadedHint')}
+                  </AppText>
+                )}
               </Box>
-              <Button
-                label={t('common.retry')}
-                variant="outline"
-                onPress={() => {
-                  void refetch();
-                }}
-              />
-            </HStack>
-          ) : null}
-          <FlashList
-            ref={listRef}
-            data={items}
-            keyExtractor={(item) => item.id}
-            refreshing={isRefetching}
-            onRefresh={() => {
-              void refetch();
-            }}
-            onScroll={(event) => {
-              scrollOffsetYRef.current = event.nativeEvent.contentOffset.y;
-            }}
-            scrollEventThrottle={16}
-            onEndReachedThreshold={0.4}
-            onEndReached={() => {
-              if (hasNextPage && !isFetchingNextPage && !error) {
-                void fetchNextPage();
-              }
-            }}
-            contentContainerStyle={styles.feedListContent}
-            ListEmptyComponent={
-              <EmptyState title={t('home.emptyTitle')} description={t('home.emptyDescription')} />
-            }
-            ItemSeparatorComponent={() => <Box py="xs" />}
-            renderItem={({ item }) => (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => onSelectItem?.(item.id)}
-                style={({ pressed }) => [pressed && styles.pressed]}
-              >
-                <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
-                  <VStack flex={1} gap="xs">
-                    <HStack align="center" gap="sm">
-                      <View
-                        style={[
-                          styles.tagPill,
-                          {
-                            backgroundColor: tokens.colors.primarySoft,
-                            borderRadius: tokens.radii.sm,
-                          },
-                        ]}
-                      >
-                        <AppText variant="caption" tone="brand" weight="600">
-                          {item.category}
-                        </AppText>
-                      </View>
-                      <FeedStatusBadge status={item.status} />
-                    </HStack>
-                    <AppText variant="titleMd" numberOfLines={2}>
-                      {item.title}
-                    </AppText>
-                    <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
-                      {item.summary}
-                    </AppText>
-                  </VStack>
-                  <AppImage uri={item.coverUrl} width={88} height={88} />
-                </HStack>
-              </Pressable>
-            )}
-            ListFooterComponent={
-              items.length > 0 ? (
-                <Box py="lg">
-                  {hasNextPage ? (
-                    <Button
-                      label={t('home.loadMoreButton')}
-                      variant="outline"
-                      loading={isFetchingNextPage}
-                      onPress={() => {
-                        void fetchNextPage();
-                      }}
-                    />
-                  ) : (
-                    <AppText variant="caption" tone="secondary" align="center">
-                      {t('home.allLoadedHint')}
-                    </AppText>
-                  )}
-                </Box>
-              ) : null
-            }
-          />
-        </VStack>
-      </Box>
+            ) : null
+          }
+        />
+      </View>
     </PageTemplate>
   );
 }
@@ -282,32 +456,30 @@ function AsyncHomeSubTab({
         testID="home-trending-banner"
         accessibilityRole="button"
         onPress={onOpenWebView}
-        style={({ pressed }) => [
-          styles.trendingBanner,
-          {
-            backgroundColor: tokens.colors.primarySoft,
-            borderRadius: tokens.radii.lg,
-          },
-          pressed && styles.pressed,
-        ]}
+        style={({ pressed }) => [styles.trendingBanner, pressed && styles.pressed]}
       >
         <HStack align="center" justify="space-between" gap="md">
           <VStack flex={1} gap="xs">
-            <AppText variant="caption" tone="brand" weight="700">
-              H5 专题活动
+            <AppText variant="caption" style={styles.heroMetaText} weight="700">
+              H5 专题策划
             </AppText>
-            <AppText variant="titleMd">企业移动底座 · 2026 架构白皮书</AppText>
-            <AppText variant="caption" tone="secondary">
-              点击进入安全混合 WebView 阅读完整互动专题
+            <AppText variant="titleMd" style={styles.heroTitle}>
+              2026 移动端工程化白皮书
+            </AppText>
+            <AppText variant="caption" style={styles.heroMetaText}>
+              点击打开安全混合 WebView 互动专题 →
             </AppText>
           </VStack>
-          <Ionicons name="open-outline" size={22} color={tokens.colors.primary} />
+          <Ionicons name="open-outline" size={20} color="#FFFFFF" />
         </HStack>
       </Pressable>
     );
 
   return (
-    <View testID={`home-tab-${channelKey}`} style={styles.flex}>
+    <View
+      testID={`home-tab-${channelKey}`}
+      style={[styles.flex, { backgroundColor: tokens.colors.surface }]}
+    >
       <ListTemplate
         data={feed.items}
         keyExtractor={(item) => item.id}
@@ -327,44 +499,38 @@ function AsyncHomeSubTab({
           <Pressable
             accessibilityRole="button"
             onPress={() => onSelectRecord?.(entry)}
-            style={({ pressed }) => [pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.editorialSubRow,
+              { borderBottomColor: tokens.colors.border },
+              pressed && styles.pressed,
+            ]}
           >
-            <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
+            <HStack gap="md" align="flex-start">
               {entry.rank !== undefined ? (
-                <View
-                  style={[
-                    styles.rankBadge,
-                    {
-                      backgroundColor:
-                        entry.rank <= 3 ? tokens.colors.primarySoft : tokens.colors.surfaceMuted,
-                      borderRadius: tokens.radii.md,
-                    },
-                  ]}
+                <AppText
+                  variant="titleMd"
+                  tone={entry.rank <= 3 ? 'brand' : 'secondary'}
+                  weight="700"
+                  style={styles.rankNumber}
                 >
-                  <AppText
-                    variant="bodyMd"
-                    tone={entry.rank <= 3 ? 'brand' : 'secondary'}
-                    weight="700"
-                  >
-                    {entry.rank}
-                  </AppText>
-                </View>
+                  {String(entry.rank).padStart(2, '0')}
+                </AppText>
               ) : null}
               <VStack flex={1} gap="xs">
-                <HStack justify="space-between" align="center">
-                  <AppText variant="caption" tone="brand" weight="600">
-                    {entry.tag}
-                  </AppText>
-                  <AppText variant="caption" tone="secondary">
-                    {entry.meta}
-                  </AppText>
-                </HStack>
-                <AppText variant="titleMd" numberOfLines={2}>
+                <AppText variant="bodyMd" weight="700" numberOfLines={2}>
                   {entry.title}
                 </AppText>
                 <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
                   {entry.summary}
                 </AppText>
+                <HStack align="center" gap="sm">
+                  <AppText variant="caption" tone="brand" weight="600">
+                    {entry.tag}
+                  </AppText>
+                  <AppText variant="caption" tone="secondary">
+                    · {entry.meta}
+                  </AppText>
+                </HStack>
               </VStack>
             </HStack>
           </Pressable>
@@ -382,9 +548,7 @@ export function HomeStarterScreen({
 }: HomeStarterScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
   const drawer = useDrawer();
-  const toast = useToast();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [scannerVisible, setScannerVisible] = useState(false);
   const scrollProgress = useSharedValue(0);
 
   return (
@@ -396,30 +560,18 @@ export function HomeStarterScreen({
         scrollProgress={scrollProgress}
         leftSlot={<DrawerTriggerButton testID="home-drawer-button" onPress={drawer.open} />}
         rightSlot={
-          <HStack align="center">
+          onOpenSearch ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="扫一扫"
-              testID="home-scan-button"
-              onPress={() => setScannerVisible(true)}
+              accessibilityLabel="搜索"
+              testID="home-search-button"
+              onPress={onOpenSearch}
               hitSlop={8}
               style={styles.iconBtn}
             >
-              <Ionicons name="scan-outline" size={21} color={tokens.colors.textPrimary} />
+              <Ionicons name="search-outline" size={21} color={tokens.colors.textPrimary} />
             </Pressable>
-            {onOpenSearch ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="搜索"
-                testID="home-search-button"
-                onPress={onOpenSearch}
-                hitSlop={8}
-                style={styles.iconBtn}
-              >
-                <Ionicons name="search-outline" size={22} color={tokens.colors.textPrimary} />
-              </Pressable>
-            ) : null}
-          </HStack>
+          ) : undefined
         }
       />
       <TabPager
@@ -430,7 +582,13 @@ export function HomeStarterScreen({
         renderPage={(index, isActive) => {
           const tabKey = HOME_TABS[index]?.key;
           if (tabKey === 'recommended') {
-            return <RecommendedFeedTab isActive={isActive} onSelectItem={onSelectItem} />;
+            return (
+              <RecommendedFeedTab
+                isActive={isActive}
+                onSelectItem={onSelectItem}
+                onSelectRecord={onSelectRecord}
+              />
+            );
           }
           if (tabKey === 'following') {
             return (
@@ -451,22 +609,6 @@ export function HomeStarterScreen({
           );
         }}
       />
-      <BottomSheetModal
-        visible={scannerVisible}
-        title="扫一扫"
-        onClose={() => setScannerVisible(false)}
-      >
-        <BarcodeScannerView
-          rationale={{
-            title: '相机权限说明',
-            description: '用于扫描二维码或条形码。',
-          }}
-          onScanned={(payload) => {
-            setScannerVisible(false);
-            toast.show({ message: `扫码结果：${payload.data}`, tone: 'success' });
-          }}
-        />
-      </BottomSheetModal>
     </Screen>
   );
 }
@@ -475,26 +617,98 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  feedListContent: {
-    paddingVertical: 12,
+  editorialHeader: {
+    paddingTop: 8,
+    paddingBottom: 14,
   },
-  tagPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  heroCard: {
+    height: 184,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#231D1A',
   },
-  trendingBanner: {
-    padding: 16,
-    marginBottom: 12,
+  heroOverlay: {
+    flex: 1,
+    padding: 18,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
   },
-  rankBadge: {
-    width: 32,
-    height: 32,
+  heroBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+  },
+  heroMetaText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  heroAuthorDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  heroAuthorInitial: {
+    color: '#FFFFFF',
+    fontSize: 10,
+  },
+  carouselRow: {
+    gap: 10,
+  },
+  carouselCard: {
+    width: 132,
+    height: 82,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  carouselTag: {
+    color: 'rgba(255, 255, 255, 0.72)',
+  },
+  carouselTitle: {
+    color: '#FFFFFF',
+  },
+  magazineCard: {
+    flex: 1,
+    minHeight: 102,
+    padding: 14,
+    justifyContent: 'space-between',
+  },
+  feedListContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  errorBanner: {
+    marginHorizontal: 16,
+    marginTop: 8,
+  },
+  articleRow: {
+    paddingVertical: 14,
+  },
+  articleMetaRow: {
+    marginTop: 2,
+  },
+  hairlineDivider: {
+    height: StyleSheet.hairlineWidth,
+  },
+  trendingBanner: {
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: '#1E2433',
+    marginBottom: 8,
+  },
+  editorialSubRow: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  rankNumber: {
+    width: 28,
+  },
   iconBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
