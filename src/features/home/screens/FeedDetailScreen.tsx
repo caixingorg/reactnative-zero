@@ -1,9 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppApiError } from '@/core/network/types';
-import { useAppRuntime } from '@/core/runtime';
-import { AppImage, AppText, Button, EmptyState, HStack, Screen, Skeleton, VStack } from '@/core/ui';
+import { useAppRuntime, useToast } from '@/core/runtime';
+import {
+  AppHeader,
+  AppText,
+  DetailTemplate,
+  HStack,
+  PageTemplate,
+  Screen,
+  Skeleton,
+  VStack,
+} from '@/core/ui';
 import { FeedStatusBadge } from '@/shared';
 import { fetchFeedDetail } from '../api/feed-api';
 
@@ -15,55 +24,68 @@ export interface FeedDetailScreenProps {
 export function FeedDetailScreen({ itemId, onBack }: FeedDetailScreenProps): React.JSX.Element {
   const { t } = useTranslation();
   const { httpClient } = useAppRuntime();
+  const toast = useToast();
+  const [liked, setLiked] = useState(false);
+  const [favorited, setFavorited] = useState(false);
 
   const { data, error, isLoading, refetch } = useQuery({
     queryKey: ['feed', 'detail', itemId],
     queryFn: () => fetchFeedDetail(httpClient, itemId),
   });
 
-  return (
-    <Screen scrollable>
-      {onBack ? (
-        <HStack>
-          <Button label={t('common.close')} variant="ghost" onPress={onBack} />
-        </HStack>
-      ) : null}
-
-      {isLoading ? (
-        <VStack gap="md">
-          <Skeleton height={180} />
-          <Skeleton height={28} />
-          <Skeleton height={96} />
-        </VStack>
-      ) : error || !data ? (
-        <EmptyState
-          title={t('home.errorTitle')}
-          description={
+  if (isLoading || error || !data) {
+    return (
+      <Screen edges={['top', 'bottom', 'left', 'right']}>
+        <PageTemplate
+          status={isLoading ? 'loading' : 'error'}
+          header={
+            <AppHeader title={t('home.detailTitle')} showBack={Boolean(onBack)} onBack={onBack} />
+          }
+          errorTitle={t('home.errorTitle')}
+          errorDescription={
             error instanceof AppApiError && error.kind === 'business'
               ? error.message
               : t('home.errorNetworkDescription')
           }
-          actionLabel={t('common.retry')}
-          onAction={() => {
+          retryLabel={t('common.retry')}
+          onRetry={() => {
             void refetch();
           }}
+          skeleton={
+            <VStack gap="md">
+              <Skeleton height={200} />
+              <Skeleton height={28} />
+              <Skeleton height={96} />
+            </VStack>
+          }
         />
-      ) : (
-        <VStack gap="lg" p="lg" bg="surface" radius="lg" bordered>
-          <AppImage uri={data.coverUrl} width={320} height={160} style={{ width: '100%' }} />
-          <HStack justify="space-between" align="center">
-            <AppText variant="caption" tone="brand" weight="600">
-              {data.category} · {data.publishedAt}
-            </AppText>
-            <FeedStatusBadge status={data.status} />
-          </HStack>
-          <AppText variant="titleLg">{data.title}</AppText>
-          <AppText variant="bodyMd" tone="secondary">
-            {data.summary}
-          </AppText>
-          <AppText variant="bodyMd">{data.content}</AppText>
-        </VStack>
-      )}
-    </Screen>
+      </Screen>
+    );
+  }
+
+  return (
+    <DetailTemplate
+      headerTitle={t('home.detailTitle')}
+      title={data.title}
+      subtitle={`${data.category} · ${data.publishedAt}`}
+      coverUri={data.coverUrl}
+      onBack={onBack}
+      liked={liked}
+      favorited={favorited}
+      onToggleLike={() => setLiked((prev) => !prev)}
+      onToggleFavorite={() => setFavorited((prev) => !prev)}
+      onShare={() => toast.show({ message: '已复制分享链接', tone: 'success' })}
+    >
+      <HStack justify="space-between" align="center">
+        <AppText variant="caption" tone="brand" weight="600">
+          {data.category}
+        </AppText>
+        <FeedStatusBadge status={data.status} />
+      </HStack>
+      <AppText variant="bodyMd" tone="secondary">
+        {data.summary}
+      </AppText>
+      <AppText variant="bodyMd">{data.content}</AppText>
+    </DetailTemplate>
   );
 }

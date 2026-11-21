@@ -106,6 +106,7 @@ export function SettingsList({ sections }: SettingsListProps): React.JSX.Element
                   key={item.key}
                   testID={item.testID}
                   accessibilityRole="button"
+                  accessibilityLabel={item.label}
                   onPress={item.onPress}
                   style={({ pressed }) => [
                     styles.linkRow,

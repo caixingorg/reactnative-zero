@@ -1,20 +1,27 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDrawer } from '@/core/runtime';
+import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppText,
   DrawerTriggerButton,
   HStack,
-  isScrollAtTop,
-  PageTemplate,
+  ListTemplate,
   Screen,
   TabPager,
   TopTabs,
   VStack,
-  type PageActions,
+  type PageStatus,
   type TopTabItem,
 } from '@/core/ui';
+import { useMockPaginatedFeed, type MockListRecord } from '@/shared';
+
+export interface DiscoverScreenProps {
+  onSelectRecord?: (record: MockListRecord) => void;
+  onOpenSearch?: () => void;
+}
 
 const DISCOVER_TABS: readonly TopTabItem[] = [
   { key: 'categories', label: '分类' },
@@ -22,104 +29,98 @@ const DISCOVER_TABS: readonly TopTabItem[] = [
   { key: 'topics', label: '专题' },
 ];
 
-const CATEGORIES = [
-  { id: 'cat-1', name: '移动架构', count: '128 篇' },
-  { id: 'cat-2', name: '设计系统', count: '94 篇' },
-  { id: 'cat-3', name: '性能优化', count: '76 篇' },
-  { id: 'cat-4', name: '工程交付', count: '63 篇' },
-] as const;
-
-const RANKINGS = [
-  { id: 'rank-1', rank: 1, title: '零依赖 Design Token 主题方案', score: '9.6' },
-  { id: 'rank-2', rank: 2, title: '跨端手势与抽屉交互实践', score: '9.3' },
-  { id: 'rank-3', rank: 3, title: '弱网离线优先架构清单', score: '9.1' },
-] as const;
-
-const TOPICS = [
-  { id: 'topic-1', title: '企业级 RN 模板落地合集', summary: '从初始化裁剪到真机发布的全流程专题' },
-  { id: 'topic-2', title: '移动端可观测性与稳定性', summary: '启动打点、包体积守卫与崩溃治理' },
-] as const;
-
 function DiscoverSubTab({
   tabKey,
   isActive,
+  onSelectRecord,
 }: {
   tabKey: string;
   isActive: boolean;
+  onSelectRecord?: (record: MockListRecord) => void;
 }): React.JSX.Element {
-  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const offsetYRef = useRef(0);
-  const pageActions = useMemo<PageActions>(
-    () => ({
-      isAtTop: () => isScrollAtTop(offsetYRef.current),
-      scrollToTop: () => scrollRef.current?.scrollTo({ y: 0, animated: true }),
-      refresh: () => undefined,
-    }),
-    [],
-  );
+  const { tokens } = useAppTheme();
+  const feed = useMockPaginatedFeed(tabKey);
+  const status: PageStatus =
+    feed.isLoading && feed.items.length === 0
+      ? 'loading'
+      : feed.error && feed.items.length === 0
+        ? 'error'
+        : feed.items.length === 0
+          ? 'empty'
+          : 'ready';
 
   return (
-    <PageTemplate status="ready" isActive={isActive} pageActions={pageActions}>
-      <ScrollView
-        ref={scrollRef}
-        testID={`discover-tab-${tabKey}`}
-        scrollEventThrottle={16}
-        onScroll={(event) => {
-          offsetYRef.current = event.nativeEvent.contentOffset.y;
+    <View testID={`discover-tab-${tabKey}`} style={styles.flex}>
+      <ListTemplate
+        data={feed.items}
+        keyExtractor={(item) => item.id}
+        status={status}
+        isActive={isActive}
+        refreshing={feed.isRefetching}
+        onRefresh={() => {
+          void feed.refetch();
         }}
-        contentContainerStyle={styles.content}
-      >
-        {tabKey === 'categories' ? (
-          <View style={styles.grid}>
-            {CATEGORIES.map((item) => (
-              <VStack
-                key={item.id}
-                p="md"
-                gap="xs"
-                bg="surface"
-                radius="lg"
-                bordered
-                style={styles.gridCard}
-              >
-                <AppText variant="titleMd">{item.name}</AppText>
-                <AppText variant="caption" tone="secondary">
-                  {item.count}
-                </AppText>
-              </VStack>
-            ))}
-          </View>
-        ) : tabKey === 'rankings' ? (
-          RANKINGS.map((item) => (
-            <HStack key={item.id} p="md" gap="md" bg="surface" radius="lg" bordered align="center">
-              <AppText variant="titleMd" tone="brand" weight="700">
-                #{item.rank}
-              </AppText>
+        hasNextPage={feed.hasNextPage}
+        isFetchingNextPage={feed.isFetchingNextPage}
+        onLoadMore={() => {
+          void feed.fetchNextPage();
+        }}
+        renderItem={(item) => (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onSelectRecord?.(item)}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
+              {item.rank !== undefined ? (
+                <View
+                  style={[
+                    styles.rankBadge,
+                    {
+                      backgroundColor:
+                        item.rank <= 3 ? tokens.colors.primarySoft : tokens.colors.surfaceMuted,
+                      borderRadius: tokens.radii.md,
+                    },
+                  ]}
+                >
+                  <AppText
+                    variant="bodyMd"
+                    tone={item.rank <= 3 ? 'brand' : 'secondary'}
+                    weight="700"
+                  >
+                    #{item.rank}
+                  </AppText>
+                </View>
+              ) : null}
               <VStack flex={1} gap="xs">
-                <AppText variant="bodyMd" weight="600">
+                <HStack justify="space-between" align="center">
+                  <AppText variant="caption" tone="brand" weight="600">
+                    {item.tag}
+                  </AppText>
+                  <AppText variant="caption" tone="secondary">
+                    {item.meta}
+                  </AppText>
+                </HStack>
+                <AppText variant="titleMd" numberOfLines={1}>
                   {item.title}
                 </AppText>
-                <AppText variant="caption" tone="secondary">
-                  评分 {item.score}
+                <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
+                  {item.summary}
                 </AppText>
               </VStack>
             </HStack>
-          ))
-        ) : (
-          TOPICS.map((item) => (
-            <VStack key={item.id} p="md" gap="xs" bg="surface" radius="lg" bordered>
-              <AppText variant="titleMd">{item.title}</AppText>
-              <AppText variant="bodySm" tone="secondary">
-                {item.summary}
-              </AppText>
-            </VStack>
-          ))
+          </Pressable>
         )}
-      </ScrollView>
-    </PageTemplate>
+      />
+    </View>
   );
 }
 
-export function DiscoverScreen(): React.JSX.Element {
+export function DiscoverScreen({
+  onSelectRecord,
+  onOpenSearch,
+}: DiscoverScreenProps = {}): React.JSX.Element {
+  const { tokens } = useAppTheme();
   const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
@@ -132,6 +133,20 @@ export function DiscoverScreen(): React.JSX.Element {
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
         leftSlot={<DrawerTriggerButton testID="discover-drawer-button" onPress={drawer.open} />}
+        rightSlot={
+          onOpenSearch ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="搜索"
+              testID="discover-search-button"
+              onPress={onOpenSearch}
+              hitSlop={8}
+              style={styles.iconBtn}
+            >
+              <Ionicons name="search-outline" size={22} color={tokens.colors.textPrimary} />
+            </Pressable>
+          ) : undefined
+        }
       />
       <TabPager
         pageCount={DISCOVER_TABS.length}
@@ -139,7 +154,11 @@ export function DiscoverScreen(): React.JSX.Element {
         onIndexChange={setActiveIndex}
         scrollProgress={scrollProgress}
         renderPage={(index, isActive) => (
-          <DiscoverSubTab tabKey={DISCOVER_TABS[index]?.key ?? 'categories'} isActive={isActive} />
+          <DiscoverSubTab
+            tabKey={DISCOVER_TABS[index]?.key ?? 'categories'}
+            isActive={isActive}
+            onSelectRecord={onSelectRecord}
+          />
         )}
       />
     </Screen>
@@ -147,16 +166,22 @@ export function DiscoverScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: 16,
-    gap: 12,
+  flex: {
+    flex: 1,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  rankBadge: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  gridCard: {
-    width: '47%',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

@@ -1,43 +1,87 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { LegalDocumentTarget } from '@/core/config/types';
 import type { SupportedLanguage } from '@/core/i18n/resources';
-import { useAuthSession, usePreferences, useAppRuntime } from '@/core/runtime';
+import { useAppRuntime, useAuthSession, useDevTools, usePreferences } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import type { ThemePreference } from '@/core/theme/tokens';
-import { AppHeader, AppText, Box, Button, ConfirmDialog, HStack, Screen, VStack } from '@/core/ui';
+import {
+  AppHeader,
+  AppText,
+  ConfirmDialog,
+  HStack,
+  Screen,
+  SettingsList,
+  VStack,
+  type SettingsListItem,
+  type SettingsSection,
+} from '@/core/ui';
 
 interface SegmentOption<T extends string> {
   key: T;
   label: string;
 }
 
-interface PreferenceSegmentCardProps<T extends string> {
+interface SegmentedControlCardProps<T extends string> {
   title: string;
   selectedKey: T;
-  options: SegmentOption<T>[];
+  options: readonly SegmentOption<T>[];
   onSelect: (key: T) => void;
 }
 
-function PreferenceSegmentCard<T extends string>({
+function SegmentedControlCard<T extends string>({
   title,
   selectedKey,
   options,
   onSelect,
-}: PreferenceSegmentCardProps<T>): React.JSX.Element {
+}: SegmentedControlCardProps<T>): React.JSX.Element {
+  const { tokens } = useAppTheme();
+
   return (
-    <VStack p="lg" gap="md" bg="surface" radius="lg" bordered>
-      <AppText variant="titleMd">{title}</AppText>
-      <HStack gap="sm">
-        {options.map((option) => (
-          <Box key={option.key} flex={1}>
-            <Button
-              label={option.label}
-              variant={selectedKey === option.key ? 'primary' : 'outline'}
+    <VStack gap="xs">
+      <AppText variant="caption" tone="secondary" style={styles.sectionLabel}>
+        {title}
+      </AppText>
+      <HStack
+        p="xs"
+        gap="xs"
+        style={[
+          styles.segmentTrack,
+          {
+            backgroundColor: tokens.colors.surfaceMuted,
+            borderRadius: tokens.radii.lg,
+          },
+        ]}
+      >
+        {options.map((option) => {
+          const active = selectedKey === option.key;
+          return (
+            <Pressable
+              key={option.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
               onPress={() => onSelect(option.key)}
-            />
-          </Box>
-        ))}
+              style={[
+                styles.segmentItem,
+                { borderRadius: tokens.radii.md },
+                active && {
+                  backgroundColor: tokens.colors.surface,
+                  borderColor: tokens.colors.border,
+                  borderWidth: StyleSheet.hairlineWidth,
+                },
+              ]}
+            >
+              <AppText
+                variant="bodySm"
+                tone={active ? 'primary' : 'secondary'}
+                weight={active ? '600' : '400'}
+              >
+                {option.label}
+              </AppText>
+            </Pressable>
+          );
+        })}
       </HStack>
     </VStack>
   );
@@ -48,6 +92,7 @@ export interface SettingsScreenProps {
   onOpenLegalDocument?: (doc: LegalDocumentTarget) => void;
   onOpenDevTools?: () => void;
   onOpenDeveloperLab?: () => void;
+  onReplayWelcome?: () => void;
 }
 
 export function SettingsScreen({
@@ -55,125 +100,197 @@ export function SettingsScreen({
   onOpenLegalDocument,
   onOpenDevTools,
   onOpenDeveloperLab,
+  onReplayWelcome,
 }: SettingsScreenProps = {}): React.JSX.Element {
   const { t } = useTranslation();
   const { identity, env, authSessionStore, devToolsStore } = useAppRuntime();
+  const { tokens, themePreference, setThemePreference } = useAppTheme();
   const authStatus = useAuthSession((state) => state.status);
-  const { themePreference, setThemePreference } = useAppTheme();
+  const effectiveApiBaseUrl = useDevTools((state) => state.effectiveApiBaseUrl);
   const language = usePreferences((state) => state.language);
   const setLanguage = usePreferences((state) => state.setLanguage);
   const [signOutDialogVisible, setSignOutDialogVisible] = useState(false);
+
   const openDevToolsHandler =
     env.appVariant !== 'production' && devToolsStore.getState().enabled
       ? (onOpenDevTools ?? (() => devToolsStore.getState().openDrawer()))
       : undefined;
 
-  const themeOptions: SegmentOption<ThemePreference>[] = [
+  const themeOptions: readonly SegmentOption<ThemePreference>[] = [
     { key: 'system', label: t('settings.appearanceSystem') },
     { key: 'light', label: t('settings.appearanceLight') },
     { key: 'dark', label: t('settings.appearanceDark') },
   ];
 
-  const languageOptions: SegmentOption<SupportedLanguage>[] = [
+  const languageOptions: readonly SegmentOption<SupportedLanguage>[] = [
     { key: 'zh-CN', label: t('settings.languageZh') },
     { key: 'en-US', label: t('settings.languageEn') },
   ];
 
+  const appInfoItems: SettingsListItem[] = [
+    { key: 'name', kind: 'info', label: '应用名称', value: identity.displayName },
+    {
+      key: 'variant',
+      kind: 'info',
+      label: t('settings.variantLabel'),
+      value: env.appVariant.toUpperCase(),
+    },
+    { key: 'api', kind: 'info', label: '接口地址', value: effectiveApiBaseUrl },
+  ];
+
+  if (onOpenLegalDocument) {
+    appInfoItems.push(
+      {
+        key: 'privacy',
+        kind: 'link',
+        label: t('settings.privacyPolicyLink'),
+        onPress: () =>
+          onOpenLegalDocument({
+            url: env.privacyPolicyUrl,
+            title: t('settings.privacyPolicyLink'),
+          }),
+      },
+      {
+        key: 'agreement',
+        kind: 'link',
+        label: t('settings.userAgreementLink'),
+        onPress: () =>
+          onOpenLegalDocument({
+            url: env.userAgreementUrl,
+            title: t('settings.userAgreementLink'),
+          }),
+      },
+    );
+  }
+
+  if (onReplayWelcome) {
+    appInfoItems.push({
+      key: 'welcome',
+      kind: 'link',
+      label: '重看欢迎引导',
+      onPress: onReplayWelcome,
+      testID: 'settings-replay-welcome-btn',
+    });
+  }
+
+  const developerItems: SettingsListItem[] = [];
+  if (onOpenDeveloperLab) {
+    developerItems.push({
+      key: 'developer-lab',
+      kind: 'link',
+      label: t('settings.developerLabButton'),
+      onPress: onOpenDeveloperLab,
+      testID: 'settings-developer-lab-btn',
+    });
+  }
+  if (openDevToolsHandler) {
+    developerItems.push({
+      key: 'devtools',
+      kind: 'link',
+      label: t('settings.openDevToolsButton'),
+      onPress: openDevToolsHandler,
+    });
+  }
+
+  const sections: SettingsSection[] = [
+    { key: 'app-info', title: t('settings.appInfoTitle'), items: appInfoItems },
+  ];
+
+  if (developerItems.length > 0) {
+    sections.push({ key: 'developer', title: '开发者', items: developerItems });
+  }
+
   return (
-    <Screen scrollable>
+    <Screen edges={['top', 'bottom', 'left', 'right']}>
       {onBack ? (
         <AppHeader title={t('settings.title')} showBack onBack={onBack} />
       ) : (
-        <AppText variant="titleLg">{t('settings.title')}</AppText>
+        <AppHeader title={t('settings.title')} />
       )}
 
-      <PreferenceSegmentCard
-        title={t('settings.appearanceTitle')}
-        selectedKey={themePreference}
-        options={themeOptions}
-        onSelect={setThemePreference}
-      />
-
-      <PreferenceSegmentCard
-        title={t('settings.languageTitle')}
-        selectedKey={language}
-        options={languageOptions}
-        onSelect={setLanguage}
-      />
-
-      <VStack p="lg" gap="sm" bg="surface" radius="lg" bordered>
-        <AppText variant="titleMd">{t('settings.appInfoTitle')}</AppText>
-        <AppText variant="bodySm" tone="secondary">
-          {identity.displayName} ({identity.slug})
-        </AppText>
-        <AppText variant="caption" tone="brand">
-          {t('settings.variantLabel')}: {env.appVariant.toUpperCase()}
-        </AppText>
-        {onOpenLegalDocument ? (
-          <HStack gap="sm">
-            <Box flex={1}>
-              <Button
-                label={t('settings.privacyPolicyLink')}
-                variant="outline"
-                onPress={() =>
-                  onOpenLegalDocument({
-                    url: env.privacyPolicyUrl,
-                    title: t('settings.privacyPolicyLink'),
-                  })
-                }
-              />
-            </Box>
-            <Box flex={1}>
-              <Button
-                label={t('settings.userAgreementLink')}
-                variant="outline"
-                onPress={() =>
-                  onOpenLegalDocument({
-                    url: env.userAgreementUrl,
-                    title: t('settings.userAgreementLink'),
-                  })
-                }
-              />
-            </Box>
-          </HStack>
-        ) : null}
-        {onOpenDeveloperLab ? (
-          <Button
-            testID="settings-developer-lab-btn"
-            label={t('settings.developerLabButton')}
-            variant="outline"
-            onPress={onOpenDeveloperLab}
+      <Screen scrollable edges={[]}>
+        <VStack gap="lg">
+          <SegmentedControlCard
+            title={t('settings.appearanceTitle')}
+            selectedKey={themePreference}
+            options={themeOptions}
+            onSelect={setThemePreference}
           />
-        ) : null}
-        {openDevToolsHandler ? (
-          <Button
-            label={t('settings.openDevToolsButton')}
-            variant="secondary"
-            onPress={openDevToolsHandler}
-          />
-        ) : null}
-      </VStack>
 
-      {authStatus === 'authenticated' ? (
-        <Button
-          label={t('settings.signOutButton')}
-          variant="danger"
-          onPress={() => setSignOutDialogVisible(true)}
+          <SegmentedControlCard
+            title={t('settings.languageTitle')}
+            selectedKey={language}
+            options={languageOptions}
+            onSelect={setLanguage}
+          />
+
+          <SettingsList sections={sections} />
+
+          {authStatus === 'authenticated' ? (
+            <View
+              style={[
+                styles.signOutCard,
+                {
+                  backgroundColor: tokens.colors.surface,
+                  borderColor: tokens.colors.border,
+                  borderRadius: tokens.radii.lg,
+                },
+              ]}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('settings.signOutButton')}
+                onPress={() => setSignOutDialogVisible(true)}
+                style={({ pressed }) => [
+                  styles.signOutRow,
+                  pressed && { backgroundColor: tokens.colors.surfaceMuted },
+                ]}
+              >
+                <AppText variant="bodyMd" tone="danger" weight="600" align="center">
+                  {t('settings.signOutButton')}
+                </AppText>
+              </Pressable>
+            </View>
+          ) : null}
+        </VStack>
+
+        <ConfirmDialog
+          visible={signOutDialogVisible}
+          title={t('settings.signOutConfirmTitle')}
+          description={t('settings.signOutConfirmDescription')}
+          confirmLabel={t('settings.signOutButton')}
+          destructive
+          onCancel={() => setSignOutDialogVisible(false)}
+          onConfirm={() => {
+            setSignOutDialogVisible(false);
+            void authSessionStore.getState().clearSession();
+          }}
         />
-      ) : null}
-
-      <ConfirmDialog
-        visible={signOutDialogVisible}
-        title={t('settings.signOutConfirmTitle')}
-        description={t('settings.signOutConfirmDescription')}
-        confirmLabel={t('settings.signOutButton')}
-        destructive
-        onCancel={() => setSignOutDialogVisible(false)}
-        onConfirm={() => {
-          setSignOutDialogVisible(false);
-          void authSessionStore.getState().clearSession();
-        }}
-      />
+      </Screen>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  sectionLabel: {
+    paddingHorizontal: 4,
+  },
+  segmentTrack: {
+    width: '100%',
+  },
+  segmentItem: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  signOutRow: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

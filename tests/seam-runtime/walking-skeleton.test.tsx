@@ -4,6 +4,7 @@ import { appIdentity } from '@root/app.identity';
 import { parseRuntimePublicEnv } from '@/core/config/env-schema';
 import { AppRuntimeProvider, resolveStartupRuntimeEnv } from '@/core/runtime';
 import { HomeStarterScreen } from '@/features/home';
+import { SettingsScreen } from '@/features/settings';
 import { appTranslationResources, createDemoHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 
@@ -33,6 +34,7 @@ describe('Seam 1: Walking skeleton startup screen & runtime env enforcement', ()
     const mounted = await render(
       <AppRuntimeProvider runtime={runtime}>
         <HomeStarterScreen />
+        <SettingsScreen />
       </AppRuntimeProvider>,
     );
 

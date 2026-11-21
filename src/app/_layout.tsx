@@ -3,17 +3,19 @@ import React, { useEffect, useMemo } from 'react';
 import { appIdentity } from '@root/app.identity';
 import { AuthHydrationGate } from '@/core/auth/AuthHydrationGate';
 import { appPerformanceMarks } from '@/core/observability/performance-marks';
+import { StyleSheet, View } from 'react-native';
 import {
   AppRuntimeProvider,
   createAppRuntime,
   resolveStartupRuntimeEnv,
   useAuthSession,
+  usePreferences,
   usePrivacyGate,
   useAppRuntime,
 } from '@/core/runtime';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DrawerHost } from '@/core/ui';
-import { DrawerMenu, type DrawerNavTarget } from '@/features/shell';
+import { DrawerMenu, WelcomeScreen, type DrawerNavTarget } from '@/features/shell';
 import { appTranslationResources, createDemoHttpTransport } from '@/shared';
 
 // 原因：Route Shell 仅声明路由树与守卫布尔条件，零状态副作用编排且零具体界面元素
@@ -119,6 +121,22 @@ function AppDrawer(): React.JSX.Element {
   );
 }
 
+function WelcomeGate(): React.JSX.Element | null {
+  const { preferencesStore } = useAppRuntime();
+  const isPrivacyReady = usePrivacyGate((state) => state.phase === 'ready');
+  const hasCompletedWelcome = usePreferences((state) => state.hasCompletedWelcome);
+
+  if (!isPrivacyReady || hasCompletedWelcome) {
+    return null;
+  }
+
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.welcomeOverlay]}>
+      <WelcomeScreen onComplete={() => preferencesStore.getState().completeWelcome()} />
+    </View>
+  );
+}
+
 export default function RootLayout(): React.JSX.Element {
   const runtime = useMemo(() => {
     const env = resolveStartupRuntimeEnv();
@@ -137,7 +155,14 @@ export default function RootLayout(): React.JSX.Element {
         <PerformanceMarkers />
         <GuardedRootStack />
         <AppDrawer />
+        <WelcomeGate />
       </AppRuntimeProvider>
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  welcomeOverlay: {
+    zIndex: 50,
+  },
+});

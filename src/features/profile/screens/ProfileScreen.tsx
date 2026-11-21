@@ -1,24 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDrawer } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppText,
   DrawerTriggerButton,
-  isScrollAtTop,
-  PageTemplate,
+  HStack,
+  ListTemplate,
   Screen,
   TabPager,
   TopTabs,
   VStack,
-  type PageActions,
+  type PageStatus,
   type TopTabItem,
 } from '@/core/ui';
+import { useMockPaginatedFeed, type MockListRecord } from '@/shared';
 
 export interface ProfileScreenProps {
   onOpenSettings?: () => void;
+  onSelectRecord?: (record: MockListRecord) => void;
 }
 
 const PROFILE_TABS: readonly TopTabItem[] = [
@@ -27,65 +29,74 @@ const PROFILE_TABS: readonly TopTabItem[] = [
   { key: 'activity', label: '动态' },
 ];
 
-const PROFILE_LISTS: Record<string, readonly { id: string; title: string; meta: string }[]> = {
-  favorites: [
-    { id: 'fav-1', title: '企业级移动底座四层架构规范', meta: '收藏于 今天' },
-    { id: 'fav-2', title: 'Reanimated 4 抽屉与分页联动指南', meta: '收藏于 昨天' },
-  ],
-  history: [
-    { id: 'his-1', title: '离线缓存与弱网降级方案', meta: '浏览于 15 分钟前' },
-    { id: 'his-2', title: 'Android 包体积守卫配置', meta: '浏览于 2 小时前' },
-  ],
-  activity: [{ id: 'act-1', title: '完成了本地音乐播放与图片压缩联调', meta: '今天' }],
-};
-
 function ProfileSubTab({
   tabKey,
   isActive,
+  onSelectRecord,
 }: {
   tabKey: string;
   isActive: boolean;
+  onSelectRecord?: (record: MockListRecord) => void;
 }): React.JSX.Element {
-  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const offsetYRef = useRef(0);
-  const pageActions = useMemo<PageActions>(
-    () => ({
-      isAtTop: () => isScrollAtTop(offsetYRef.current),
-      scrollToTop: () => scrollRef.current?.scrollTo({ y: 0, animated: true }),
-      refresh: () => undefined,
-    }),
-    [],
-  );
-
-  const items = PROFILE_LISTS[tabKey] ?? [];
+  const feed = useMockPaginatedFeed(tabKey);
+  const status: PageStatus =
+    feed.isLoading && feed.items.length === 0
+      ? 'loading'
+      : feed.error && feed.items.length === 0
+        ? 'error'
+        : feed.items.length === 0
+          ? 'empty'
+          : 'ready';
 
   return (
-    <PageTemplate status="ready" isActive={isActive} pageActions={pageActions}>
-      <ScrollView
-        ref={scrollRef}
-        testID={`profile-tab-${tabKey}`}
-        scrollEventThrottle={16}
-        onScroll={(event) => {
-          offsetYRef.current = event.nativeEvent.contentOffset.y;
+    <View testID={`profile-tab-${tabKey}`} style={styles.flex}>
+      <ListTemplate
+        data={feed.items}
+        keyExtractor={(item) => item.id}
+        status={status}
+        isActive={isActive}
+        refreshing={feed.isRefetching}
+        onRefresh={() => {
+          void feed.refetch();
         }}
-        contentContainerStyle={styles.content}
-      >
-        {items.map((item) => (
-          <VStack key={item.id} p="md" gap="xs" bg="surface" radius="lg" bordered>
-            <AppText variant="bodyMd" weight="600">
-              {item.title}
-            </AppText>
-            <AppText variant="caption" tone="secondary">
-              {item.meta}
-            </AppText>
-          </VStack>
-        ))}
-      </ScrollView>
-    </PageTemplate>
+        hasNextPage={feed.hasNextPage}
+        isFetchingNextPage={feed.isFetchingNextPage}
+        onLoadMore={() => {
+          void feed.fetchNextPage();
+        }}
+        renderItem={(item) => (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onSelectRecord?.(item)}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <VStack p="md" gap="xs" bg="surface" radius="lg" bordered>
+              <HStack justify="space-between" align="center">
+                <AppText variant="caption" tone="brand" weight="600">
+                  {item.tag}
+                </AppText>
+                <AppText variant="caption" tone="secondary">
+                  {item.meta}
+                </AppText>
+              </HStack>
+              <AppText variant="bodyMd" weight="600" numberOfLines={2}>
+                {item.title}
+              </AppText>
+              <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
+                {item.summary}
+              </AppText>
+            </VStack>
+          </Pressable>
+        )}
+      />
+    </View>
   );
 }
 
-export function ProfileScreen({ onOpenSettings }: ProfileScreenProps = {}): React.JSX.Element {
+export function ProfileScreen({
+  onOpenSettings,
+  onSelectRecord,
+}: ProfileScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
   const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -120,7 +131,11 @@ export function ProfileScreen({ onOpenSettings }: ProfileScreenProps = {}): Reac
         onIndexChange={setActiveIndex}
         scrollProgress={scrollProgress}
         renderPage={(index, isActive) => (
-          <ProfileSubTab tabKey={PROFILE_TABS[index]?.key ?? 'favorites'} isActive={isActive} />
+          <ProfileSubTab
+            tabKey={PROFILE_TABS[index]?.key ?? 'favorites'}
+            isActive={isActive}
+            onSelectRecord={onSelectRecord}
+          />
         )}
       />
     </Screen>
@@ -128,9 +143,8 @@ export function ProfileScreen({ onOpenSettings }: ProfileScreenProps = {}): Reac
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: 16,
-    gap: 12,
+  flex: {
+    flex: 1,
   },
   iconButton: {
     width: 40,
@@ -139,6 +153,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pressed: {
-    opacity: 0.65,
+    opacity: 0.72,
   },
 });

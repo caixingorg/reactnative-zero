@@ -1,1 +1,1 @@
-export { MessagesScreen } from './screens/MessagesScreen';
+export { MessagesScreen, type MessagesScreenProps } from './screens/MessagesScreen';

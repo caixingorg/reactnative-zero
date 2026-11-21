@@ -1,1 +1,1 @@
-export { DiscoverScreen } from './screens/DiscoverScreen';
+export { DiscoverScreen, type DiscoverScreenProps } from './screens/DiscoverScreen';

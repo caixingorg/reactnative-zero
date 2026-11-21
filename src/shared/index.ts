@@ -10,5 +10,6 @@ export {
 } from './components/FeedStatusBadge';
 export { VariantCapsuleBadge } from './components/VariantCapsuleBadge';
 export { createDemoHttpTransport } from './demo/demo-http-transport';
+export { useMockPaginatedFeed, type MockListRecord } from './demo/paginated-mock-feed';
 export { appTranslationResources } from './i18n/app-resources';
 export { useLegalDocumentOpener } from './navigation/use-legal-document-opener';

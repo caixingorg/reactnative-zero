@@ -9,7 +9,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useAppRuntime, useAuthSession, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
-import { AppText, Button, HStack, Switch, VStack } from '@/core/ui';
+import { AppText, HStack, VStack } from '@/core/ui';
 
 export type DrawerNavTarget =
   'profile' | 'login' | 'favorites' | 'history' | 'settings' | 'feedback' | 'about';
@@ -135,36 +135,86 @@ export function DrawerMenu({
             </Pressable>
           ))}
 
-          <View style={[styles.switchRow, { borderTopColor: tokens.colors.border }]}>
-            <Switch
-              testID="drawer-dark-mode-switch"
-              label="深色模式"
-              value={tokens.isDark}
-              onValueChange={(nextDark) => setThemePreference(nextDark ? 'dark' : 'light')}
-            />
-          </View>
+          {/* 原因：与上方菜单保持同一行高与无边框视觉，使用纯 Token 胶囊开关替代带外框卡片的表单 Switch */}
+          <Pressable
+            testID="drawer-dark-mode-switch"
+            accessibilityRole="switch"
+            accessibilityLabel="深色模式"
+            accessibilityState={{ checked: tokens.isDark }}
+            onPress={() => setThemePreference(tokens.isDark ? 'light' : 'dark')}
+            style={({ pressed }) => [
+              styles.menuRow,
+              { borderRadius: tokens.radii.md },
+              pressed && { backgroundColor: tokens.colors.surfaceMuted },
+            ]}
+          >
+            <HStack align="center" justify="space-between">
+              <HStack align="center" gap="md">
+                <Ionicons
+                  name={tokens.isDark ? 'moon' : 'moon-outline'}
+                  size={20}
+                  color={tokens.colors.textPrimary}
+                />
+                <AppText variant="bodyMd">深色模式</AppText>
+              </HStack>
+              <View
+                style={[
+                  styles.toggleTrack,
+                  {
+                    backgroundColor: tokens.isDark ? tokens.colors.primary : tokens.colors.border,
+                    borderRadius: tokens.radii.full,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    {
+                      backgroundColor: tokens.colors.onPrimary,
+                      borderRadius: tokens.radii.full,
+                      transform: [{ translateX: tokens.isDark ? 18 : 2 }],
+                    },
+                  ]}
+                />
+              </View>
+            </HStack>
+          </Pressable>
         </VStack>
       </ScrollView>
 
-      <VStack gap="sm" style={[styles.footer, { borderTopColor: tokens.colors.border }]}>
-        <HStack justify="space-between" align="center">
-          <AppText variant="caption" tone="secondary">
-            版本
-          </AppText>
-          <AppText variant="caption" tone="secondary">
-            v{resolvedVersion}
-          </AppText>
-        </HStack>
+      <HStack
+        align="center"
+        justify="space-between"
+        style={[styles.footer, { borderTopColor: tokens.colors.border }]}
+      >
+        <AppText variant="caption" tone="secondary">
+          v{resolvedVersion}
+        </AppText>
         {isAuthenticated ? (
-          <Button
-            label="退出登录"
-            variant="outline"
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="退出登录"
             onPress={() => {
               void handleSignOut();
             }}
-          />
+            style={({ pressed }) => [
+              styles.signOutPill,
+              {
+                backgroundColor: tokens.colors.surfaceMuted,
+                borderRadius: tokens.radii.full,
+              },
+              pressed && styles.pressed,
+            ]}
+          >
+            <HStack align="center" gap="xs">
+              <Ionicons name="log-out-outline" size={16} color={tokens.colors.danger} />
+              <AppText variant="bodySm" tone="danger" weight="600">
+                退出登录
+              </AppText>
+            </HStack>
+          </Pressable>
         ) : null}
-      </VStack>
+      </HStack>
     </VStack>
   );
 }
@@ -193,16 +243,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
   },
-  switchRow: {
-    marginTop: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 10,
+  toggleTrack: {
+    width: 40,
+    height: 24,
+    justifyContent: 'center',
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
   },
   footer: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 12,
+    paddingTop: 14,
+    paddingHorizontal: 6,
+  },
+  signOutPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   pressed: {
-    opacity: 0.75,
+    opacity: 0.72,
   },
 });

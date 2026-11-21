@@ -12,12 +12,16 @@ import type { ThemePreference } from '../theme/tokens';
 
 export const THEME_STORAGE_KEY = 'preferences.theme_mode';
 export const LANGUAGE_STORAGE_KEY = 'preferences.language';
+export const WELCOME_COMPLETED_STORAGE_KEY = 'preferences.welcome_completed';
 
 export interface PreferencesState {
   themePreference: ThemePreference;
   language: SupportedLanguage;
+  hasCompletedWelcome: boolean;
   setThemePreference: (preference: ThemePreference) => void;
   setLanguage: (language: SupportedLanguage) => void;
+  completeWelcome: () => void;
+  resetWelcome: () => void;
   resetPreferences: () => void;
 }
 
@@ -55,10 +59,13 @@ export function createPreferencesStore({
 }: CreatePreferencesStoreOptions): PreferencesStore {
   const initialTheme = parseStoredThemePreference(keyValueStorage.getString(THEME_STORAGE_KEY));
   const initialLanguage = readInitialLanguage(keyValueStorage, fallbackLanguage);
+  const initialWelcomeCompleted =
+    keyValueStorage.getString(WELCOME_COMPLETED_STORAGE_KEY) === 'true';
 
   return createStore<PreferencesState>((set) => ({
     themePreference: initialTheme,
     language: initialLanguage,
+    hasCompletedWelcome: initialWelcomeCompleted,
     setThemePreference: (preference: ThemePreference) => {
       keyValueStorage.setString(THEME_STORAGE_KEY, preference);
       set({ themePreference: preference });
@@ -67,6 +74,14 @@ export function createPreferencesStore({
       keyValueStorage.setString(LANGUAGE_STORAGE_KEY, language);
       void i18n.changeLanguage(language);
       set({ language });
+    },
+    completeWelcome: () => {
+      keyValueStorage.setString(WELCOME_COMPLETED_STORAGE_KEY, 'true');
+      set({ hasCompletedWelcome: true });
+    },
+    resetWelcome: () => {
+      keyValueStorage.setString(WELCOME_COMPLETED_STORAGE_KEY, 'false');
+      set({ hasCompletedWelcome: false });
     },
     resetPreferences: () => {
       const normalizedFallback = normalizeSupportedLanguage(fallbackLanguage);
