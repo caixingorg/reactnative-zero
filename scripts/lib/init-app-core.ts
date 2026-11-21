@@ -337,7 +337,7 @@ function applyCleanStarterTransform(projectRoot: string): {
 } {
   const relPathsToDelete = [
     'src/features/capabilities-lab',
-    'src/app/(tabs)/lab.tsx',
+    'src/app/developer-lab.tsx',
     'src/app/feed',
     'src/shared/components/FeedStatusBadge.tsx',
     'src/features/home',
@@ -413,13 +413,23 @@ export default function HomeTabRoute(): React.JSX.Element {
   writeRel('src/features/home/index.ts', cleanHomeIndex);
   writeRel('src/app/(tabs)/index.tsx', cleanHomeTabRoute);
 
-  // Surgical removal of feed/[id] route registration from src/app/_layout.tsx
+  // Surgical removal of feed/[id] and developer-lab route registrations from src/app/_layout.tsx
   const rootLayoutPath = path.join(projectRoot, 'src/app/_layout.tsx');
   if (fs.existsSync(rootLayoutPath)) {
     const updatedRootLayout = fs
       .readFileSync(rootLayoutPath, 'utf8')
-      .replace(/^\s*<Stack\.Screen name="feed\/\[id\]" \/>\r?\n/m, '');
+      .replace(/^\s*<Stack\.Screen name="feed\/\[id\]" \/>\r?\n/m, '')
+      .replace(/^\s*<Stack\.Screen name="developer-lab" \/>\r?\n/m, '');
     writeRel('src/app/_layout.tsx', updatedRootLayout);
+  }
+
+  // Surgical removal of developer-lab prop from src/app/settings.tsx
+  const settingsRoutePath = path.join(projectRoot, 'src/app/settings.tsx');
+  if (fs.existsSync(settingsRoutePath)) {
+    const updatedSettingsRoute = fs
+      .readFileSync(settingsRoutePath, 'utf8')
+      .replace(/^\s*onOpenDeveloperLab=\{.*?\}\r?\n/m, '');
+    writeRel('src/app/settings.tsx', updatedSettingsRoute);
   }
 
   // Surgical removal of lab tab screen from src/app/(tabs)/_layout.tsx
@@ -519,6 +529,9 @@ export const appTranslationResources: TranslationBundleMap = {
   'zh-CN': {
     tabs: {
       home: '首页',
+      discover: '发现',
+      messages: '消息',
+      profile: '我的',
       settings: '个人设置',
     },
     auth: {
@@ -559,6 +572,9 @@ export const appTranslationResources: TranslationBundleMap = {
   'en-US': {
     tabs: {
       home: 'Home',
+      discover: 'Discover',
+      messages: 'Messages',
+      profile: 'Me',
       settings: 'Settings',
     },
     auth: {

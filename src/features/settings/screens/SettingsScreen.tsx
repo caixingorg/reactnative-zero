@@ -5,7 +5,7 @@ import type { SupportedLanguage } from '@/core/i18n/resources';
 import { useAuthSession, usePreferences, useAppRuntime } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import type { ThemePreference } from '@/core/theme/tokens';
-import { AppText, Box, Button, ConfirmDialog, HStack, Screen, VStack } from '@/core/ui';
+import { AppHeader, AppText, Box, Button, ConfirmDialog, HStack, Screen, VStack } from '@/core/ui';
 
 interface SegmentOption<T extends string> {
   key: T;
@@ -44,13 +44,17 @@ function PreferenceSegmentCard<T extends string>({
 }
 
 export interface SettingsScreenProps {
+  onBack?: () => void;
   onOpenLegalDocument?: (doc: LegalDocumentTarget) => void;
   onOpenDevTools?: () => void;
+  onOpenDeveloperLab?: () => void;
 }
 
 export function SettingsScreen({
+  onBack,
   onOpenLegalDocument,
   onOpenDevTools,
+  onOpenDeveloperLab,
 }: SettingsScreenProps = {}): React.JSX.Element {
   const { t } = useTranslation();
   const { identity, env, authSessionStore, devToolsStore } = useAppRuntime();
@@ -77,7 +81,11 @@ export function SettingsScreen({
 
   return (
     <Screen scrollable>
-      <AppText variant="titleLg">{t('settings.title')}</AppText>
+      {onBack ? (
+        <AppHeader title={t('settings.title')} showBack onBack={onBack} />
+      ) : (
+        <AppText variant="titleLg">{t('settings.title')}</AppText>
+      )}
 
       <PreferenceSegmentCard
         title={t('settings.appearanceTitle')}
@@ -128,6 +136,14 @@ export function SettingsScreen({
               />
             </Box>
           </HStack>
+        ) : null}
+        {onOpenDeveloperLab ? (
+          <Button
+            testID="settings-developer-lab-btn"
+            label={t('settings.developerLabButton')}
+            variant="outline"
+            onPress={onOpenDeveloperLab}
+          />
         ) : null}
         {openDevToolsHandler ? (
           <Button

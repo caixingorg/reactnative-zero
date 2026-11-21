@@ -48,6 +48,8 @@ export function GuardedRootStack(): React.JSX.Element {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="feed/[id]" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="developer-lab" />
           <Stack.Screen name="index" />
         </Stack.Protected>
       </Stack>
@@ -82,7 +84,10 @@ function AppDrawer(): React.JSX.Element {
   const handleNavigate = (target: DrawerNavTarget): boolean => {
     switch (target) {
       case 'settings':
-        router.push('/(tabs)/settings');
+        router.push('/settings');
+        return true;
+      case 'profile':
+        router.push('/(tabs)/profile');
         return true;
       case 'login':
         router.push('/login');

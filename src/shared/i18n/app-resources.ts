@@ -5,6 +5,9 @@ export const appTranslationResources: TranslationBundleMap = {
   'zh-CN': {
     tabs: {
       home: '首页',
+      discover: '发现',
+      messages: '消息',
+      profile: '我的',
       lab: '能力实验室',
       settings: '个人设置',
     },
@@ -47,6 +50,7 @@ export const appTranslationResources: TranslationBundleMap = {
       variantLabel: '当前环境',
       privacyPolicyLink: '隐私政策',
       userAgreementLink: '用户协议',
+      developerLabButton: '开发者能力实验室',
       openDevToolsButton: '打开开发者调试面板',
       signOutButton: '退出登录',
       signOutConfirmTitle: '确认退出登录？',
@@ -132,6 +136,9 @@ export const appTranslationResources: TranslationBundleMap = {
   'en-US': {
     tabs: {
       home: 'Home',
+      discover: 'Discover',
+      messages: 'Messages',
+      profile: 'Me',
       lab: 'Capabilities',
       settings: 'Settings',
     },
@@ -174,6 +181,7 @@ export const appTranslationResources: TranslationBundleMap = {
       variantLabel: 'Active Variant',
       privacyPolicyLink: 'Privacy Policy',
       userAgreementLink: 'Terms of Use',
+      developerLabButton: 'Developer Capabilities Lab',
       openDevToolsButton: 'Open DevTools Drawer',
       signOutButton: 'Sign Out',
       signOutConfirmTitle: 'Sign out of this account?',
