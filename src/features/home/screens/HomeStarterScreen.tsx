@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import React, { useMemo, useRef, useState } from 'react';
@@ -7,13 +6,12 @@ import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { AppApiError } from '@/core/network/types';
 import { useAppRuntime, useConnectivity, useDevTools, useDrawer } from '@/core/runtime';
-import { useAppTheme } from '@/core/theme/theme-context';
 import {
-  AppHeader,
   AppImage,
   AppText,
   Box,
   Button,
+  DrawerTriggerButton,
   EmptyState,
   HStack,
   isScrollAtTop,
@@ -70,7 +68,7 @@ function RecommendedFeedTab({
   onSelectItem,
 }: RecommendedFeedTabProps): React.JSX.Element {
   const { t } = useTranslation();
-  const { httpClient } = useAppRuntime();
+  const { identity, httpClient } = useAppRuntime();
   const isOnline = useConnectivity((state) => state.isOnline);
   const effectiveApiBaseUrl = useDevTools((state) => state.effectiveApiBaseUrl);
   const listRef = useRef<FlashListRef<FeedSummaryItem>>(null);
@@ -128,6 +126,7 @@ function RecommendedFeedTab({
           {effectiveApiBaseUrl}
         </AppText>
       </HStack>
+      <AppText variant="titleMd">{identity.displayName}</AppText>
       <AppText variant="bodySm" tone="secondary">
         {t('home.feedTitle')}
       </AppText>
@@ -338,28 +337,18 @@ function TrendingTab({ isActive }: { isActive: boolean }): React.JSX.Element {
 export function HomeStarterScreen({
   onSelectItem,
 }: HomeStarterScreenProps = {}): React.JSX.Element {
-  const { identity } = useAppRuntime();
-  const { tokens } = useAppTheme();
   const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
   return (
     <Screen>
-      <AppHeader
-        title={identity.displayName}
-        leftAction={{
-          icon: <Ionicons name="menu-outline" size={24} color={tokens.colors.textPrimary} />,
-          accessibilityLabel: '打开菜单',
-          onPress: drawer.open,
-          testID: 'home-drawer-button',
-        }}
-      />
       <TopTabs
         tabs={HOME_TABS}
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
+        leftSlot={<DrawerTriggerButton testID="home-drawer-button" onPress={drawer.open} />}
       />
       <TabPager
         pageCount={HOME_TABS.length}

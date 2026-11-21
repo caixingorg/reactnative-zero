@@ -1,6 +1,7 @@
 /**
  * @module core/ui/TopTabs
- * 职责：顶部多标签切换条，支持点击切换、指示条跟随联动、选中项自动居中横向滚动，以及红点/数字角标。
+ * 职责：单层顶部多标签切换栏，支持点击切换、指示条跟随联动、选中项自动居中横向滚动、红点/数字角标，
+ * 并可选挂载左右插槽（如左侧独立抽屉触发按钮、右侧设置/搜索操作），避免再叠加一层独立 Header。
  * 边界：仅依赖 Design Token 与 Reanimated，不持有分页内容，通过 activeIndex / scrollProgress 与 TabPager 联动。
  */
 import React, { useEffect, useRef, useState } from 'react';
@@ -29,6 +30,10 @@ export interface TopTabsProps {
   onSelect: (index: number) => void;
   /** 可选连续滚动进度（0 .. tabs.length - 1），由 TabPager 驱动指示条实时跟随。 */
   scrollProgress?: SharedValue<number>;
+  /** 左侧插槽（如独立的抽屉触发按钮），与二级 Tab 处于同一单层顶栏。 */
+  leftSlot?: React.ReactNode;
+  /** 右侧插槽（如设置、搜索等操作按钮），与二级 Tab 处于同一单层顶栏。 */
+  rightSlot?: React.ReactNode;
   testID?: string;
 }
 
@@ -48,6 +53,8 @@ export function TopTabs({
   activeIndex,
   onSelect,
   scrollProgress,
+  leftSlot,
+  rightSlot,
   testID = 'top-tabs',
 }: TopTabsProps): React.JSX.Element {
   const { tokens } = useAppTheme();
@@ -88,7 +95,7 @@ export function TopTabs({
     return { transform: [{ translateX }] };
   });
 
-  const handleContainerLayout = (event: LayoutChangeEvent): void => {
+  const handleScrollContainerLayout = (event: LayoutChangeEvent): void => {
     setContainerWidth(event.nativeEvent.layout.width);
   };
 
@@ -106,7 +113,6 @@ export function TopTabs({
   return (
     <View
       testID={testID}
-      onLayout={handleContainerLayout}
       style={[
         styles.wrapper,
         {
@@ -115,76 +121,86 @@ export function TopTabs({
         },
       ]}
     >
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.tabRow}>
-          {tabs.map((tab, index) => {
-            const isSelected = index === activeIndex;
-            const hasCount = typeof tab.badgeCount === 'number' && tab.badgeCount > 0;
-            const showDot = !hasCount && Boolean(tab.showDot);
+      {leftSlot ? <View style={styles.sideSlot}>{leftSlot}</View> : null}
 
-            return (
-              <Pressable
-                key={tab.key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={tab.label}
-                testID={`top-tab-${tab.key}`}
-                onLayout={(event) => handleTabLayout(index, event)}
-                onPress={() => onSelect(index)}
-                style={styles.tabItem}
-              >
-                <HStack align="center" gap="xs">
-                  <AppText
-                    variant="bodyMd"
-                    tone={isSelected ? 'primary' : 'secondary'}
-                    weight={isSelected ? '600' : '400'}
-                  >
-                    {tab.label}
-                  </AppText>
-                  {hasCount ? (
-                    <View
-                      testID={`top-tab-badge-${tab.key}`}
-                      style={[
-                        styles.badge,
-                        {
-                          backgroundColor: tokens.colors.danger,
-                          borderRadius: tokens.radii.full,
-                        },
-                      ]}
+      <View style={styles.scrollContainer} onLayout={handleScrollContainerLayout}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.tabRow}>
+            {tabs.map((tab, index) => {
+              const isSelected = index === activeIndex;
+              const hasCount = typeof tab.badgeCount === 'number' && tab.badgeCount > 0;
+              const showDot = !hasCount && Boolean(tab.showDot);
+
+              return (
+                <Pressable
+                  key={tab.key}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={tab.label}
+                  testID={`top-tab-${tab.key}`}
+                  onLayout={(event) => handleTabLayout(index, event)}
+                  onPress={() => onSelect(index)}
+                  style={styles.tabItem}
+                >
+                  <HStack align="center" gap="xs">
+                    <AppText
+                      variant="bodyMd"
+                      tone={isSelected ? 'primary' : 'secondary'}
+                      weight={isSelected ? '600' : '400'}
                     >
-                      <AppText variant="caption" tone="inverse" style={styles.badgeText}>
-                        {formatBadgeCount(tab.badgeCount as number)}
-                      </AppText>
-                    </View>
-                  ) : showDot ? (
-                    <View
-                      testID={`top-tab-dot-${tab.key}`}
-                      style={[
-                        styles.dot,
-                        {
-                          backgroundColor: tokens.colors.danger,
-                          borderRadius: tokens.radii.full,
-                        },
-                      ]}
-                    />
-                  ) : null}
-                </HStack>
-              </Pressable>
-            );
-          })}
-          {tabs.length > 0 ? (
-            <Animated.View
-              testID="top-tabs-indicator"
-              style={[styles.indicator, { backgroundColor: tokens.colors.primary }, indicatorStyle]}
-            />
-          ) : null}
-        </View>
-      </ScrollView>
+                      {tab.label}
+                    </AppText>
+                    {hasCount ? (
+                      <View
+                        testID={`top-tab-badge-${tab.key}`}
+                        style={[
+                          styles.badge,
+                          {
+                            backgroundColor: tokens.colors.danger,
+                            borderRadius: tokens.radii.full,
+                          },
+                        ]}
+                      >
+                        <AppText variant="caption" tone="inverse" style={styles.badgeText}>
+                          {formatBadgeCount(tab.badgeCount as number)}
+                        </AppText>
+                      </View>
+                    ) : showDot ? (
+                      <View
+                        testID={`top-tab-dot-${tab.key}`}
+                        style={[
+                          styles.dot,
+                          {
+                            backgroundColor: tokens.colors.danger,
+                            borderRadius: tokens.radii.full,
+                          },
+                        ]}
+                      />
+                    ) : null}
+                  </HStack>
+                </Pressable>
+              );
+            })}
+            {tabs.length > 0 ? (
+              <Animated.View
+                testID="top-tabs-indicator"
+                style={[
+                  styles.indicator,
+                  { backgroundColor: tokens.colors.primary },
+                  indicatorStyle,
+                ]}
+              />
+            ) : null}
+          </View>
+        </ScrollView>
+      </View>
+
+      {rightSlot ? <View style={styles.sideSlot}>{rightSlot}</View> : null}
     </View>
   );
 }
@@ -192,20 +208,31 @@ export function TopTabs({
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  sideSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
   },
   tabRow: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'relative',
-    minHeight: 44,
+    minHeight: 52,
   },
   tabItem: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

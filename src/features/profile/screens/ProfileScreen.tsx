@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { useAuthSession, useDrawer } from '@/core/runtime';
+import { useDrawer } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
-  AppHeader,
   AppText,
+  DrawerTriggerButton,
   isScrollAtTop,
   PageTemplate,
   Screen,
@@ -88,42 +88,31 @@ function ProfileSubTab({
 export function ProfileScreen({ onOpenSettings }: ProfileScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
   const drawer = useDrawer();
-  const user = useAuthSession((state) => state.user);
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
   return (
     <Screen>
-      <AppHeader
-        title="我的"
-        subtitle={user ? user.displayName : undefined}
-        leftAction={{
-          icon: <Ionicons name="menu-outline" size={24} color={tokens.colors.textPrimary} />,
-          accessibilityLabel: '打开菜单',
-          onPress: drawer.open,
-          testID: 'profile-drawer-button',
-        }}
-        rightActions={
-          onOpenSettings
-            ? [
-                {
-                  key: 'settings',
-                  icon: (
-                    <Ionicons name="settings-outline" size={22} color={tokens.colors.textPrimary} />
-                  ),
-                  accessibilityLabel: '设置',
-                  onPress: onOpenSettings,
-                  testID: 'profile-settings-button',
-                },
-              ]
-            : undefined
-        }
-      />
       <TopTabs
         tabs={PROFILE_TABS}
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
+        leftSlot={<DrawerTriggerButton testID="profile-drawer-button" onPress={drawer.open} />}
+        rightSlot={
+          onOpenSettings ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="设置"
+              testID="profile-settings-button"
+              onPress={onOpenSettings}
+              hitSlop={8}
+              style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+            >
+              <Ionicons name="settings-outline" size={22} color={tokens.colors.textPrimary} />
+            </Pressable>
+          ) : undefined
+        }
       />
       <TabPager
         pageCount={PROFILE_TABS.length}
@@ -142,5 +131,14 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 12,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.65,
   },
 });

@@ -5,6 +5,7 @@ import { appIdentity } from '@root/app.identity';
 import { AppRuntimeProvider } from '@/core/runtime';
 import {
   createPageActionsRegistry,
+  DrawerTriggerButton,
   PageTemplate,
   TabPager,
   TopTabs,
@@ -51,6 +52,37 @@ describe('Seam: TopTabs', () => {
 
     await fireEvent.press(hotTab);
     expect(selected).toEqual([2]);
+  });
+
+  it('renders leftSlot DrawerTriggerButton and rightSlot in the same single top bar', async () => {
+    const runtime = createRuntime();
+    let drawerPressed = 0;
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <TopTabs
+          tabs={[
+            { key: 'a', label: '推荐' },
+            { key: 'b', label: '关注' },
+          ]}
+          activeIndex={0}
+          onSelect={() => undefined}
+          leftSlot={
+            <DrawerTriggerButton
+              testID="single-bar-drawer-btn"
+              onPress={() => {
+                drawerPressed += 1;
+              }}
+            />
+          }
+          rightSlot={<Text testID="single-bar-right-slot">设置</Text>}
+        />
+      </AppRuntimeProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('single-bar-drawer-btn'));
+    expect(drawerPressed).toBe(1);
+    expect(screen.getByTestId('single-bar-right-slot')).toBeTruthy();
   });
 });
 

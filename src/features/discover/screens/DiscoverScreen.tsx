@@ -1,12 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDrawer } from '@/core/runtime';
-import { useAppTheme } from '@/core/theme/theme-context';
 import {
-  AppHeader,
   AppText,
+  DrawerTriggerButton,
   HStack,
   isScrollAtTop,
   PageTemplate,
@@ -122,27 +120,18 @@ function DiscoverSubTab({
 }
 
 export function DiscoverScreen(): React.JSX.Element {
-  const { tokens } = useAppTheme();
   const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
   return (
     <Screen>
-      <AppHeader
-        title="发现"
-        leftAction={{
-          icon: <Ionicons name="menu-outline" size={24} color={tokens.colors.textPrimary} />,
-          accessibilityLabel: '打开菜单',
-          onPress: drawer.open,
-          testID: 'discover-drawer-button',
-        }}
-      />
       <TopTabs
         tabs={DISCOVER_TABS}
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
+        leftSlot={<DrawerTriggerButton testID="discover-drawer-button" onPress={drawer.open} />}
       />
       <TabPager
         pageCount={DISCOVER_TABS.length}

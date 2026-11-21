@@ -11,6 +11,7 @@ export { Box, type BackgroundRole, type BoxProps, type RadiusKey, type SpacingKe
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog';
 export { DrawerHost, type DrawerHostProps } from './DrawerHost';
+export { DrawerTriggerButton, type DrawerTriggerButtonProps } from './DrawerTriggerButton';
 export {
   clampDrawerProgress,
   DRAWER_EDGE_WIDTH,
