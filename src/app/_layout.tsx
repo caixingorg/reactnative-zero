@@ -56,6 +56,7 @@ export function GuardedRootStack(): React.JSX.Element {
           <Stack.Screen name="detail" />
           <Stack.Screen name="search" />
           <Stack.Screen name="form" />
+          <Stack.Screen name="payment-demo" />
           <Stack.Screen name="status" />
           <Stack.Screen name="index" />
         </Stack.Protected>

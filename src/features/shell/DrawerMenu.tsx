@@ -17,6 +17,7 @@ export type DrawerNavTarget =
   | 'favorites'
   | 'history'
   | 'registerDemo'
+  | 'paymentDemo'
   | 'settings'
   | 'feedback'
   | 'about';
@@ -38,6 +39,7 @@ const MENU_ITEMS: readonly MenuItemConfig[] = [
   { target: 'favorites', label: '收藏', icon: 'bookmark-outline' },
   { target: 'history', label: '历史', icon: 'time-outline' },
   { target: 'registerDemo', label: '资料注册表单', icon: 'person-add-outline' },
+  { target: 'paymentDemo', label: '全场景支付演示', icon: 'card-outline' },
   { target: 'settings', label: '设置', icon: 'settings-outline' },
   { target: 'feedback', label: '意见反馈', icon: 'chatbox-ellipses-outline' },
   { target: 'about', label: '关于', icon: 'information-circle-outline' },

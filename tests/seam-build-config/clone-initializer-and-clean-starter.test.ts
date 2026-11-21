@@ -272,6 +272,8 @@ describe('Seam 2: Clone initializer (init-app) & --clean-starter verification', 
 
       // Removed demo slices & routes
       expect(fs.existsSync(path.join(sandboxDir, 'src/features/capabilities-lab'))).toBe(false);
+      expect(fs.existsSync(path.join(sandboxDir, 'src/features/demo'))).toBe(false);
+      expect(fs.existsSync(path.join(sandboxDir, 'src/app/payment-demo.tsx'))).toBe(false);
       expect(fs.existsSync(path.join(sandboxDir, 'src/app/(tabs)/lab.tsx'))).toBe(false);
       expect(fs.existsSync(path.join(sandboxDir, 'src/app/feed'))).toBe(false);
       expect(
@@ -280,6 +282,29 @@ describe('Seam 2: Clone initializer (init-app) & --clean-starter verification', 
       expect(
         fs.existsSync(path.join(sandboxDir, 'src/features/home/screens/FeedDetailScreen.tsx')),
       ).toBe(false);
+
+      // Drawer shell has no dangling paymentDemo route
+      expect(
+        fs.readFileSync(path.join(sandboxDir, 'src/features/shell/DrawerMenu.tsx'), 'utf8'),
+      ).not.toContain('paymentDemo');
+      expect(
+        fs.readFileSync(path.join(sandboxDir, 'src/features/shell/AppShellOverlays.tsx'), 'utf8'),
+      ).not.toContain('/payment-demo');
+
+      // Headless payment capability retained and zero closed-source payment SDKs in default dependencies
+      expect(fs.existsSync(path.join(sandboxDir, 'src/core/capabilities/payment/index.ts'))).toBe(
+        true,
+      );
+      const pkgDeps = Object.keys(
+        (
+          JSON.parse(fs.readFileSync(path.join(sandboxDir, 'package.json'), 'utf8')) as {
+            dependencies?: Record<string, string>;
+          }
+        ).dependencies ?? {},
+      );
+      expect(pkgDeps).not.toContain('react-native-wechat-lib');
+      expect(pkgDeps).not.toContain('@uiw/react-native-alipay');
+      expect(pkgDeps).not.toContain('@stripe/stripe-react-native');
 
       // Maestro smoke script updated to omit deleted demo tabs
       const cleanSmokeYaml = fs.readFileSync(path.join(sandboxDir, '.maestro/smoke.yaml'), 'utf8');
