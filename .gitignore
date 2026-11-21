@@ -18,6 +18,8 @@ coverage/
 *.p12
 *.key
 *.mobileprovision
+fastlane/report.xml
+fastlane/README.md
 *.orig.*
 
 # Local overrides & OS files

@@ -555,7 +555,19 @@ bundle exec fastlane ios build_archive variant:staging export_method:"ad-hoc"
 - **staging / development**：提供了密钥就用 release 密钥；没提供时回退到 debug 签名，方便无密钥环境出测试包。只设置了 `ANDROID_KEYSTORE_PATH` 而漏了其余三项属于配置不完整，构建会在签名阶段报错，不会回退。需要分发给测试同学的包，请统一在持有密钥的机器上构建，否则签名不同会导致测试机无法覆盖安装。
 - 7 个渠道包使用同一把密钥。**keystore 丢失后无法再更新已上架的应用，务必加密备份到至少两处**，不要提交到仓库（`.gitignore` 已忽略 `*.keystore`、`*.jks`）。
 - **迁移提醒**：此前打出的 release 包是 debug 签名，换成真实密钥后无法原地升级，已通过蒲公英安装旧包的测试同学需要先卸载再安装，请提前通知。
-- 这里只负责 Android；iOS 的 Team ID 与描述文件另行处理。
+- 这里是 Android 部分，iOS 见下。
+
+**iOS 签名**：`bundle exec fastlane ios build_archive` 在 prebuild 之前先校验签名变量，缺失即失败，报错只列变量名，不会跑完整个归档才发现 IPA 无法导出。证书和描述文件本身不进仓库。
+
+| 变量                       | 说明                                                                                                                                             |
+| :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IOS_TEAM_ID`              | Apple 开发者 Team ID，10 位大写字母或数字                                                                                                        |
+| `IOS_PROVISIONING_PROFILE` | 描述文件名称（不是文件名），须与当前变体的 Bundle ID 匹配                                                                                        |
+| `MATCH_GIT_URL`            | 可选；设置后改用 fastlane match 以只读方式获取证书与描述文件（仍需 `IOS_TEAM_ID` 与 `MATCH_PASSWORD`，此时 `IOS_PROVISIONING_PROFILE` 会被忽略） |
+
+- `export_method` 取 `ad-hoc`、`app-store`、`enterprise`、`development`。`development` 只提供 `IOS_TEAM_ID` 时由 Xcode 自动签名；其余方式要求 `IOS_TEAM_ID` 加 `IOS_PROVISIONING_PROFILE`，或者 `MATCH_GIT_URL`、`IOS_TEAM_ID` 加 `MATCH_PASSWORD`。无人值守的内部 Mac 还需要提前解锁登录钥匙串。
+- Bundle ID 带变体后缀（`.dev` / `.stg`），脚本通过 `expo config` 取真实值，描述文件需要按各变体的 Bundle ID 分别创建。
+- 这部分已用 Ruby 测试覆盖变量解析，并确认缺变量时 lane 会提前失败；**尚未在带真实证书的 Mac 上完整跑通归档导出**，首次使用请先用 `ad-hoc` 在内部 Mac 验证。
 
 在 JS 业务代码中读取当前渠道号：
 
