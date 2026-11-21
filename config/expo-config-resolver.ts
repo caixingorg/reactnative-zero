@@ -206,6 +206,8 @@ export function resolveExpoConfig(
         cocoapodsMirrorUrl: rawEnv.EXPO_COCOAPODS_MIRROR_URL,
       },
     ],
+    // 原因：Expo 模板的 release 构建默认使用公开的 debug 密钥签名；production 变体必须改用环境变量注入的 release 密钥
+    ['./config/with-android-release-signing', { required: runtimeEnv.appVariant === 'production' }],
     'expo-router',
     'expo-secure-store',
     'expo-localization',
