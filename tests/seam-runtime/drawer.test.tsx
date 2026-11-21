@@ -61,9 +61,10 @@ describe('Seam: drawer pure logic', () => {
     expect(isInDrawerEdgeZone(-1)).toBe(false);
   });
 
-  it('uses 80% of the window up to 360 points', () => {
-    expect(resolveDrawerWidth(390)).toBe(312);
-    expect(resolveDrawerWidth(1000)).toBe(360);
+  it('uses 62% of the window up to 236 points', () => {
+    expect(resolveDrawerWidth(360)).toBe(223);
+    expect(resolveDrawerWidth(390)).toBe(236);
+    expect(resolveDrawerWidth(1000)).toBe(236);
   });
 });
 
