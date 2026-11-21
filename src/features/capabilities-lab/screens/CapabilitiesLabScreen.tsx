@@ -16,6 +16,7 @@ import { SecureHybridWebView, type WebViewBridgeChannelHandle } from '@/core/cap
 import { useAppRuntime } from '@/core/runtime';
 import { AppText, Box, Button, Screen, VStack } from '@/core/ui';
 import { useCommercialVendorAdapters } from '@/core/vendors';
+import { ImageUploadCard } from '../components/ImageUploadCard';
 
 // 原因：使用合法的 1x1 RGB PNG 二进制头与 CRC32 数据块作为默认演示海报，确保 iOS PHPhotoLibrary 与 Android MediaStore 均可正常解析入库（避免伪 SVG 报错）
 const MINIMAL_VALID_PNG_BYTES = new Uint8Array([
@@ -318,6 +319,14 @@ export function CapabilitiesLabScreen(): React.JSX.Element {
             />
           ) : null}
         </VStack>
+      </CapabilityLabCard>
+
+      <CapabilityLabCard
+        title={t('lab.uploadTitle')}
+        enabled={mediaCapability.photoLibraryEnabled}
+        disabledHint={disabledHint}
+      >
+        <ImageUploadCard />
       </CapabilityLabCard>
 
       <CapabilityLabCard
