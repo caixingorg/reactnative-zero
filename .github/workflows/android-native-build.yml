@@ -1,0 +1,74 @@
+name: Android Native Build (PR)
+
+# 原因：常规 PR 只跑配置与 Jest，原生构建损坏要到发布时才发现；
+# 仅当依赖、锁文件、应用配置或原生相关配置变化时才触发，避免拖慢所有 PR
+# 注意：不要把本 job 设为必需检查（required check）。路径过滤导致它在多数 PR 上不会触发，必需检查会让这些 PR 一直等待
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'app.config.ts'
+      - 'app.identity.ts'
+      - 'config/**'
+      - 'babel.config.js'
+      - 'metro.config.js'
+      - '.github/workflows/android-native-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: android-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  assemble-debug:
+    name: Prebuild & assembleDebug (staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      APP_VARIANT: staging
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle (dependency & build cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate native project (CNG prebuild)
+        run: pnpm exec expo prebuild --platform android --no-install
+
+      - name: Assemble debug APK
+        working-directory: android
+        # 原因：只编译 x86_64 一个 ABI，避免 New Architecture 下四个 ABI 全量编译拖过超时；PR 只需验证原生构建可通过
+        run: ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=x86_64
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-reports
+          path: |
+            android/app/build/reports/
+            android/build/reports/
+          retention-days: 7
+          if-no-files-found: ignore
