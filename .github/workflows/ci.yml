@@ -60,6 +60,10 @@ jobs:
       - name: Guard release-mode variant env isolation (expo-constants mode=production × each variant)
         run: pnpm verify:variants
 
+      # 原因：当前扫描结果为零个循环依赖，直接阻断，防止新增循环悄悄进入
+      - name: Guard against circular imports
+        run: pnpm check:cycles --strict
+
       - name: Validate Maestro E2E flow syntax and runFlow references
         run: pnpm verify:maestro
 
