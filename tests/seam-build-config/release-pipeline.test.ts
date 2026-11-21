@@ -188,3 +188,21 @@ describe('Seam: distribution release notes prefer the generated notes file over 
     ).toBe('内网自动化构建提测包');
   });
 });
+
+describe('Seam: Android emulator E2E stays out of the PR path', () => {
+  const e2e = workflows.find((w) => w.file === 'e2e-maestro-android.yml')?.text ?? '';
+
+  it('runs nightly, manually and on release tags, never on pull requests', () => {
+    const triggers = e2e.slice(e2e.indexOf('\non:'), e2e.indexOf('\npermissions:'));
+    expect(triggers).toContain('schedule:');
+    expect(triggers).toContain('workflow_dispatch');
+    expect(triggers).toMatch(/tags:\s*\n\s*- 'v\*'/);
+    expect(triggers).not.toContain('pull_request');
+  });
+
+  it('runs the smoke flow with failure artifacts', () => {
+    expect(e2e).toContain('.maestro/smoke.yaml');
+    expect(e2e).toContain('actions/upload-artifact@v4');
+    expect(e2e).toContain('if: failure()');
+  });
+});

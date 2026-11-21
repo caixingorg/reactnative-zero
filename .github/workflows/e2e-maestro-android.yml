@@ -1,0 +1,104 @@
+name: E2E Maestro Regression (Android Emulator)
+
+# 原因：模拟器在托管 runner 上耗时长且偶发不稳定，因此不放进 PR 必需检查；
+# 只在每晚（main）、手动触发与 v* 标签时运行，PR 级别的快速反馈由 CI 质量闸门与 Android 原生构建承担
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+    inputs:
+      flow:
+        description: 'Maestro flow file to execute'
+        required: false
+        default: '.maestro/smoke.yaml'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-maestro-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-e2e:
+    name: Build development app & run Maestro on an Android emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      APP_VARIANT: development
+      EXPO_USE_CHINA_MIRRORS: 'false'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle (dependency & build cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Maestro flow definitions
+        run: pnpm verify:maestro
+
+      - name: Install Maestro CLI
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Prebuild Android development variant
+        run: pnpm prebuild:dev --platform android --no-install
+
+      # 原因：用 Release 构建把 JS 打进包里，模拟器上无需另起 Metro；development 变体没有强制签名要求，缺少密钥时回退到 debug 签名；
+      # 只编 x86_64 与模拟器架构一致，避免全 ABI 编译拖过超时
+      - name: Assemble release APK for the emulator
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=x86_64
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Maestro E2E suite on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          MAESTRO_APP_ID: com.enterprise.rntemplate.dev
+          MAESTRO_FLOW: ${{ github.event.inputs.flow || '.maestro/smoke.yaml' }}
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            maestro test "$MAESTRO_FLOW" --debug-output .maestro-artifacts
+
+      - name: Upload Maestro failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-e2e-artifacts
+          path: .maestro-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
