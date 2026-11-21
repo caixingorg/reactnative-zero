@@ -69,6 +69,32 @@ describe('Seam: Android release signing is env-driven and never silently debug-s
     );
   });
 
+  it('gates the guard on the required flag and matches every release packaging task name', () => {
+    const output = injectAndroidReleaseSigning(templateBuildGradle, { required: true });
+    const guardCondition = output.match(/if \((project\.ext\.\w+) && releaseTaskScheduled\)/);
+    const taskPattern = output.match(/task\.name ==~ \/(.+)\/\n/);
+
+    expect(guardCondition?.[1]).toBe('project.ext.enterpriseReleaseSigningRequired');
+    const patternSource = taskPattern?.[1];
+    expect(patternSource).toBeDefined();
+    // 原因：Groovy 的 ==~ 是整串匹配，等价于 JS 的 ^...$；这里用同一个正则核对任务名
+    const matcher = new RegExp((patternSource ?? '').replace(/\\\\/g, '\\'));
+    for (const name of [
+      'assembleRelease',
+      'bundleRelease',
+      'packageRelease',
+      'assembleProductionRelease',
+    ]) {
+      expect(matcher.test(name)).toBe(true);
+    }
+    for (const name of ['assembleDebug', 'bundleDebug', 'lintRelease']) {
+      expect(matcher.test(name)).toBe(false);
+    }
+    // 原因：库模块的 bundleLib...Release 任务名同样会命中，必须靠 :app: 路径前缀排除
+    expect(matcher.test('bundleLibRuntimeToJarRelease')).toBe(true);
+    expect(output).toContain("task.path.startsWith(':app:')");
+  });
+
   it('only reads credentials at Gradle runtime and never writes literal secrets', () => {
     const output = injectAndroidReleaseSigning(templateBuildGradle, { required: true });
 

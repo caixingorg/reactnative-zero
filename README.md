@@ -551,7 +551,7 @@ bundle exec fastlane ios build_archive variant:staging export_method:"ad-hoc"
 | `ANDROID_KEY_PASSWORD`      | 密钥口令                                                                          |
 
 - **production**：四项缺任何一项，`assembleRelease` / `bundleRelease` 会直接失败，报错只列出缺少的变量名，绝不回退到 debug 密钥。`assembleDebug` 不受影响。
-- **staging / development**：提供了密钥就用 release 密钥；没提供时回退到 debug 签名，方便无密钥环境出测试包。需要分发给测试同学的包，请统一在持有密钥的机器上构建，否则签名不同会导致测试机无法覆盖安装。
+- **staging / development**：提供了密钥就用 release 密钥；没提供时回退到 debug 签名，方便无密钥环境出测试包。只设置了 `ANDROID_KEYSTORE_PATH` 而漏了其余三项属于配置不完整，构建会在签名阶段报错，不会回退。需要分发给测试同学的包，请统一在持有密钥的机器上构建，否则签名不同会导致测试机无法覆盖安装。
 - 7 个渠道包使用同一把密钥。**keystore 丢失后无法再更新已上架的应用，务必加密备份到至少两处**，不要提交到仓库（`.gitignore` 已忽略 `*.keystore`、`*.jks`）。
 - **迁移提醒**：此前打出的 release 包是 debug 签名，换成真实密钥后无法原地升级，已通过蒲公英安装旧包的测试同学需要先卸载再安装，请提前通知。
 - 这里只负责 Android；iOS 的 Team ID 与描述文件另行处理。
