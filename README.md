@@ -36,7 +36,8 @@ enterprise-rn-template/
 │   ├── env/                     ★ [业务必改] 按变体隔离的环境变量（development / staging / production.env）
 │   ├── expo-config-resolver.ts  ⚙️ [底座托管] 纯函数配置推导器（多变体包名后缀、自适应图标与权限插件装配）
 │   ├── with-capability-manifest-sanitizer.ts ⚙️ [底座托管] 编译期 Info.plist / AndroidManifest 权限与自启动清洗插件
-│   └── with-china-build-mirrors.ts           ⚙️ [底座托管] 国内/海外 Gradle 阿里云 Maven 与 Podfile 镜像注入插件
+│   ├── with-china-build-mirrors.ts           ⚙️ [底座托管] 国内/海外 Gradle 阿里云 Maven 与 Podfile 镜像注入插件
+│   └── with-android-release-signing.ts       ⚙️ [底座托管] Android release 签名注入插件（密钥来自环境变量，production 缺失即失败）
 ├── fastlane/
 │   └── Fastfile                 ⚙️ [底座托管] 本地 iOS/Android 归档及国内华米OV多渠道矩阵打包流水线
 ├── scripts/
@@ -540,6 +541,21 @@ bundle exec fastlane android build_domestic_matrix variant:production channels:"
 # 4. 本地 Xcode 归档导出 iOS IPA（无需 EAS Cloud）
 bundle exec fastlane ios build_archive variant:staging export_method:"ad-hoc"
 ```
+
+**Android release 签名**：Expo 模板默认用公开的 debug 密钥签 release 包，底座已通过 `config/with-android-release-signing.ts` 改为在 Gradle 运行时读取环境变量（也可写在 `~/.gradle/gradle.properties`），密钥和口令不会写进任何生成文件。
+
+| 变量                        | 说明                                                                              |
+| :-------------------------- | :-------------------------------------------------------------------------------- |
+| `ANDROID_KEYSTORE_PATH`     | keystore 文件的绝对路径（务必放在仓库目录之外；相对路径会按 `android/app/` 解析） |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore 口令                                                                     |
+| `ANDROID_KEY_ALIAS`         | 密钥别名                                                                          |
+| `ANDROID_KEY_PASSWORD`      | 密钥口令                                                                          |
+
+- **production**：四项缺任何一项，`assembleRelease` / `bundleRelease` 会直接失败，报错只列出缺少的变量名，绝不回退到 debug 密钥。`assembleDebug` 不受影响。
+- **staging / development**：提供了密钥就用 release 密钥；没提供时回退到 debug 签名，方便无密钥环境出测试包。只设置了 `ANDROID_KEYSTORE_PATH` 而漏了其余三项属于配置不完整，构建会在签名阶段报错，不会回退。需要分发给测试同学的包，请统一在持有密钥的机器上构建，否则签名不同会导致测试机无法覆盖安装。
+- 7 个渠道包使用同一把密钥。**keystore 丢失后无法再更新已上架的应用，务必加密备份到至少两处**，不要提交到仓库（`.gitignore` 已忽略 `*.keystore`、`*.jks`）。
+- **迁移提醒**：此前打出的 release 包是 debug 签名，换成真实密钥后无法原地升级，已通过蒲公英安装旧包的测试同学需要先卸载再安装，请提前通知。
+- 这里只负责 Android；iOS 的 Team ID 与描述文件另行处理。
 
 在 JS 业务代码中读取当前渠道号：
 
