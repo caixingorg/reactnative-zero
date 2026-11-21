@@ -1,7 +1,7 @@
 import { appIdentity } from '../app.identity';
 import { executeInternalDistribution, parseDistributeCliArgs } from './lib/distribute-core';
 
-// 原因：内网 Mac / GitLab Runner 分发入口，串联本地构建产物上传（蒲公英/自有制品库）与飞书/企微/钉钉群通知
+// 原因：内网 Mac / GitHub Actions 分发入口，串联本地构建产物上传（蒲公英/自有制品库）与飞书/企微/钉钉群通知
 async function main(): Promise<void> {
   const options = parseDistributeCliArgs(process.argv.slice(2), {
     ...process.env,

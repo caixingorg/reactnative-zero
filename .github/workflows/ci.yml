@@ -4,9 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  # 原因：发布流水线复用同一道质量闸门，job 名称不得改动，分支保护按该名称匹配
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Commit SHA to verify (release pipeline passes the validated tag commit)'
+        type: string
+        required: false
+        default: ''
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -17,6 +25,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

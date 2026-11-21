@@ -1,4 +1,4 @@
-# 原因：遵循 ADR-0001 去 EAS 海外云锁死策略，提供内网 Mac / GitLab Runner 本地自动化构建、安卓多渠道循环出包与蒲公英/群机器人分发流水线
+# 原因：遵循 ADR-0001 去 EAS 海外云锁死策略，提供内网 Mac / GitHub Actions 本地自动化构建、安卓多渠道循环出包与蒲公英/群机器人分发流水线
 default_platform(:android)
 
 require 'json'

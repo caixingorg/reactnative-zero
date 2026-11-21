@@ -22,6 +22,8 @@
     "prebuild:prod": "pnpm preflight && APP_VARIANT=production expo prebuild",
     "distribute": "tsx scripts/distribute-internal.ts",
     "distribute:dry-run": "tsx scripts/distribute-internal.ts --dry-run",
+    "changelog": "tsx scripts/changelog.ts",
+    "release:meta": "tsx scripts/release-meta.ts",
     "ios": "pnpm preflight && APP_VARIANT=development expo run:ios",
     "android": "pnpm preflight && APP_VARIANT=development expo run:android",
     "typecheck": "tsc --noEmit",

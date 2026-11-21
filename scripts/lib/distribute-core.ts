@@ -88,7 +88,7 @@ function assertValidHttpUrl(rawUrl: string, fieldName: string): string {
   return trimmed;
 }
 
-// 原因：统一解析命令行参数与 CI 环境变量，使本地开发、Fastlane 与 GitLab Runner 共享同一套参数契约
+// 原因：统一解析命令行参数与 CI 环境变量，使本地开发、Fastlane 与 CI 与本地共享同一套参数契约
 export function parseDistributeCliArgs(
   argv: string[],
   env: Record<string, string | undefined> = process.env,
@@ -101,7 +101,11 @@ export function parseDistributeCliArgs(
   // 原因：缺省版本与二进制同源（APP_VERSION 或 package.json），避免通知里的版本与包内版本不一致
   let version = env.DISTRIBUTE_APP_VERSION ?? resolveAppVersion(env);
   let commitSha = env.CI_COMMIT_SHORT_SHA ?? env.GITHUB_SHA?.slice(0, 7);
-  let releaseNotes = env.DISTRIBUTE_RELEASE_NOTES ?? '内网自动化构建提测包';
+  // 原因：发布流水线把 CHANGELOG 生成的说明写成文件传入，优先级低于显式的 DISTRIBUTE_RELEASE_NOTES，高于固定文案
+  const notesFile = env.DISTRIBUTE_RELEASE_NOTES_FILE;
+  const notesFromFile =
+    notesFile && fs.existsSync(notesFile) ? fs.readFileSync(notesFile, 'utf8').trim() : '';
+  let releaseNotes = env.DISTRIBUTE_RELEASE_NOTES ?? (notesFromFile || '内网自动化构建提测包');
   let pgyerApiKey = env.PGYER_API_KEY;
   let downloadUrl = env.DISTRIBUTE_DOWNLOAD_URL;
   let qrCodeUrl = env.DISTRIBUTE_QRCODE_URL;

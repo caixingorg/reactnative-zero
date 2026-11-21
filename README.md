@@ -2,7 +2,7 @@
 
 基于 **Expo Continuous Native Generation (CNG)** 构建的企业级可克隆 iOS / Android 移动应用底座（零付费云构建绑定、全量开启 React Native 新架构 Fabric / TurboModules，原生适配**中国大陆应用市场合规与海外双市场发布**）。
 
-> **快速导航**：查看分层拓扑图、冷启动与刷新锁时序图、构建期裁剪流水线及全模块职责速查表，请先阅读 [**技术架构全景手册 (`docs/ARCHITECTURE.md`)**](./docs/ARCHITECTURE.md)；领域术语见 [`CONTEXT.md`](./CONTEXT.md)，架构决策见 [`docs/adr/`](./docs/adr/)。
+> **快速导航**：查看分层拓扑图、冷启动与刷新锁时序图、构建期裁剪流水线及全模块职责速查表，请先阅读 [**技术架构全景手册 (`docs/ARCHITECTURE.md`)**](./docs/ARCHITECTURE.md)；发版流程见 [`docs/RELEASE.md`](./docs/RELEASE.md)；领域术语见 [`CONTEXT.md`](./CONTEXT.md)，架构决策见 [`docs/adr/`](./docs/adr/)。
 
 ---
 
@@ -525,7 +525,7 @@ env 'BUNDLE_MIRROR__HTTPS://RUBYGEMS__ORG/=https://rubygems.org' bundle install
 
 - 升级版本：`pnpm version:bump patch`（或 `minor` / `major` / 具体版本号），不会创建 git tag。
 - 版本覆盖：设置 `APP_VERSION` 可临时覆盖；`DISTRIBUTE_APP_VERSION` 或 `--version` 只影响分发通知文案。
-- iOS build number：`IOS_BUILD_NUMBER` → CI 流水线序号（`GITHUB_RUN_NUMBER` / `CI_PIPELINE_IID`）→ `1`。
+- iOS build number：`IOS_BUILD_NUMBER` → CI 流水线序号（`GITHUB_RUN_NUMBER` / `CI_PIPELINE_IID`）→ `1`。发布流水线不使用流水线序号，而是由标签推导并显式传入，见 [`docs/RELEASE.md`](./docs/RELEASE.md)。
 - Android versionCode：`ANDROID_VERSION_CODE` → CI 流水线序号 → `1`。本地构建没有 CI 序号时固定为 `1`，需要递增请显式传入环境变量。
 
 ```bash

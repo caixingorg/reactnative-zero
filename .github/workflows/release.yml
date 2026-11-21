@@ -1,0 +1,234 @@
+name: Release
+
+# 原因：仓库是公开的，发布流水线只响应 v* 标签与手动触发，绝不监听 pull_request / pull_request_target；
+# 自建 iOS runner 只在 ios job 中出现，且受 vars.IOS_RELEASE_ENABLED 与 release 环境审核双重限制
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (must already exist, e.g. v1.2.3 or v1.2.3-rc.1)'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Resolve tag and verify it belongs to main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      sha: ${{ steps.sha.outputs.sha }}
+      variant: ${{ steps.meta.outputs.variant }}
+      version: ${{ steps.meta.outputs.version }}
+      version_code: ${{ steps.meta.outputs.version_code }}
+    steps:
+      - name: Require main for manual runs
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "Manual releases must be dispatched from main." >&2
+          exit 1
+
+      - name: Resolve tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 原因：完整历史才能判断标签提交是否属于 main，也是 CHANGELOG 取范围的前提
+      - name: Checkout tag with full history
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+
+      # 原因：后续所有 job 都按这个提交 SHA 检出，审核等待期间即使标签被移动，出包的也是通过校验的那个提交
+      - name: Pin the validated commit
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # 原因：标签名可含 shell 元字符，一律经 env 传入，不直接插值进脚本
+      - name: Require the tagged commit to be on main
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Tag ${RELEASE_TAG} is not reachable from main; refusing to release." >&2
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Derive variant, version and build number from the tag
+        id: meta
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: pnpm --silent run release:meta "${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes from Conventional Commits
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: pnpm run changelog --to "${RELEASE_TAG}" --out dist/release-notes.md
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: dist/release-notes.md
+          retention-days: 30
+
+  gate:
+    name: Quality gate
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.guard.outputs.sha }}
+
+  android:
+    name: Android release build and distribute
+    needs: [guard, gate]
+    runs-on: ubuntu-latest
+    # 原因：release 构建包含全部 ABI，PR 构建只编一个 ABI 仍需较长时间，首次全量构建留足余量
+    timeout-minutes: 120
+    environment: release
+    env:
+      APP_VARIANT: ${{ needs.guard.outputs.variant }}
+      ANDROID_VERSION_CODE: ${{ needs.guard.outputs.version_code }}
+      # 原因：托管 runner 在海外，国内镜像反而会拖慢或打断依赖下载
+      EXPO_USE_CHINA_MIRRORS: 'false'
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Ruby (fastlane)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: dist
+
+      # 原因：keystore 以 base64 存在 release 环境的 secret 中，只写到 runner 临时目录，job 结束即销毁；路径写入 env 供 Gradle 读取
+      - name: Restore release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "${KEYSTORE_BASE64}" ]; then
+            echo "${KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/release.keystore"
+            echo "ANDROID_KEYSTORE_PATH=${RUNNER_TEMP}/release.keystore" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build and distribute
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PGYER_API_KEY: ${{ secrets.PGYER_API_KEY }}
+          DISTRIBUTE_WEBHOOK_TYPE: ${{ vars.DISTRIBUTE_WEBHOOK_TYPE }}
+          DISTRIBUTE_WEBHOOK_URL: ${{ secrets.DISTRIBUTE_WEBHOOK_URL }}
+          DISTRIBUTE_RELEASE_NOTES_FILE: dist/release-notes.md
+        run: bundle exec fastlane android build_channel variant:${{ needs.guard.outputs.variant }} distribute:true
+
+  ios:
+    name: iOS release build and distribute (internal Mac)
+    needs: [guard, gate]
+    # 原因：内部 Mac 注册之前保持关闭，否则 job 会一直排队等不到 runner
+    if: ${{ vars.IOS_RELEASE_ENABLED == 'true' }}
+    runs-on: [self-hosted, macOS, ios-release]
+    timeout-minutes: 90
+    environment: release
+    env:
+      APP_VARIANT: ${{ needs.guard.outputs.variant }}
+      IOS_BUILD_NUMBER: ${{ needs.guard.outputs.version_code }}
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Install fastlane gems
+        run: bundle install --quiet
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: dist
+
+      - name: Build and distribute
+        env:
+          IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
+          IOS_PROVISIONING_PROFILE: ${{ vars.IOS_PROVISIONING_PROFILE }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          PGYER_API_KEY: ${{ secrets.PGYER_API_KEY }}
+          DISTRIBUTE_WEBHOOK_TYPE: ${{ vars.DISTRIBUTE_WEBHOOK_TYPE }}
+          DISTRIBUTE_WEBHOOK_URL: ${{ secrets.DISTRIBUTE_WEBHOOK_URL }}
+          DISTRIBUTE_RELEASE_NOTES_FILE: dist/release-notes.md
+        run: bundle exec fastlane ios build_archive variant:${{ needs.guard.outputs.variant }} export_method:ad-hoc distribute:true
