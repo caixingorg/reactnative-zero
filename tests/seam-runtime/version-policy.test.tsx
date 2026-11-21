@@ -30,7 +30,7 @@ function adapterReturning(
 const baseOptions = {
   currentVersion: '1.2.0',
   platform: 'android' as const,
-  isConsentGranted: () => false,
+  isConsentGranted: () => true,
 };
 
 describe('Seam: minimum version and kill-switch policy', () => {
@@ -41,7 +41,7 @@ describe('Seam: minimum version and kill-switch policy', () => {
     expect(compareVersions('1.2.x', '1.2.0')).toBeNull();
   });
 
-  it('never sends identifiers before consent and only sends them after consent when the app supplies them', async () => {
+  it('sends no request before consent, then sends identifiers only when the app supplies a source', async () => {
     const seen: VersionPolicyRequest[] = [];
     let consent = false;
     const store = createVersionPolicyStore({
@@ -52,18 +52,27 @@ describe('Seam: minimum version and kill-switch policy', () => {
     });
 
     await store.getState().check();
+    expect(seen).toHaveLength(0);
+    expect(store.getState().status).toBe('unknown');
+
     consent = true;
     await store.getState().check();
+    expect(seen[0]?.identifiers).toEqual({ installId: 'abc' });
 
-    expect(seen[0]).toEqual({ appVersion: '1.2.0', platform: 'android' });
-    expect(seen[1]?.identifiers).toEqual({ installId: 'abc' });
-
-    const noSource: VersionPolicyRequest[] = [];
+    const optIn: VersionPolicyRequest[] = [];
     await createVersionPolicyStore({
       ...baseOptions,
-      adapter: adapterReturning({}, noSource),
-      isConsentGranted: () => true,
+      isConsentGranted: () => false,
+      allowBeforeConsent: true,
+      getIdentifiers: () => ({ installId: 'abc' }),
+      adapter: adapterReturning({}, optIn),
     })
+      .getState()
+      .check();
+    expect(optIn[0]).toEqual({ appVersion: '1.2.0', platform: 'android' });
+
+    const noSource: VersionPolicyRequest[] = [];
+    await createVersionPolicyStore({ ...baseOptions, adapter: adapterReturning({}, noSource) })
       .getState()
       .check();
     expect(noSource[0]?.identifiers).toBeUndefined();
@@ -157,5 +166,103 @@ describe('Seam: minimum version and kill-switch policy', () => {
     const store = createVersionPolicyStore(baseOptions);
     await store.getState().check();
     expect(store.getState()).toMatchObject({ status: 'ok', killSwitches: {} });
+  });
+
+  it('keeps a confirmed lock when a later check fails or returns a malformed payload, and keeps kill-switches when none are sent', async () => {
+    const responses: (VersionPolicyResponse | Error)[] = [
+      { minVersion: '2.0.0', updateUrl: 'https://example.com/app', killSwitches: { chat: true } },
+      new Error('network down'),
+      {},
+      { minVersion: 'v9' },
+    ];
+    const store = createVersionPolicyStore({
+      ...baseOptions,
+      adapter: {
+        fetchPolicy: async () =>
+          adapterReturning(responses.shift() as never).fetchPolicy({} as never),
+      },
+    });
+
+    await store.getState().check();
+    expect(store.getState().status).toBe('update-required');
+    for (let i = 0; i < 3; i += 1) {
+      await store.getState().check();
+      expect(store.getState().status).toBe('update-required');
+      expect(store.getState().isKillSwitchOn('chat')).toBe(true);
+    }
+  });
+
+  it('ignores a stale response that arrives after a newer check', async () => {
+    const resolvers: ((value: VersionPolicyResponse) => void)[] = [];
+    const store = createVersionPolicyStore({
+      ...baseOptions,
+      adapter: {
+        fetchPolicy: () => new Promise<VersionPolicyResponse>((resolve) => resolvers.push(resolve)),
+      },
+    });
+
+    const first = store.getState().check();
+    const second = store.getState().check();
+    resolvers[1]?.({ minVersion: '2.0.0', updateUrl: 'https://example.com/app' });
+    await second;
+    resolvers[0]?.({ minVersion: '1.0.0' });
+    await first;
+
+    expect(store.getState().status).toBe('update-required');
+  });
+
+  it('never rejects when the app callbacks throw', async () => {
+    const store = createVersionPolicyStore({
+      ...baseOptions,
+      adapter: adapterReturning({}),
+      isConsentGranted: () => {
+        throw new Error('boom');
+      },
+    });
+    await expect(store.getState().check()).resolves.toBeUndefined();
+    expect(store.getState().status).toBe('ok');
+
+    const identifiers = createVersionPolicyStore({
+      ...baseOptions,
+      adapter: adapterReturning({}),
+      getIdentifiers: () => {
+        throw new Error('boom');
+      },
+    });
+    await expect(identifiers.getState().check()).resolves.toBeUndefined();
+    expect(identifiers.getState().status).toBe('ok');
+  });
+
+  it('accepts store deep links, falls back to the configured link, and never blocks when no link exists', async () => {
+    const store = createVersionPolicyStore({
+      ...baseOptions,
+      adapter: adapterReturning({
+        minVersion: '2.0.0',
+        updateUrl: 'market://details?id=com.example',
+      }),
+    });
+    await store.getState().check();
+    expect(store.getState()).toMatchObject({
+      status: 'update-required',
+      updateUrl: 'market://details?id=com.example',
+    });
+
+    const fallback = createVersionPolicyStore({
+      ...baseOptions,
+      fallbackUpdateUrl: 'https://example.com/download',
+      adapter: adapterReturning({ minVersion: '2.0.0', updateUrl: 'javascript:alert(1)' }),
+    });
+    await fallback.getState().check();
+    expect(fallback.getState()).toMatchObject({
+      status: 'update-required',
+      updateUrl: 'https://example.com/download',
+    });
+
+    const noLink = createVersionPolicyStore({
+      ...baseOptions,
+      adapter: adapterReturning({ minVersion: '2.0.0' }),
+    });
+    await noLink.getState().check();
+    expect(noLink.getState().status).toBe('ok');
   });
 });

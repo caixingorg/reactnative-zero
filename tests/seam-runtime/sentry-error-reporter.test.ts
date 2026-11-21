@@ -90,4 +90,20 @@ describe('Seam: Sentry-protocol error reporter adapter is off by default and con
     expect(calls.close).toBe(1);
     expect(calls.captured).toEqual([boom]);
   });
+
+  it('resumes delivery when consent is granted again after being revoked in the same session', async () => {
+    const { client, calls } = fakeClient();
+    const suite = createObservabilitySuite({
+      errorReporter: createSentryErrorReporter({ client, dsn: 'https://key@sentry.example.com/1' }),
+    });
+
+    await suite.errorReporter.initialize();
+    suite.revokeConsent();
+    await suite.errorReporter.initialize();
+    const again = new Error('after re-consent');
+    suite.errorReporter.captureException(again);
+
+    expect(calls.init).toBe(2);
+    expect(calls.captured).toEqual([again]);
+  });
 });

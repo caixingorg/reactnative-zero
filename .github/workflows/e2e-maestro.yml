@@ -69,4 +69,5 @@ jobs:
         with:
           name: maestro-e2e-artifacts
           path: .maestro-artifacts
+          include-hidden-files: true
           retention-days: 7

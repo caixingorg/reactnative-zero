@@ -97,8 +97,7 @@ function OpenDevToolsDrawerContent({
               {t('devtools.versionLabel')}: v{appVersion} ({Platform.OS} {String(Platform.Version)})
             </AppText>
             <AppText variant="caption" tone="secondary">
-              {t('devtools.startupLabel')}:{' '}
-              {appPerformanceMarks.getMarks()['first-interactive'] ?? '—'}
+              {t('devtools.startupLabel')}: {appPerformanceMarks.getMarks()['root-mounted'] ?? '—'}
             </AppText>
             <AppText variant="caption" tone="secondary">
               {t('devtools.networkLabel')}:{' '}
