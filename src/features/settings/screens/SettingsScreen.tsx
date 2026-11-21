@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useBiometricsCapability } from '@/core/capabilities/biometrics';
 import type { LegalDocumentTarget } from '@/core/config/types';
 import type { SupportedLanguage } from '@/core/i18n/resources';
-import { useAppRuntime, useAuthSession, useDevTools, usePreferences } from '@/core/runtime';
+import {
+  useAppRuntime,
+  useAuthSession,
+  useDevTools,
+  usePreferences,
+  useToast,
+} from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import type { ThemePreference } from '@/core/theme/tokens';
 import {
@@ -109,7 +116,24 @@ export function SettingsScreen({
   const effectiveApiBaseUrl = useDevTools((state) => state.effectiveApiBaseUrl);
   const language = usePreferences((state) => state.language);
   const setLanguage = usePreferences((state) => state.setLanguage);
+  const biometrics = useBiometricsCapability();
+  const toast = useToast();
+  const [biometricLockEnabled, setBiometricLockEnabled] = useState(false);
   const [signOutDialogVisible, setSignOutDialogVisible] = useState(false);
+
+  const handleToggleBiometricLock = async (nextValue: boolean): Promise<void> => {
+    if (!nextValue) {
+      setBiometricLockEnabled(false);
+      return;
+    }
+    const result = await biometrics.authenticate('验证生物识别以开启应用安全锁');
+    if (result?.authenticated) {
+      setBiometricLockEnabled(true);
+      toast.show({ message: '已开启生物识别安全锁', tone: 'success' });
+    } else {
+      toast.show({ message: '生物识别校验未通过', tone: 'warning' });
+    }
+  };
 
   const openDevToolsHandler =
     env.appVariant !== 'production' && devToolsStore.getState().enabled
@@ -192,9 +216,29 @@ export function SettingsScreen({
     });
   }
 
-  const sections: SettingsSection[] = [
-    { key: 'app-info', title: t('settings.appInfoTitle'), items: appInfoItems },
-  ];
+  const sections: SettingsSection[] = [];
+
+  if (biometrics.enabled) {
+    sections.push({
+      key: 'security',
+      title: '安全与隐私',
+      items: [
+        {
+          key: 'biometric-lock',
+          kind: 'switch',
+          label: '生物识别解锁',
+          description: '使用面容或指纹保护应用访问',
+          value: biometricLockEnabled,
+          onValueChange: (next) => {
+            void handleToggleBiometricLock(next);
+          },
+          testID: 'settings-biometrics-switch',
+        },
+      ],
+    });
+  }
+
+  sections.push({ key: 'app-info', title: t('settings.appInfoTitle'), items: appInfoItems });
 
   if (developerItems.length > 0) {
     sections.push({ key: 'developer', title: '开发者', items: developerItems });

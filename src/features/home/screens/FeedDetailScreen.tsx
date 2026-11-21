@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useFilesCapability } from '@/core/capabilities/files';
 import { AppApiError } from '@/core/network/types';
 import { useAppRuntime, useToast } from '@/core/runtime';
 import {
@@ -24,6 +25,7 @@ export interface FeedDetailScreenProps {
 export function FeedDetailScreen({ itemId, onBack }: FeedDetailScreenProps): React.JSX.Element {
   const { t } = useTranslation();
   const { httpClient } = useAppRuntime();
+  const files = useFilesCapability();
   const toast = useToast();
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
@@ -74,7 +76,16 @@ export function FeedDetailScreen({ itemId, onBack }: FeedDetailScreenProps): Rea
       favorited={favorited}
       onToggleLike={() => setLiked((prev) => !prev)}
       onToggleFavorite={() => setFavorited((prev) => !prev)}
-      onShare={() => toast.show({ message: '已复制分享链接', tone: 'success' })}
+      onShare={() => {
+        if (files.enabled) {
+          void files.writeTextFileAndShare(
+            `detail-${itemId || 'share'}.txt`,
+            `${data.title}\n\n${data.summary}\n\n${data.content}`,
+          );
+        } else {
+          toast.show({ message: '已复制分享链接', tone: 'success' });
+        }
+      }}
     >
       <HStack justify="space-between" align="center">
         <AppText variant="caption" tone="brand" weight="600">

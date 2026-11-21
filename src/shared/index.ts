@@ -8,6 +8,8 @@ export {
   type FeedItemStatus,
   type FeedStatusBadgeProps,
 } from './components/FeedStatusBadge';
+export { QuickComposerCard, type QuickComposerCardProps } from './components/QuickComposerCard';
+export { QuickMusicBar } from './components/QuickMusicBar';
 export { VariantCapsuleBadge } from './components/VariantCapsuleBadge';
 export { createDemoHttpTransport } from './demo/demo-http-transport';
 export { useMockPaginatedFeed, type MockListRecord } from './demo/paginated-mock-feed';

@@ -5,12 +5,14 @@ import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
+import { BarcodeScannerView } from '@/core/capabilities/camera';
 import { AppApiError } from '@/core/network/types';
-import { useAppRuntime, useConnectivity, useDrawer } from '@/core/runtime';
+import { useAppRuntime, useConnectivity, useDrawer, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppImage,
   AppText,
+  BottomSheetModal,
   Box,
   Button,
   DrawerTriggerButton,
@@ -28,7 +30,12 @@ import {
   type PageStatus,
   type TopTabItem,
 } from '@/core/ui';
-import { FeedStatusBadge, useMockPaginatedFeed, type MockListRecord } from '@/shared';
+import {
+  FeedStatusBadge,
+  QuickComposerCard,
+  useMockPaginatedFeed,
+  type MockListRecord,
+} from '@/shared';
 import { fetchFeedPage } from '../api/feed-api';
 import type { FeedSummaryItem } from '../types';
 
@@ -36,6 +43,7 @@ export interface HomeStarterScreenProps {
   onSelectItem?: (itemId: string) => void;
   onSelectRecord?: (record: MockListRecord) => void;
   onOpenSearch?: () => void;
+  onOpenWebView?: () => void;
 }
 
 const HOME_TABS: readonly TopTabItem[] = [
@@ -246,12 +254,14 @@ interface AsyncHomeSubTabProps {
   channelKey: 'following' | 'trending';
   isActive: boolean;
   onSelectRecord?: (record: MockListRecord) => void;
+  onOpenWebView?: () => void;
 }
 
 function AsyncHomeSubTab({
   channelKey,
   isActive,
   onSelectRecord,
+  onOpenWebView,
 }: AsyncHomeSubTabProps): React.JSX.Element {
   const { tokens } = useAppTheme();
   const feed = useMockPaginatedFeed(channelKey);
@@ -264,6 +274,38 @@ function AsyncHomeSubTab({
           ? 'empty'
           : 'ready';
 
+  const listHeader =
+    channelKey === 'following' ? (
+      <QuickComposerCard />
+    ) : (
+      <Pressable
+        testID="home-trending-banner"
+        accessibilityRole="button"
+        onPress={onOpenWebView}
+        style={({ pressed }) => [
+          styles.trendingBanner,
+          {
+            backgroundColor: tokens.colors.primarySoft,
+            borderRadius: tokens.radii.lg,
+          },
+          pressed && styles.pressed,
+        ]}
+      >
+        <HStack align="center" justify="space-between" gap="md">
+          <VStack flex={1} gap="xs">
+            <AppText variant="caption" tone="brand" weight="700">
+              H5 专题活动
+            </AppText>
+            <AppText variant="titleMd">企业移动底座 · 2026 架构白皮书</AppText>
+            <AppText variant="caption" tone="secondary">
+              点击进入安全混合 WebView 阅读完整互动专题
+            </AppText>
+          </VStack>
+          <Ionicons name="open-outline" size={22} color={tokens.colors.primary} />
+        </HStack>
+      </Pressable>
+    );
+
   return (
     <View testID={`home-tab-${channelKey}`} style={styles.flex}>
       <ListTemplate
@@ -271,6 +313,7 @@ function AsyncHomeSubTab({
         keyExtractor={(item) => item.id}
         status={status}
         isActive={isActive}
+        listHeader={listHeader}
         refreshing={feed.isRefetching}
         onRefresh={() => {
           void feed.refetch();
@@ -335,10 +378,13 @@ export function HomeStarterScreen({
   onSelectItem,
   onSelectRecord,
   onOpenSearch,
+  onOpenWebView,
 }: HomeStarterScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
   const drawer = useDrawer();
+  const toast = useToast();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [scannerVisible, setScannerVisible] = useState(false);
   const scrollProgress = useSharedValue(0);
 
   return (
@@ -350,18 +396,30 @@ export function HomeStarterScreen({
         scrollProgress={scrollProgress}
         leftSlot={<DrawerTriggerButton testID="home-drawer-button" onPress={drawer.open} />}
         rightSlot={
-          onOpenSearch ? (
+          <HStack align="center">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="搜索"
-              testID="home-search-button"
-              onPress={onOpenSearch}
+              accessibilityLabel="扫一扫"
+              testID="home-scan-button"
+              onPress={() => setScannerVisible(true)}
               hitSlop={8}
               style={styles.iconBtn}
             >
-              <Ionicons name="search-outline" size={22} color={tokens.colors.textPrimary} />
+              <Ionicons name="scan-outline" size={21} color={tokens.colors.textPrimary} />
             </Pressable>
-          ) : undefined
+            {onOpenSearch ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="搜索"
+                testID="home-search-button"
+                onPress={onOpenSearch}
+                hitSlop={8}
+                style={styles.iconBtn}
+              >
+                <Ionicons name="search-outline" size={22} color={tokens.colors.textPrimary} />
+              </Pressable>
+            ) : null}
+          </HStack>
         }
       />
       <TabPager
@@ -388,10 +446,27 @@ export function HomeStarterScreen({
               channelKey="trending"
               isActive={isActive}
               onSelectRecord={onSelectRecord}
+              onOpenWebView={onOpenWebView}
             />
           );
         }}
       />
+      <BottomSheetModal
+        visible={scannerVisible}
+        title="扫一扫"
+        onClose={() => setScannerVisible(false)}
+      >
+        <BarcodeScannerView
+          rationale={{
+            title: '相机权限说明',
+            description: '用于扫描二维码或条形码。',
+          }}
+          onScanned={(payload) => {
+            setScannerVisible(false);
+            toast.show({ message: `扫码结果：${payload.data}`, tone: 'success' });
+          }}
+        />
+      </BottomSheetModal>
     </Screen>
   );
 }
@@ -406,6 +481,10 @@ const styles = StyleSheet.create({
   tagPill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
+  },
+  trendingBanner: {
+    padding: 16,
+    marginBottom: 12,
   },
   rankBadge: {
     width: 32,

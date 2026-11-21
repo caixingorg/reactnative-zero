@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useFilesCapability } from '@/core/capabilities/files';
 import { useToast } from '@/core/runtime';
 import { AppText, DetailTemplate } from '@/core/ui';
 
@@ -15,6 +16,7 @@ export function ContentDetailScreen({
   body,
   onBack,
 }: ContentDetailScreenProps = {}): React.JSX.Element {
+  const files = useFilesCapability();
   const toast = useToast();
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
@@ -29,7 +31,13 @@ export function ContentDetailScreen({
       favorited={favorited}
       onToggleLike={() => setLiked((prev) => !prev)}
       onToggleFavorite={() => setFavorited((prev) => !prev)}
-      onShare={() => toast.show({ message: '已复制分享链接', tone: 'success' })}
+      onShare={() => {
+        if (files.enabled) {
+          void files.writeTextFileAndShare('article-share.txt', `${title}\n${subtitle}`);
+        } else {
+          toast.show({ message: '已复制分享链接', tone: 'success' });
+        }
+      }}
     >
       <AppText variant="bodyMd">
         {body ??

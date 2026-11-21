@@ -2,9 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { useDrawer } from '@/core/runtime';
+import { useFilesCapability } from '@/core/capabilities/files';
+import { useMediaCapability } from '@/core/capabilities/media';
+import { useAuthSession, useDrawer, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
+  AppImage,
   AppText,
   DrawerTriggerButton,
   HStack,
@@ -16,7 +19,7 @@ import {
   type PageStatus,
   type TopTabItem,
 } from '@/core/ui';
-import { useMockPaginatedFeed, type MockListRecord } from '@/shared';
+import { QuickComposerCard, useMockPaginatedFeed, type MockListRecord } from '@/shared';
 
 export interface ProfileScreenProps {
   onOpenSettings?: () => void;
@@ -38,7 +41,14 @@ function ProfileSubTab({
   isActive: boolean;
   onSelectRecord?: (record: MockListRecord) => void;
 }): React.JSX.Element {
+  const { tokens } = useAppTheme();
+  const user = useAuthSession((state) => state.user);
+  const files = useFilesCapability();
+  const media = useMediaCapability();
+  const toast = useToast();
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const feed = useMockPaginatedFeed(tabKey);
+
   const status: PageStatus =
     feed.isLoading && feed.items.length === 0
       ? 'loading'
@@ -48,6 +58,100 @@ function ProfileSubTab({
           ? 'empty'
           : 'ready';
 
+  const handleExportFavorites = async (): Promise<void> => {
+    const content = feed.items.map((item, idx) => `${idx + 1}. ${item.title}`).join('\n');
+    const shared = await files.writeTextFileAndShare(
+      'favorites-export.txt',
+      content || '暂无收藏记录',
+    );
+    if (shared) {
+      toast.show({ message: '已生成收藏清单供系统分享', tone: 'success' });
+    }
+  };
+
+  const handlePickAvatar = async (): Promise<void> => {
+    const picked = await media.pickImageWithPermission({
+      title: '相册权限说明',
+      description: '用于挑选本地图片更换个人头像。',
+    });
+    if (picked) {
+      setAvatarUri(picked.uri);
+      toast.show({ message: '头像已更新（本地预览）', tone: 'success' });
+    }
+  };
+
+  const listHeader =
+    tabKey === 'favorites' && files.enabled ? (
+      <HStack
+        p="md"
+        bg="surface"
+        radius="lg"
+        bordered
+        align="center"
+        justify="space-between"
+        style={styles.headerBlock}
+      >
+        <VStack>
+          <AppText variant="bodySm" weight="600">
+            我的收藏清单
+          </AppText>
+          <AppText variant="caption" tone="secondary">
+            支持一键导出为文本并调用系统分享
+          </AppText>
+        </VStack>
+        <Pressable
+          testID="profile-export-favorites-btn"
+          accessibilityRole="button"
+          onPress={() => {
+            void handleExportFavorites();
+          }}
+          style={[
+            styles.pillBtn,
+            { backgroundColor: tokens.colors.primarySoft, borderRadius: tokens.radii.full },
+          ]}
+        >
+          <AppText variant="caption" tone="brand" weight="600">
+            导出分享
+          </AppText>
+        </Pressable>
+      </HStack>
+    ) : tabKey === 'activity' ? (
+      <VStack gap="sm" style={styles.headerBlock}>
+        <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
+          <Pressable
+            testID="profile-avatar-btn"
+            accessibilityRole="button"
+            accessibilityLabel="更换头像"
+            onPress={() => {
+              void handlePickAvatar();
+            }}
+          >
+            {avatarUri ? (
+              <AppImage uri={avatarUri} width={48} height={48} />
+            ) : (
+              <View
+                style={[
+                  styles.avatarFallback,
+                  { backgroundColor: tokens.colors.primary, borderRadius: tokens.radii.full },
+                ]}
+              >
+                <AppText variant="titleMd" tone="inverse" weight="700">
+                  {(user?.displayName ?? '我').slice(0, 1).toUpperCase()}
+                </AppText>
+              </View>
+            )}
+          </Pressable>
+          <VStack flex={1} gap="xs">
+            <AppText variant="titleMd">{user?.displayName ?? '演示用户'}</AppText>
+            <AppText variant="caption" tone="secondary">
+              点击头像可从相册更换 · 下方支持图文动态发布
+            </AppText>
+          </VStack>
+        </HStack>
+        <QuickComposerCard />
+      </VStack>
+    ) : null;
+
   return (
     <View testID={`profile-tab-${tabKey}`} style={styles.flex}>
       <ListTemplate
@@ -55,6 +159,7 @@ function ProfileSubTab({
         keyExtractor={(item) => item.id}
         status={status}
         isActive={isActive}
+        listHeader={listHeader}
         refreshing={feed.isRefetching}
         onRefresh={() => {
           void feed.refetch();
@@ -145,6 +250,19 @@ export function ProfileScreen({
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  headerBlock: {
+    marginBottom: 12,
+  },
+  avatarFallback: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   iconButton: {
     width: 40,
