@@ -543,12 +543,12 @@ bundle exec fastlane ios build_archive variant:staging export_method:"ad-hoc"
 
 **Android release 签名**：Expo 模板默认用公开的 debug 密钥签 release 包，底座已通过 `config/with-android-release-signing.ts` 改为在 Gradle 运行时读取环境变量（也可写在 `~/.gradle/gradle.properties`），密钥和口令不会写进任何生成文件。
 
-| 变量                        | 说明                                            |
-| :-------------------------- | :---------------------------------------------- |
-| `ANDROID_KEYSTORE_PATH`     | keystore 文件的绝对路径（务必放在仓库目录之外） |
-| `ANDROID_KEYSTORE_PASSWORD` | keystore 口令                                   |
-| `ANDROID_KEY_ALIAS`         | 密钥别名                                        |
-| `ANDROID_KEY_PASSWORD`      | 密钥口令                                        |
+| 变量                        | 说明                                                                              |
+| :-------------------------- | :-------------------------------------------------------------------------------- |
+| `ANDROID_KEYSTORE_PATH`     | keystore 文件的绝对路径（务必放在仓库目录之外；相对路径会按 `android/app/` 解析） |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore 口令                                                                     |
+| `ANDROID_KEY_ALIAS`         | 密钥别名                                                                          |
+| `ANDROID_KEY_PASSWORD`      | 密钥口令                                                                          |
 
 - **production**：四项缺任何一项，`assembleRelease` / `bundleRelease` 会直接失败，报错只列出缺少的变量名，绝不回退到 debug 密钥。`assembleDebug` 不受影响。
 - **staging / development**：提供了密钥就用 release 密钥；没提供时回退到 debug 签名，方便无密钥环境出测试包。需要分发给测试同学的包，请统一在持有密钥的机器上构建，否则签名不同会导致测试机无法覆盖安装。

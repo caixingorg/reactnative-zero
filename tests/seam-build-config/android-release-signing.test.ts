@@ -5,7 +5,17 @@ import { resolveExpoConfig } from '@root/config/expo-config-resolver';
 import {
   ANDROID_SIGNING_ENV_NAMES,
   injectAndroidReleaseSigning,
+  withAndroidReleaseSigning,
 } from '@root/config/with-android-release-signing';
+
+// 原因：只替换 withAppBuildGradle，让插件拿到一份 Kotlin DSL 的 build.gradle，其余 expo/config-plugins 导出保持真实
+jest.mock('expo/config-plugins', () => ({
+  ...jest.requireActual('expo/config-plugins'),
+  withAppBuildGradle: (
+    config: object,
+    action: (c: { modResults: { language: string; contents: string } }) => object,
+  ) => action({ ...config, modResults: { language: 'kt', contents: '' } }),
+}));
 
 // 原因：夹具取自 Expo 官方 bare 模板的原始 app/build.gradle，用来在模板升级后第一时间发现锚点失效
 const templateBuildGradle = readFileSync(
@@ -33,11 +43,12 @@ describe('Seam: Android release signing is env-driven and never silently debug-s
     );
   });
 
-  it('signs the production release build type with the injected release config instead of debug', () => {
+  it('wires the production release build type to the injected release config and marks signing as required', () => {
     const output = injectAndroidReleaseSigning(templateBuildGradle, { required: true });
 
-    expect(releaseBuildTypeBody(output)).toContain('signingConfig signingConfigs.release');
-    expect(releaseBuildTypeBody(output)).not.toContain('signingConfigs.debug');
+    expect(releaseBuildTypeBody(output)).toContain('signingConfigs.release : signingConfigs.debug');
+    expect(output).toContain('project.ext.enterpriseReleaseSigningRequired = true');
+    expect(output).toContain('gradle.taskGraph.whenReady');
   });
 
   it('guards production release tasks with a late, name-only failure that leaves assembleDebug alone', () => {
@@ -50,13 +61,12 @@ describe('Seam: Android release signing is env-driven and never silently debug-s
       expect(output).toContain(`'${name}'`);
     }
     // 原因：配置阶段不得因缺少密钥而抛错，否则 assembleDebug 与 PR 构建都会被误伤
-    const beginMarker = '// @enterprise-rn-release-signing-begin';
-    const endMarker = '// @enterprise-rn-release-signing-end';
-    const configurationBlock = output.slice(
-      output.indexOf(beginMarker),
-      output.indexOf(endMarker) + endMarker.length,
+    // 原因：签名配置块和 buildTypes 里的 release 行都在配置阶段执行，二者都不得抛错；抛错只允许出现在 taskGraph 回调里
+    const configurationPart = output.slice(0, output.indexOf('gradle.taskGraph.whenReady'));
+    expect(configurationPart).not.toContain('throw');
+    expect(output.slice(output.indexOf('gradle.taskGraph.whenReady'))).toContain(
+      'throw new GradleException',
     );
-    expect(configurationBlock).not.toContain('throw');
   });
 
   it('only reads credentials at Gradle runtime and never writes literal secrets', () => {
@@ -75,7 +85,7 @@ describe('Seam: Android release signing is env-driven and never silently debug-s
     expect(releaseBuildTypeBody(output)).toContain(
       'signingConfigs.release.storeFile != null ? signingConfigs.release : signingConfigs.debug',
     );
-    expect(output).not.toContain('gradle.taskGraph.whenReady');
+    expect(output).toContain('project.ext.enterpriseReleaseSigningRequired = false');
   });
 
   it('is idempotent', () => {
@@ -83,6 +93,40 @@ describe('Seam: Android release signing is env-driven and never silently debug-s
       const once = injectAndroidReleaseSigning(templateBuildGradle, { required });
       expect(injectAndroidReleaseSigning(once, { required })).toBe(once);
     }
+  });
+
+  it('re-targets the required flag when prebuild reruns on an existing file without --clean', () => {
+    const staging = injectAndroidReleaseSigning(templateBuildGradle, { required: false });
+    const stagingThenProduction = injectAndroidReleaseSigning(staging, { required: true });
+    expect(stagingThenProduction).toContain('project.ext.enterpriseReleaseSigningRequired = true');
+    expect(stagingThenProduction).not.toContain(
+      'project.ext.enterpriseReleaseSigningRequired = false',
+    );
+    expect(stagingThenProduction).toBe(
+      injectAndroidReleaseSigning(templateBuildGradle, { required: true }),
+    );
+
+    const production = injectAndroidReleaseSigning(templateBuildGradle, { required: true });
+    const productionThenStaging = injectAndroidReleaseSigning(production, { required: false });
+    expect(productionThenStaging).toBe(
+      injectAndroidReleaseSigning(templateBuildGradle, { required: false }),
+    );
+  });
+
+  it('fails in production when an injected file has lost its required flag line', () => {
+    const injected = injectAndroidReleaseSigning(templateBuildGradle, { required: false });
+    const broken = injected.replace(/^project\.ext\.enterpriseReleaseSigningRequired = .*$/m, '');
+
+    expect(() => injectAndroidReleaseSigning(broken, { required: true })).toThrow(
+      /Cannot inject Android release signing/,
+    );
+  });
+
+  it('refuses production builds when app/build.gradle is not Groovy and ignores other variants', () => {
+    const config = { name: 'x', slug: 'x' };
+
+    expect(() => withAndroidReleaseSigning(config, { required: true })).toThrow(/not Groovy/);
+    expect(() => withAndroidReleaseSigning(config, { required: false })).not.toThrow();
   });
 
   it('fails loudly in production when the template anchors disappear, instead of shipping a debug-signed build', () => {
