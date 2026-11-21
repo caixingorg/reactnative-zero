@@ -255,6 +255,9 @@ export function DrawerMenu({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   scrollContent: {
     gap: 16,
@@ -292,11 +295,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 12,
+    paddingTop: 14,
   },
   signOutRow: {
     width: '100%',
     paddingVertical: 11,
+    marginVertical: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
