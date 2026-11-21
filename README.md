@@ -406,6 +406,33 @@ const granted = await permissionCoordinator.requestPermissionWithRationale({
 | `audioVideo`                    | `@/core/capabilities/audio-video`（音频播放、视频播放器组件）                                                                | `expo-audio expo-video`                                                              |
 | （基础设备反馈）                | `@/core/capabilities/device-feedback`（触觉震动反馈、安全剪贴板读写、设备信息）                                              | `expo-clipboard expo-haptics expo-device expo-application`                           |
 
+### 6.3 图片压缩与单文件上传（基础版）
+
+`@/core/capabilities/upload` 提供选图后的压缩与上传，能力实验室里的「图片压缩与上传」卡片是完整示例：
+
+- **压缩**：最长边缩到 1600 像素以内（小图不放大），统一重新编码为 JPEG（HEIC 也会转成 JPEG），质量默认 0.8。重新编码不会带上原图的 EXIF（含 GPS 位置），但这一点依赖原生编码器，**需要在真机上核验**。
+- **上传**：multipart 单文件，带进度、可取消。只在网络错误和 5xx 时重试（最多 3 次，指数退避），4xx 和用户取消不重试。鉴权与 401 刷新复用 `httpClient.executeAuthorized`，与普通请求共用同一把单飞刷新锁。
+- **不包含**：分片与断点续传、上传队列、App 退到后台后继续上传、视频转码。
+- **换成你自己的后端或对象存储**：通过 `capabilities.uploadDriver` 注入自己的 `UploadDriver`；默认驱动把文件 POST 到 `${API 基地址}/uploads`。
+
+**本地联调（没有真实后端时）**：
+
+```bash
+pnpm mock:upload                 # 监听 127.0.0.1:8787，只统计字节数，不落盘
+# 前 2 次返回 503，用来观察重试；延迟 3 秒，用来观察进度与取消
+MOCK_UPLOAD_FAIL_FIRST=2 MOCK_UPLOAD_DELAY_MS=3000 pnpm mock:upload
+```
+
+Android 真机用 USB 连接后，把手机的 `localhost` 转发到电脑，再让 App 指向它（命令行变量优先于配置文件）：
+
+```bash
+adb reverse tcp:8787 tcp:8787
+adb reverse tcp:8081 tcp:8081    # Metro
+EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 pnpm android --device
+```
+
+> 明文 HTTP 只用于本地调试包。生产环境和打包版默认会拦截明文请求，请勿为此放开；iOS 真机访问电脑需要走局域网 IP 并会弹出本地网络授权，模拟服务默认不监听局域网，需要时显式设置 `MOCK_UPLOAD_HOST`。
+
 ---
 
 ## 7. 场景六：商业第三方 SDK、二阶段隐私唤醒 (`Privacy Gate`) 与 OTA 热更接入

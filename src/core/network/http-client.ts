@@ -19,6 +19,7 @@ import {
   type HttpClient,
   type HttpMethod,
   type HttpTransportDriver,
+  type AuthorizedAttemptResult,
   type RawHttpRequest,
   type RawHttpResponse,
   type RequestConfig,
@@ -231,8 +232,37 @@ export function createHttpClient({
     }
   }
 
+  async function executeAuthorized<R extends AuthorizedAttemptResult>(
+    run: (authHeaders: Record<string, string>) => Promise<R>,
+    isReplayAttempt = false,
+  ): Promise<R> {
+    const usedAccessToken = await authSessionStore.getState().getAccessToken();
+    const authHeaders = usedAccessToken
+      ? backendAdapter.attachAuthHeaders({}, usedAccessToken)
+      : {};
+    const result = await run(authHeaders);
+
+    if (!backendAdapter.isAccessTokenExpired(result.status, result.data)) {
+      return result;
+    }
+    if (!isReplayAttempt) {
+      await acquireRefreshedTokens(usedAccessToken);
+      return executeAuthorized(run, true);
+    }
+    await authSessionStore.getState().clearSession();
+    throw new AppApiError({
+      kind: 'unauthorized',
+      code: 'REPLAY_STILL_UNAUTHORIZED',
+      message: '登录状态已失效，请重新登录',
+      httpStatus: 401,
+    });
+  }
+
   return {
     getBaseUrl,
+    executeAuthorized(run) {
+      return executeAuthorized(run);
+    },
     request<T>(
       method: HttpMethod,
       path: string,

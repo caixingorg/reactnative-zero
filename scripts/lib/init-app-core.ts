@@ -344,6 +344,7 @@ function applyCleanStarterTransform(projectRoot: string): {
     'tests/seam-runtime/walking-skeleton.test.tsx',
     'tests/seam-runtime/server-query-and-offline-banner.test.tsx',
     'tests/seam-runtime/permission-rationale-and-capabilities.test.tsx',
+    'tests/seam-runtime/image-upload-lab.test.tsx',
     'tests/seam-runtime/extended-capabilities-and-vendor-adapters.test.tsx',
     'tests/seam-build-config/clone-initializer-and-clean-starter.test.ts',
   ];

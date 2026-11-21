@@ -84,7 +84,20 @@ export interface RequestConfig {
   skipAuth?: boolean;
 }
 
+/** 一次带鉴权头的原始请求结果；仅要求状态码与可选响应体，供 `executeAuthorized` 判断令牌是否过期。 */
+export interface AuthorizedAttemptResult {
+  status: number;
+  data?: unknown;
+}
+
 export interface HttpClient {
+  /**
+   * 用当前令牌执行一次自定义请求（如文件上传）；服务端返回令牌过期时，复用与普通请求相同的单飞刷新并重放一次。
+   * 重放后仍未授权则清空会话并抛出未授权错误。
+   */
+  executeAuthorized<R extends AuthorizedAttemptResult>(
+    run: (authHeaders: Record<string, string>) => Promise<R>,
+  ): Promise<R>;
   request<T>(method: HttpMethod, path: string, data?: unknown, config?: RequestConfig): Promise<T>;
   get<T>(path: string, config?: RequestConfig): Promise<T>;
   post<T>(path: string, data?: unknown, config?: RequestConfig): Promise<T>;
