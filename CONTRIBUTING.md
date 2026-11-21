@@ -36,3 +36,7 @@ pnpm test:coverage      # 采集覆盖率,阈值写在 jest.config.js
 ## 报告问题
 
 功能问题和建议请提交 GitHub Issues。安全问题请参阅 [SECURITY.md](SECURITY.md)。
+
+## 包体积
+
+`bundle-size` workflow 会在 PR 里导出 Android Hermes 字节码，并与 `config/bundle-size-baseline.json` 比较，增长超过 5% 即失败。体积变化是有意为之时，在本地执行 `APP_VARIANT=staging pnpm exec expo export --platform android --clear --output-dir <目录>` 后运行 `pnpm check:bundle-size <目录> --update` 刷新基线，并在 PR 里说明原因。

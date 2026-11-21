@@ -7,6 +7,7 @@ import type { AuthSessionStore } from '../auth/auth-session-store';
 import type { RuntimePublicEnv } from '../config/types';
 import type { ConnectivityStore } from '../network/network-monitor';
 import type { Logger } from '../observability/observability';
+import { appPerformanceMarks } from '../observability/performance-marks';
 import { AppText, BottomSheetModal, Box, Button, HStack, TextField, VStack } from '../ui';
 import type { DevToolsStore } from './devtools-store';
 
@@ -94,6 +95,10 @@ function OpenDevToolsDrawerContent({
             </AppText>
             <AppText variant="caption" tone="secondary">
               {t('devtools.versionLabel')}: v{appVersion} ({Platform.OS} {String(Platform.Version)})
+            </AppText>
+            <AppText variant="caption" tone="secondary">
+              {t('devtools.startupLabel')}:{' '}
+              {appPerformanceMarks.getMarks()['first-interactive'] ?? '—'}
             </AppText>
             <AppText variant="caption" tone="secondary">
               {t('devtools.networkLabel')}:{' '}

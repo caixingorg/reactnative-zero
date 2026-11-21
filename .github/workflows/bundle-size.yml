@@ -1,0 +1,55 @@
+name: Bundle Size
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'config/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'metro.config.js'
+      - 'babel.config.js'
+      - '.github/workflows/bundle-size.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bundle-size-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-hermes-size:
+    name: Android Hermes bundle size (staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_VARIANT: staging
+      # 原因：只需要导出 JS 包，运行时变量的取值不影响体积，用占位地址满足环境校验
+      EXPO_PUBLIC_API_BASE_URL: https://api.example.com
+      EXPO_PUBLIC_PRIVACY_POLICY_URL: https://legal.example.com/privacy
+      EXPO_PUBLIC_USER_AGREEMENT_URL: https://legal.example.com/terms
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Export Android bundle
+        run: pnpm exec expo export --platform android --clear --output-dir dist-size
+
+      - name: Compare with the committed baseline
+        run: pnpm check:bundle-size dist-size
