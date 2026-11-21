@@ -1,6 +1,9 @@
 # 原因：遵循 ADR-0001 去 EAS 海外云锁死策略，提供内网 Mac / GitLab Runner 本地自动化构建、安卓多渠道循环出包与蒲公英/群机器人分发流水线
 default_platform(:android)
 
+require 'json'
+require File.expand_path('lib/ios_signing', __dir__)
+
 VALID_VARIANTS = %w[development staging production].freeze
 DEFAULT_DOMESTIC_CHANNELS = %w[official huawei xiaomi oppo vivo honor yingyongbao].freeze
 
@@ -106,7 +109,15 @@ platform :ios do
     export_method = (options[:export_method] || 'ad-hoc').to_s
     use_china_mirrors = options[:china_mirrors].nil? ? (ENV['EXPO_USE_CHINA_MIRRORS'] || 'true') : options[:china_mirrors].to_s
 
-    UI.message("🚀 [iOS] Prebuilding variant=#{variant} channel=#{channel} china_mirrors=#{use_china_mirrors}")
+    # 原因：签名变量缺失时在 prebuild 之前就失败，避免跑完整个归档才发现 IPA 无法导出
+    signing = begin
+      IosSigning.resolve(export_method: export_method, env: ENV)
+    rescue IosSigning::ConfigError => e
+      UI.user_error!(e.message)
+    end
+
+    UI.important(signing.warning) if signing.warning
+    UI.message("🚀 [iOS] Prebuilding variant=#{variant} channel=#{channel} china_mirrors=#{use_china_mirrors} signing=#{signing.mode}")
 
     ipa_target = nil
     with_scoped_env(
@@ -119,18 +130,73 @@ platform :ios do
       workspace = Dir[File.expand_path('../ios/*.xcworkspace', __dir__)].first
       UI.user_error!('iOS .xcworkspace not found after expo prebuild.') unless workspace
 
+      export_options = nil
+      if signing.mode == :automatic
+        # 原因：Expo 生成的工程不带 Team，自动签名也必须显式写入 IOS_TEAM_ID，否则 xcodebuild 会晚失败
+        auto_xcodeproj = Dir[File.expand_path('../ios/*.xcodeproj', __dir__)].first
+        UI.user_error!('iOS .xcodeproj not found after expo prebuild.') unless auto_xcodeproj
+
+        update_code_signing_settings(
+          use_automatic_signing: true,
+          path: auto_xcodeproj,
+          team_id: signing.team_id,
+          targets: [File.basename(auto_xcodeproj, '.xcodeproj')]
+        )
+        export_options = { method: export_method, teamID: signing.team_id, signingStyle: 'automatic' }
+      else
+        # 原因：Bundle ID 带 .dev / .stg 变体后缀，必须取 Expo 解析后的真实值，不能硬编码
+        # 原因：stderr 单独捕获，Expo 的告警文字不会混进 JSON；解析失败时只报固定提示，不回显配置内容
+        config_output = sh('pnpm', 'exec', 'expo', 'config', '--json', log: false, separate_stderr: true)
+        bundle_id = begin
+          JSON.parse(config_output).dig('ios', 'bundleIdentifier')
+        rescue JSON::ParserError
+          UI.user_error!('Could not parse `expo config --json` output.')
+        end
+        UI.user_error!('Could not resolve ios.bundleIdentifier from expo config.') if bundle_id.to_s.empty?
+
+        profile_name = signing.profile_name
+        if signing.mode == :match
+          # 原因：readonly 保证流水线只读取已有证书，不会在 CI 上意外创建或吊销证书
+          match(type: signing.match_type, app_identifier: bundle_id, team_id: signing.team_id, readonly: true)
+          profile_name = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][bundle_id]
+          UI.user_error!("fastlane match returned no provisioning profile for #{bundle_id}.") if profile_name.to_s.empty?
+        end
+
+        xcodeproj = Dir[File.expand_path('../ios/*.xcodeproj', __dir__)].first
+        UI.user_error!('iOS .xcodeproj not found after expo prebuild.') unless xcodeproj
+
+        update_code_signing_settings(
+          use_automatic_signing: false,
+          path: xcodeproj,
+          team_id: signing.team_id,
+          targets: [File.basename(xcodeproj, '.xcodeproj')],
+          bundle_identifier: bundle_id,
+          profile_name: profile_name,
+          code_sign_identity: export_method == 'development' ? 'Apple Development' : 'Apple Distribution'
+        )
+
+        export_options = {
+          method: export_method,
+          teamID: signing.team_id,
+          signingStyle: 'manual',
+          provisioningProfiles: { bundle_id => profile_name }
+        }
+      end
+
       output_dir = File.expand_path('../dist/ios', __dir__)
       FileUtils.mkdir_p(output_dir)
       ipa_name = "app-#{variant}-#{channel}.ipa"
 
-      build_app(
+      build_options = {
         workspace: workspace,
         configuration: 'Release',
         export_method: export_method,
         output_directory: output_dir,
         output_name: ipa_name,
         clean: true
-      )
+      }
+      build_options[:export_options] = export_options if export_options
+      build_app(build_options)
 
       ipa_target = File.join(output_dir, ipa_name)
       UI.user_error!("Expected Release IPA not found at #{ipa_target}") unless File.exist?(ipa_target)
