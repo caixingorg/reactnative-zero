@@ -56,7 +56,7 @@ function createProjectSandboxCopy(): string {
     fs.copyFileSync(path.join(REPO_ROOT, relFile), path.join(sandboxDir, relFile));
   }
 
-  const dirsToCopy = ['config', 'scripts', 'src', 'tests', '.maestro', 'fastlane'];
+  const dirsToCopy = ['config', 'scripts', 'src', 'tests', '.maestro', 'fastlane', '.github'];
   for (const relDir of dirsToCopy) {
     fs.cpSync(path.join(REPO_ROOT, relDir), path.join(sandboxDir, relDir), { recursive: true });
   }

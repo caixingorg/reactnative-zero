@@ -22,7 +22,7 @@ pnpm test:coverage      # 采集覆盖率,阈值写在 jest.config.js
 
 ## Pull Request
 
-- 使用 squash 合并，**PR 标题本身必须符合 Conventional Commits**，它会成为合并后 `main` 上的提交信息。
+- 使用 squash 合并，**PR 标题本身必须符合 Conventional Commits**，它会成为合并后 `main` 上的提交信息。发布说明由这些提交主题生成（`pnpm changelog`），标题请写成对使用者有意义的一句话。发版步骤见 [docs/RELEASE.md](docs/RELEASE.md)。
 - 描述里写清动机、改动范围和验证方式；涉及界面的改动请附截图。
 - 必需检查只有 CI 中名为 `Format, 4-Layer Lint, Typecheck & Seam Tests` 的 job。`android-native-build` 与 `e2e-maestro` 带路径或标签过滤，不是必需检查。
 - 发布标签 `v*` 只能从 `main` 上打，标签会触发 iOS 端到端流程。
