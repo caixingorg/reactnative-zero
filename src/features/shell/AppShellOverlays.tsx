@@ -14,6 +14,7 @@ export type DrawerRouteDescriptor =
   | '/settings'
   | '/(tabs)/profile'
   | '/form'
+  | '/register-demo'
   | '/login'
   | { pathname: '/list'; params: { title: string } }
   | { pathname: '/status'; params: { kind: 'empty'; title: string } };
@@ -23,6 +24,7 @@ const DRAWER_ROUTE_MAP: Record<DrawerNavTarget, DrawerRouteDescriptor> = {
   profile: '/(tabs)/profile',
   favorites: { pathname: '/list', params: { title: '收藏' } },
   history: { pathname: '/list', params: { title: '历史' } },
+  registerDemo: '/register-demo',
   feedback: '/form',
   about: { pathname: '/status', params: { kind: 'empty', title: '关于' } },
   login: '/login',

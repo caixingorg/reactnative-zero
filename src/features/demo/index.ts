@@ -5,6 +5,11 @@
 export { ContentDetailScreen, type ContentDetailScreenProps } from './screens/ContentDetailScreen';
 export { GenericListScreen, type GenericListScreenProps } from './screens/GenericListScreen';
 export {
+  ProfileRegisterDemoScreen,
+  type ProfileRegisterDemoScreenProps,
+  type ProfileRegisterFormValues,
+} from './screens/ProfileRegisterDemoScreen';
+export {
   StatusPageScreen,
   type StatusPageKind,
   type StatusPageScreenProps,

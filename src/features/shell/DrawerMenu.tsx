@@ -12,7 +12,14 @@ import { useAppTheme } from '@/core/theme/theme-context';
 import { AppText, HStack, VStack } from '@/core/ui';
 
 export type DrawerNavTarget =
-  'profile' | 'login' | 'favorites' | 'history' | 'settings' | 'feedback' | 'about';
+  | 'profile'
+  | 'login'
+  | 'favorites'
+  | 'history'
+  | 'registerDemo'
+  | 'settings'
+  | 'feedback'
+  | 'about';
 
 export interface DrawerMenuProps {
   onClose: () => void;
@@ -30,6 +37,7 @@ interface MenuItemConfig {
 const MENU_ITEMS: readonly MenuItemConfig[] = [
   { target: 'favorites', label: '收藏', icon: 'bookmark-outline' },
   { target: 'history', label: '历史', icon: 'time-outline' },
+  { target: 'registerDemo', label: '资料注册表单', icon: 'person-add-outline' },
   { target: 'settings', label: '设置', icon: 'settings-outline' },
   { target: 'feedback', label: '意见反馈', icon: 'chatbox-ellipses-outline' },
   { target: 'about', label: '关于', icon: 'information-circle-outline' },

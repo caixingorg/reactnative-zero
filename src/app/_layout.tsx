@@ -35,6 +35,9 @@ export function GuardedRootStack(): React.JSX.Element {
         <Stack.Protected guard={!isPrivacyReady} redirectTo={guardFallback}>
           <Stack.Screen name="privacy-consent" />
         </Stack.Protected>
+        <Stack.Protected guard={isPrivacyReady} redirectTo={guardFallback}>
+          <Stack.Screen name="register-demo" />
+        </Stack.Protected>
         <Stack.Protected
           guard={isPrivacyReady && authStatus === 'unauthenticated'}
           redirectTo={guardFallback}
