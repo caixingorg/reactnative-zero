@@ -61,9 +61,9 @@ describe('Seam: drawer pure logic', () => {
     expect(isInDrawerEdgeZone(-1)).toBe(false);
   });
 
-  it('uses 62% of the window up to 236 points', () => {
-    expect(resolveDrawerWidth(360)).toBe(223);
-    expect(resolveDrawerWidth(390)).toBe(236);
+  it('uses 58% of the window up to 236 points', () => {
+    expect(resolveDrawerWidth(360)).toBe(209);
+    expect(resolveDrawerWidth(390)).toBe(226);
     expect(resolveDrawerWidth(1000)).toBe(236);
   });
 });
@@ -155,5 +155,18 @@ describe('Seam: DrawerHost', () => {
     await render(element);
 
     expect(pressHardwareBack()).toBe(false);
+  });
+
+  it('lazy-mounts drawer children only after the drawer opens', async () => {
+    const { drawerStore, element } = mountHost(true);
+    await render(element);
+
+    expect(screen.queryByText('menu content')).toBeNull();
+
+    await act(async () => {
+      drawerStore.getState().open();
+    });
+
+    expect(screen.getByText('menu content')).toBeTruthy();
   });
 });

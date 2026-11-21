@@ -3,7 +3,7 @@
  * 职责：通用内容详情页模板，包含头部导航（支持标准/透明头图覆盖）、头图、标题与元信息区、正文区与底部固定操作栏（点赞/收藏/分享）。
  * 边界：仅负责版式与交互事件透传，不耦合具体数据模型或接口。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useAppTheme } from '../theme/theme-context';

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,7 @@ export default function MainTabsLayout(): React.JSX.Element {
     <Tabs
       screenOptions={{
         headerShown: false,
+        freezeOnBlur: true,
         tabBarActiveTintColor: tokens.colors.primary,
         tabBarInactiveTintColor: tokens.colors.textSecondary,
         tabBarStyle: {

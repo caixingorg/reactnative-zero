@@ -3,7 +3,7 @@
  * 职责：通用搜索条，支持“点击跳转入口态（trigger）”与“实时输入提交态（input）”，内置清空按钮与搜索图标。
  * 边界：受控组件，不持有搜索历史或检索结果。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Pressable, StyleSheet, TextInput } from 'react-native';
 import { useAppTheme } from '../theme/theme-context';

@@ -3,7 +3,7 @@
  * 职责：精简内联本地音乐播放条（复用 useMusicCapability 与 useFilesCapability），可自然嵌入发现页或媒体卡片。
  * 边界：归属 Shared Layer；受 AppIdentity.capabilities.audioVideo 开关控制，未开启时不渲染。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFilesCapability } from '@/core/capabilities/files';

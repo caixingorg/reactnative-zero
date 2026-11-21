@@ -8,10 +8,10 @@ jest.mock('react-native-worklets', () => ({
   scheduleOnRN: (fn, ...args) => fn(...args),
 }));
 jest.mock('react-native-reanimated', () => {
-  const { View } = require('react-native');
+  const { ScrollView, View } = require('react-native');
   return {
     __esModule: true,
-    default: { View, createAnimatedComponent: (component) => component },
+    default: { ScrollView, View, createAnimatedComponent: (component) => component },
     isSharedValue: (value) => typeof value === 'object' && value !== null && 'value' in value,
     useSharedValue: (initial) => {
       const shared = {
@@ -22,6 +22,14 @@ jest.mock('react-native-reanimated', () => {
         },
       };
       return shared;
+    },
+    useAnimatedScrollHandler: (handlers) => (event) => {
+      const nativeEvent = event?.nativeEvent ?? event;
+      if (typeof handlers === 'function') {
+        handlers(nativeEvent);
+      } else {
+        handlers?.onScroll?.(nativeEvent);
+      }
     },
     useAnimatedStyle: (factory) => factory(),
     withTiming: (target) => target,

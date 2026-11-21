@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { BarcodeScannerView } from '@/core/capabilities/camera';
@@ -35,15 +35,12 @@ const DISCOVER_TABS: readonly TopTabItem[] = [
   { key: 'topics', label: '专题' },
 ];
 
-function DiscoverSubTab({
-  tabKey,
-  isActive,
+// 原因：仅在「广场」子页挂载时订阅音乐/相机/定位/文件能力，避免榜单与专题子页重复订阅和随播放状态联动重渲染
+function DiscoverPlazaHeader({
   onSelectRecord,
   onOpenScanner,
   onOpenWebView,
 }: {
-  tabKey: string;
-  isActive: boolean;
   onSelectRecord?: (record: MockListRecord) => void;
   onOpenScanner: () => void;
   onOpenWebView?: () => void;
@@ -54,16 +51,6 @@ function DiscoverSubTab({
   const location = useLocationCapability();
   const files = useFilesCapability();
   const toast = useToast();
-  const feed = useMockPaginatedFeed(tabKey);
-
-  const status: PageStatus =
-    feed.isLoading && feed.items.length === 0
-      ? 'loading'
-      : feed.error && feed.items.length === 0
-        ? 'error'
-        : feed.items.length === 0
-          ? 'empty'
-          : 'ready';
 
   const isPlaying = music.state.status === 'playing';
 
@@ -80,7 +67,7 @@ function DiscoverSubTab({
     music.player.togglePlayPause();
   };
 
-  const bentoPlazaHeader = (
+  return (
     <VStack testID="discover-tools-grid" gap="sm" style={styles.bentoSection}>
       {/* Row 1: Asymmetric Bento — Left Dark Vinyl Music Card + Right 2 Pastel Tool Cards */}
       <HStack gap="sm" style={styles.bentoTopRow}>
@@ -268,9 +255,139 @@ function DiscoverSubTab({
       </Pressable>
     </VStack>
   );
+}
 
-  const listHeader =
-    tabKey === 'categories' ? bentoPlazaHeader : tabKey === 'rankings' ? <QuickMusicBar /> : null;
+const DiscoverListRow = memo(function DiscoverListRow({
+  item,
+  isTopicTab,
+  onSelectRecord,
+}: {
+  item: MockListRecord;
+  isTopicTab: boolean;
+  onSelectRecord?: (record: MockListRecord) => void;
+}): React.JSX.Element {
+  const { tokens } = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => onSelectRecord?.(item)}
+      style={({ pressed }) => [
+        isTopicTab
+          ? [
+              styles.topicPoster,
+              { backgroundColor: tokens.colors.surfaceMuted, borderRadius: tokens.radii.lg },
+            ]
+          : [styles.editorialRow, { borderBottomColor: tokens.colors.border }],
+        pressed && styles.pressed,
+      ]}
+    >
+      {isTopicTab ? (
+        <VStack gap="xs">
+          <HStack justify="space-between" align="center">
+            <AppText variant="caption" tone="brand" weight="700" numberOfLines={1}>
+              {item.tag}
+            </AppText>
+            <AppText variant="caption" tone="secondary" numberOfLines={1}>
+              {item.meta}
+            </AppText>
+          </HStack>
+          <AppText variant="titleMd">{item.title}</AppText>
+          <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
+            {item.summary}
+          </AppText>
+        </VStack>
+      ) : (
+        <HStack gap="md" align="flex-start">
+          {item.rank !== undefined ? (
+            <AppText
+              variant="titleMd"
+              tone={item.rank <= 3 ? 'brand' : 'secondary'}
+              weight="700"
+              style={styles.rankNumber}
+            >
+              {String(item.rank).padStart(2, '0')}
+            </AppText>
+          ) : null}
+          <VStack flex={1} gap="xs">
+            <AppText variant="bodyMd" weight="700" numberOfLines={1}>
+              {item.title}
+            </AppText>
+            <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
+              {item.summary}
+            </AppText>
+            <AppText variant="caption" tone="secondary" numberOfLines={1}>
+              <AppText variant="caption" tone="brand" weight="600">
+                {item.tag}
+              </AppText>
+              {`  ·  ${item.meta}`}
+            </AppText>
+          </VStack>
+        </HStack>
+      )}
+    </Pressable>
+  );
+});
+
+const extractRecordKey = (item: MockListRecord): string => item.id;
+
+function DiscoverSubTab({
+  tabKey,
+  isActive,
+  onSelectRecord,
+  onOpenScanner,
+  onOpenWebView,
+}: {
+  tabKey: string;
+  isActive: boolean;
+  onSelectRecord?: (record: MockListRecord) => void;
+  onOpenScanner: () => void;
+  onOpenWebView?: () => void;
+}): React.JSX.Element {
+  const { tokens } = useAppTheme();
+  const feed = useMockPaginatedFeed(tabKey);
+  const { refetch, fetchNextPage } = feed;
+
+  const status: PageStatus =
+    feed.isLoading && feed.items.length === 0
+      ? 'loading'
+      : feed.error && feed.items.length === 0
+        ? 'error'
+        : feed.items.length === 0
+          ? 'empty'
+          : 'ready';
+
+  const listHeader = useMemo(() => {
+    if (tabKey === 'categories') {
+      return (
+        <DiscoverPlazaHeader
+          onSelectRecord={onSelectRecord}
+          onOpenScanner={onOpenScanner}
+          onOpenWebView={onOpenWebView}
+        />
+      );
+    }
+    if (tabKey === 'rankings') {
+      return <QuickMusicBar />;
+    }
+    return null;
+  }, [onOpenScanner, onOpenWebView, onSelectRecord, tabKey]);
+
+  const handleRefresh = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  const handleLoadMore = useCallback(() => {
+    void fetchNextPage();
+  }, [fetchNextPage]);
+
+  const isTopicTab = tabKey === 'topics';
+  const renderRecord = useCallback(
+    (item: MockListRecord) => (
+      <DiscoverListRow item={item} isTopicTab={isTopicTab} onSelectRecord={onSelectRecord} />
+    ),
+    [isTopicTab, onSelectRecord],
+  );
 
   return (
     <View
@@ -279,80 +396,16 @@ function DiscoverSubTab({
     >
       <ListTemplate
         data={feed.items}
-        keyExtractor={(item) => item.id}
+        keyExtractor={extractRecordKey}
         status={status}
         isActive={isActive}
         listHeader={listHeader}
         refreshing={feed.isRefetching}
-        onRefresh={() => {
-          void feed.refetch();
-        }}
+        onRefresh={handleRefresh}
         hasNextPage={feed.hasNextPage}
         isFetchingNextPage={feed.isFetchingNextPage}
-        onLoadMore={() => {
-          void feed.fetchNextPage();
-        }}
-        renderItem={(item) => (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onSelectRecord?.(item)}
-            style={({ pressed }) => [
-              tabKey === 'topics'
-                ? [
-                    styles.topicPoster,
-                    { backgroundColor: tokens.colors.surfaceMuted, borderRadius: tokens.radii.lg },
-                  ]
-                : [styles.editorialRow, { borderBottomColor: tokens.colors.border }],
-              pressed && styles.pressed,
-            ]}
-          >
-            {tabKey === 'topics' ? (
-              <VStack gap="xs">
-                <HStack justify="space-between" align="center">
-                  <AppText variant="caption" tone="brand" weight="700">
-                    {item.tag}
-                  </AppText>
-                  <AppText variant="caption" tone="secondary">
-                    {item.meta}
-                  </AppText>
-                </HStack>
-                <AppText variant="titleMd">{item.title}</AppText>
-                <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
-                  {item.summary}
-                </AppText>
-              </VStack>
-            ) : (
-              <HStack gap="md" align="flex-start">
-                {item.rank !== undefined ? (
-                  <AppText
-                    variant="titleMd"
-                    tone={item.rank <= 3 ? 'brand' : 'secondary'}
-                    weight="700"
-                    style={styles.rankNumber}
-                  >
-                    {String(item.rank).padStart(2, '0')}
-                  </AppText>
-                ) : null}
-                <VStack flex={1} gap="xs">
-                  <AppText variant="bodyMd" weight="700" numberOfLines={1}>
-                    {item.title}
-                  </AppText>
-                  <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
-                    {item.summary}
-                  </AppText>
-                  <HStack gap="sm">
-                    <AppText variant="caption" tone="brand" weight="600">
-                      {item.tag}
-                    </AppText>
-                    <AppText variant="caption" tone="secondary">
-                      · {item.meta}
-                    </AppText>
-                  </HStack>
-                </VStack>
-              </HStack>
-            )}
-          </Pressable>
-        )}
+        onLoadMore={handleLoadMore}
+        renderItem={renderRecord}
       />
     </View>
   );

@@ -36,6 +36,7 @@ export {
   isScrollAtTop,
   markPageVisited,
   resolveActiveIndex,
+  shouldMountPage,
   type ReselectAction,
 } from './page-shell-logic';
 export { EmptyState, type EmptyStateProps } from './EmptyState';

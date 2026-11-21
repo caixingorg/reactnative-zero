@@ -3,7 +3,7 @@
  * 职责：通用分组设置列表组件，采用无硬边框的纯白圆角分组容器、柔和色底小图标与左缩进极细分割线。
  * 边界：纯受控声明式列表，不持有业务偏好或导航依赖。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAppTheme } from '../theme/theme-context';

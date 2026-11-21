@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import {
   GestureDetector,
@@ -48,6 +48,16 @@ export function DrawerHost({
   const open = useStore(drawerStore, (state) => state.open);
   const close = useStore(drawerStore, (state) => state.close);
 
+  // 原因：抽屉内容首次打开或边缘拖动时再懒挂载，避免冷启动首屏常驻渲染整棵侧栏树
+  const [hasOpened, setHasOpened] = useState(isOpen);
+  const shouldRenderContent = hasOpened || isOpen;
+  if (isOpen && !hasOpened) {
+    setHasOpened(true);
+  }
+  const markOpened = useCallback(() => {
+    setHasOpened(true);
+  }, []);
+
   const progress = useSharedValue(0);
   const startProgress = useSharedValue(0);
 
@@ -76,6 +86,7 @@ export function DrawerHost({
     onBegin: () => {
       'worklet';
       startProgress.set(progress.get());
+      scheduleOnRN(markOpened);
     },
     onUpdate: (event) => {
       'worklet';
@@ -127,7 +138,7 @@ export function DrawerHost({
             },
           ]}
         >
-          {children}
+          {shouldRenderContent ? children : null}
         </Animated.View>
       </GestureDetector>
 

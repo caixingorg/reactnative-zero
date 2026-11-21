@@ -24,6 +24,25 @@ export function markPageVisited(visited: ReadonlySet<number>, index: number): Re
   return new Set([...visited, index]);
 }
 
+/**
+ * 窗口化保活判定：仅挂载已访问且距离当前激活页不超过 keepAliveRadius 的子页，
+ * 在保留相邻页切页顺滑的同时，回收远端不活跃页面的原生视图树与列表内存。
+ */
+export function shouldMountPage(
+  visited: ReadonlySet<number>,
+  index: number,
+  activeIndex: number,
+  keepAliveRadius = 1,
+): boolean {
+  if (!visited.has(index)) {
+    return false;
+  }
+  if (keepAliveRadius < 0) {
+    return true;
+  }
+  return Math.abs(index - activeIndex) <= keepAliveRadius;
+}
+
 export type ReselectAction = 'scrollToTop' | 'refresh';
 
 /** 再次点击当前导航：不在顶部就先回顶部，已经在顶部才触发刷新。 */

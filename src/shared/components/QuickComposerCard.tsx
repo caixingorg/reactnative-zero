@@ -3,7 +3,7 @@
  * 职责：轻量化动态发布快捷条，自然融入拍照、相册选图与定位打卡能力，打破纯列表单调感。
  * 边界：归属 Shared Layer；所有能力受 AppIdentity 开关与权限用途告知门禁约束。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { useCameraCapability } from '@/core/capabilities/camera';

@@ -5,7 +5,6 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -13,8 +12,8 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import type { SharedValue } from 'react-native-reanimated';
-import { markPageVisited, resolveActiveIndex } from './page-shell-logic';
+import Animated, { useAnimatedScrollHandler, type SharedValue } from 'react-native-reanimated';
+import { markPageVisited, resolveActiveIndex, shouldMountPage } from './page-shell-logic';
 
 export interface TabPagerProps {
   pageCount: number;
@@ -24,6 +23,8 @@ export interface TabPagerProps {
   scrollProgress?: SharedValue<number>;
   /** 当子页面内部存在横向滚动栏被触摸时，可临时锁定外层分页滑动避免误切 Tab。 */
   scrollEnabled?: boolean;
+  /** 已访问子页的保活半径（默认 1，仅保留当前页与左右相邻页，避免多页常驻导致原生视图膨胀）。 */
+  keepAliveRadius?: number;
   renderPage: (index: number, isActive: boolean) => React.ReactNode;
   testID?: string;
 }
@@ -34,11 +35,12 @@ export function TabPager({
   onIndexChange,
   scrollProgress,
   scrollEnabled = true,
+  keepAliveRadius = 1,
   renderPage,
   testID = 'tab-pager',
 }: TabPagerProps): React.JSX.Element {
   const { width: windowWidth } = useWindowDimensions();
-  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof Animated.ScrollView>>(null);
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const pageWidth = measuredWidth > 0 ? measuredWidth : windowWidth;
   const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([activeIndex]));
@@ -64,14 +66,20 @@ export function TabPager({
     }
   };
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
-    if (pageWidth <= 0 || pageCount <= 0) {
-      return;
-    }
-    const raw = event.nativeEvent.contentOffset.x / pageWidth;
-    const clamped = Math.min(pageCount - 1, Math.max(0, raw));
-    scrollProgress?.set(clamped);
-  };
+  // 原因：横向滑动进度在 UI 线程 worklet 中直写 SharedValue，避免每 16ms 跨 JS 线程触发桥接开销
+  const handleScroll = useAnimatedScrollHandler(
+    {
+      onScroll: (event) => {
+        if (pageWidth <= 0 || pageCount <= 0) {
+          return;
+        }
+        const raw = event.contentOffset.x / pageWidth;
+        const clamped = Math.min(pageCount - 1, Math.max(0, raw));
+        scrollProgress?.set(clamped);
+      },
+    },
+    [pageCount, pageWidth, scrollProgress],
+  );
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
     const nextIndex = resolveActiveIndex(event.nativeEvent.contentOffset.x, pageWidth, pageCount);
@@ -85,7 +93,7 @@ export function TabPager({
 
   return (
     <View testID={testID} style={styles.container}>
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         testID="tab-pager-scroll"
         horizontal
@@ -107,10 +115,12 @@ export function TabPager({
             testID={`tab-pager-page-${index}`}
             style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.flex]}
           >
-            {effectiveVisited.has(index) ? renderPage(index, index === activeIndex) : null}
+            {shouldMountPage(effectiveVisited, index, activeIndex, keepAliveRadius)
+              ? renderPage(index, index === activeIndex)
+              : null}
           </View>
         ))}
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

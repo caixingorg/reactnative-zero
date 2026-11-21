@@ -3,7 +3,7 @@
  * 职责：全局侧边抽屉的业务菜单内容（用户头像/登录入口、快捷导航项、深色模式开关、版本号与退出登录）。
  * 边界：归属业务层而非 Template Core，由 Route Shell 根布局注入 DrawerHost；路由跳转由外层回调提供，未接入路由时在本层提示。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';

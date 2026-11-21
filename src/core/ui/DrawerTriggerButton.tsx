@@ -3,7 +3,7 @@
  * 职责：独立的圆形全局抽屉触发按钮原语，可直接放入单层顶栏左侧（如 TopTabs.leftSlot）。
  * 边界：不直接依赖运行时 Store，通过 onPress 回调触发抽屉打开，保持 Template Core 无反向耦合。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { useAppTheme } from '../theme/theme-context';

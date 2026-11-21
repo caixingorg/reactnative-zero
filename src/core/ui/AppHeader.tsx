@@ -3,7 +3,7 @@
  * 职责：通用页面顶部导航栏，支持标准态、滚动折叠大标题态与覆盖头图的透明态，以及返回/抽屉左侧入口和右侧操作区。
  * 边界：仅消费 Design Token 与原语组件，不耦合具体路由或业务状态。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAppTheme } from '../theme/theme-context';

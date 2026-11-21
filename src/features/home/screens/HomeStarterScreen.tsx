@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import React, { useMemo, useRef, useState } from 'react';
@@ -384,7 +384,7 @@ function RecommendedFeedTab({
                     {item.summary}
                   </AppText>
                   <HStack align="center" gap="sm" style={styles.articleMetaRow}>
-                    <AppText variant="caption" tone="brand" weight="600">
+                    <AppText variant="caption" tone="brand" weight="700" numberOfLines={1}>
                       {item.category}
                     </AppText>
                     <FeedStatusBadge status={item.status} />
@@ -519,14 +519,12 @@ function AsyncHomeSubTab({
                 <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
                   {entry.summary}
                 </AppText>
-                <HStack align="center" gap="sm">
+                <AppText variant="caption" tone="secondary" numberOfLines={1}>
                   <AppText variant="caption" tone="brand" weight="600">
                     {entry.tag}
                   </AppText>
-                  <AppText variant="caption" tone="secondary">
-                    · {entry.meta}
-                  </AppText>
-                </HStack>
+                  {`  ·  ${entry.meta}`}
+                </AppText>
               </VStack>
             </HStack>
           </Pressable>

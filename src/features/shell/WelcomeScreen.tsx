@@ -3,7 +3,7 @@
  * 职责：首次启动欢迎引导页，展示 3 屏核心特性、进度指示点、跳过与立即体验入口。
  * 边界：通过 onComplete 回调完成引导，不直接耦合路由跳转，便于根壳层挂载与单元测试。
  */
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAppRuntime } from '@/core/runtime';

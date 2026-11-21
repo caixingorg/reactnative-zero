@@ -4,7 +4,7 @@
  * 并可选挂载左右插槽（如左侧独立抽屉触发按钮、右侧设置/搜索操作），避免再叠加一层独立 Header。
  * 边界：仅依赖 Design Token 与 Reanimated，不持有分页内容，通过 activeIndex / scrollProgress 与 TabPager 联动。
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   interpolate,
@@ -79,21 +79,25 @@ export function TopTabs({
 
   const activeProgress = scrollProgress ?? fallbackProgress;
 
-  // 原因：根据每个 Tab 实际测量出的中心点插值计算指示条偏移，兼容等宽与不等宽标题
-  const indicatorCenters = tabs.map((_, idx) => {
-    const rect = tabRects[idx];
-    return rect ? rect.x + rect.width / 2 - INDICATOR_WIDTH / 2 : idx * 72 + 24;
-  });
+  // 原因：根据每个 Tab 实际测量出的中心点插值计算指示条偏移，兼容等宽与不等宽标题；用 useMemo 避免每次渲染重建数组
+  const indicatorCenters = useMemo(
+    () =>
+      tabs.map((_, idx) => {
+        const rect = tabRects[idx];
+        return rect ? rect.x + rect.width / 2 - INDICATOR_WIDTH / 2 : idx * 72 + 24;
+      }),
+    [tabRects, tabs],
+  );
+  const inputRange = useMemo(() => tabs.map((_, idx) => idx), [tabs]);
 
   const indicatorStyle = useAnimatedStyle(() => {
     const progress = activeProgress.get();
-    if (tabs.length <= 1) {
+    if (inputRange.length <= 1) {
       return { transform: [{ translateX: indicatorCenters[0] ?? 0 }] };
     }
-    const inputRange = tabs.map((_, idx) => idx);
     const translateX = interpolate(progress, inputRange, indicatorCenters);
     return { transform: [{ translateX }] };
-  });
+  }, [activeProgress, indicatorCenters, inputRange]);
 
   const handleScrollContainerLayout = (event: LayoutChangeEvent): void => {
     setContainerWidth(event.nativeEvent.layout.width);

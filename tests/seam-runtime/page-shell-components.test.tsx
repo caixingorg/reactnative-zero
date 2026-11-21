@@ -133,6 +133,47 @@ describe('Seam: TabPager', () => {
     expect(screen.getByText('page-1')).toBeTruthy();
     expect(screen.queryByText('page-2')).toBeNull();
     expect(mountCounts).toEqual([1, 1, 0]);
+
+    // Swiping to page 2 unmounts far-away page 0 (outside keepAliveRadius=1)
+    await fireEvent(pager, 'momentumScrollEnd', {
+      nativeEvent: { contentOffset: { x: 800, y: 0 } },
+    });
+    expect(screen.queryByText('page-0')).toBeNull();
+    expect(screen.getByText('page-1')).toBeTruthy();
+    expect(screen.getByText('page-2')).toBeTruthy();
+    expect(mountCounts).toEqual([1, 1, 1]);
+  });
+
+  it('writes clamped continuous scroll progress via animated scroll handler', async () => {
+    const runtime = createRuntime();
+    const progressValues: number[] = [];
+    const scrollProgress = {
+      value: 0,
+      get: () => progressValues[progressValues.length - 1] ?? 0,
+      set: (next: number) => {
+        progressValues.push(next);
+      },
+    } as unknown as React.ComponentProps<typeof TabPager>['scrollProgress'];
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <TabPager
+          pageCount={3}
+          activeIndex={0}
+          onIndexChange={() => undefined}
+          scrollProgress={scrollProgress}
+          renderPage={(index) => <Text>{`page-${index}`}</Text>}
+        />
+      </AppRuntimeProvider>,
+    );
+
+    const pager = screen.getByTestId('tab-pager-scroll');
+    await fireEvent(pager, 'layout', { nativeEvent: { layout: { width: 400, height: 600 } } });
+    await fireEvent.scroll(pager, { nativeEvent: { contentOffset: { x: 200, y: 0 } } });
+    await fireEvent.scroll(pager, { nativeEvent: { contentOffset: { x: 9999, y: 0 } } });
+    await fireEvent.scroll(pager, { nativeEvent: { contentOffset: { x: -100, y: 0 } } });
+
+    expect(progressValues.slice(-3)).toEqual([0.5, 2, 0]);
   });
 });
 

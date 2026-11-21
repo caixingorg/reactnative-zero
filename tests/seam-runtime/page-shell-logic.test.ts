@@ -4,6 +4,7 @@ import {
   isScrollAtTop,
   markPageVisited,
   resolveActiveIndex,
+  shouldMountPage,
 } from '@/core/ui';
 
 describe('Seam: page shell pure logic', () => {
@@ -23,6 +24,16 @@ describe('Seam: page shell pure logic', () => {
     expect([...afterVisit].sort()).toEqual([0, 2]);
     expect(markPageVisited(afterVisit, 2)).toBe(afterVisit);
     expect(initial.has(2)).toBe(false);
+  });
+
+  it('keeps visited pages mounted only within keepAliveRadius around activeIndex', () => {
+    const visited = new Set([0, 1, 2]);
+    expect(shouldMountPage(visited, 0, 1, 1)).toBe(true);
+    expect(shouldMountPage(visited, 1, 1, 1)).toBe(true);
+    expect(shouldMountPage(visited, 2, 1, 1)).toBe(true);
+    expect(shouldMountPage(visited, 0, 2, 1)).toBe(false);
+    expect(shouldMountPage(new Set([0]), 1, 1, 1)).toBe(false);
+    expect(shouldMountPage(visited, 0, 2, -1)).toBe(true);
   });
 
   it('scrolls to top first and only refreshes once already at the top', () => {

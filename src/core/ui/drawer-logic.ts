@@ -41,7 +41,7 @@ export function isInDrawerEdgeZone(x: number, edgeWidth: number = DRAWER_EDGE_WI
   return x >= 0 && x <= edgeWidth;
 }
 
-/** 抽屉宽度：屏幕宽度的 62%，但不超过 236，保持紧凑比例、避免右侧大片留白。 */
+/** 抽屉宽度：屏幕宽度的 58%，但不超过 236，保持紧凑比例、避免右侧大片留白。 */
 export function resolveDrawerWidth(windowWidth: number): number {
-  return Math.min(Math.round(windowWidth * 0.62), 236);
+  return Math.min(Math.round(windowWidth * 0.58), 236);
 }
