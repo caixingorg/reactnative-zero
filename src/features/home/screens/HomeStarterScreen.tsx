@@ -317,7 +317,7 @@ function RecommendedFeedTab({
         </VStack>
       }
     >
-      <View style={[styles.flex, { backgroundColor: tokens.colors.surface }]}>
+      <View style={[styles.flex, styles.listOuter, { backgroundColor: tokens.colors.surface }]}>
         {error ? (
           <HStack
             p="sm"
@@ -676,12 +676,13 @@ const styles = StyleSheet.create({
     padding: 14,
     justifyContent: 'space-between',
   },
-  feedListContent: {
+  listOuter: {
     paddingHorizontal: 16,
+  },
+  feedListContent: {
     paddingBottom: 20,
   },
   errorBanner: {
-    marginHorizontal: 16,
     marginTop: 8,
   },
   articleRow: {

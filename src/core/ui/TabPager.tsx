@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -36,8 +37,10 @@ export function TabPager({
   renderPage,
   testID = 'tab-pager',
 }: TabPagerProps): React.JSX.Element {
+  const { width: windowWidth } = useWindowDimensions();
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const [pageWidth, setPageWidth] = useState(0);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const pageWidth = measuredWidth > 0 ? measuredWidth : windowWidth;
   const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([activeIndex]));
   // 原因：渲染期同步补齐新激活页的访问记录，避免 useEffect 触发额外级联渲染
   const effectiveVisited = markPageVisited(visited, activeIndex);
@@ -55,8 +58,8 @@ export function TabPager({
 
   const handleLayout = (event: LayoutChangeEvent): void => {
     const nextWidth = event.nativeEvent.layout.width;
-    if (nextWidth > 0 && nextWidth !== pageWidth) {
-      setPageWidth(nextWidth);
+    if (nextWidth > 0 && nextWidth !== measuredWidth) {
+      setMeasuredWidth(nextWidth);
       scrollRef.current?.scrollTo({ x: activeIndex * nextWidth, animated: false });
     }
   };
@@ -124,5 +127,6 @@ const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
+    overflow: 'hidden',
   },
 });

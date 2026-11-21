@@ -137,8 +137,9 @@ export function ListTemplate<T>({
 const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
+    paddingHorizontal: 16,
   },
   content: {
-    padding: 16,
+    paddingVertical: 14,
   },
 });
