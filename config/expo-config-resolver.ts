@@ -6,6 +6,7 @@
 import type { ExpoConfig } from 'expo/config';
 import { parseRuntimeEnv } from '../src/core/config/env-schema';
 import type { AppIdentity, AppVariant, CapabilityFlags } from '../src/core/config/types';
+import { resolveAndroidVersionCode, resolveAppVersion, resolveIosBuildNumber } from './app-version';
 import {
   CAPABILITY_USAGE_TEXTS,
   collectBlockedAndroidPermissions,
@@ -215,11 +216,9 @@ export function resolveExpoConfig(
     plugins.push('expo-dev-client');
   }
 
-  const appVersion = rawEnv.APP_VERSION?.trim() || '1.0.0';
-  const iosBuildNumber = rawEnv.IOS_BUILD_NUMBER?.trim() || '1';
-  const parsedVersionCode = Number.parseInt(rawEnv.ANDROID_VERSION_CODE ?? '1', 10);
-  const androidVersionCode =
-    Number.isInteger(parsedVersionCode) && parsedVersionCode > 0 ? parsedVersionCode : 1;
+  const appVersion = resolveAppVersion(rawEnv);
+  const iosBuildNumber = resolveIosBuildNumber(rawEnv);
+  const androidVersionCode = resolveAndroidVersionCode(rawEnv);
 
   return {
     name: `${identity.displayName}${variant.nameSuffix}`,
