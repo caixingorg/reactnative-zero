@@ -12,8 +12,13 @@ export interface SharedSandboxFileResult {
   shared: boolean;
 }
 
+export interface PickDocumentOptions {
+  /** MIME 类型过滤，如 ['audio/*']；不传则不限制 */
+  types?: string[];
+}
+
 export interface FilesCapabilityDriver {
-  pickDocument(): Promise<PickedDocumentAsset | null>;
+  pickDocument(options?: PickDocumentOptions): Promise<PickedDocumentAsset | null>;
   writeSandboxTextFile(fileName: string, content: string): Promise<string>;
   writeSandboxBytesFile?(fileName: string, bytes: Uint8Array): Promise<string>;
   readSandboxTextFile(fileName: string): Promise<string | null>;
@@ -28,7 +33,7 @@ declare module '../../runtime/app-runtime' {
 
 export interface FilesCapability {
   readonly enabled: boolean;
-  pickDocument(): Promise<PickedDocumentAsset | null>;
+  pickDocument(options?: PickDocumentOptions): Promise<PickedDocumentAsset | null>;
   writeSandboxTextFile(fileName: string, content: string): Promise<string | null>;
   writeSandboxBytesFile(fileName: string, bytes: Uint8Array): Promise<string | null>;
   readSandboxTextFile(fileName: string): Promise<string | null>;
@@ -61,11 +66,12 @@ function decodeBytesChunked(bytes: Uint8Array): string {
 
 function createNativeFilesDriver(): FilesCapabilityDriver {
   return {
-    async pickDocument(): Promise<PickedDocumentAsset | null> {
+    async pickDocument(pickOptions?: PickDocumentOptions): Promise<PickedDocumentAsset | null> {
       const DocumentPicker =
         require('expo-document-picker') as typeof import('expo-document-picker');
       const result = await DocumentPicker.getDocumentAsync({
         copyToCacheDirectory: true,
+        ...(pickOptions?.types ? { type: pickOptions.types } : {}),
       });
       if (result.canceled || !result.assets[0]) {
         return null;
@@ -132,8 +138,8 @@ export function createFilesCapability(options: {
 
   return {
     enabled: options.enabled,
-    async pickDocument() {
-      return options.enabled ? activeDriver.pickDocument() : null;
+    async pickDocument(pickOptions) {
+      return options.enabled ? activeDriver.pickDocument(pickOptions) : null;
     },
     async writeSandboxTextFile(fileName, content) {
       if (!options.enabled) {

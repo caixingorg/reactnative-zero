@@ -433,6 +433,16 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 pnpm android --device
 
 > 明文 HTTP 只用于本地调试包。生产环境和打包版默认会拦截明文请求，请勿为此放开；iOS 真机访问电脑需要走局域网 IP 并会弹出本地网络授权，模拟服务默认不监听局域网，需要时显式设置 `MOCK_UPLOAD_HOST`。
 
+### 6.4 本地音乐播放与蓝牙音响
+
+`@/core/capabilities/music` 提供本地音频播放（选择文件、播放/暂停、进度、前进后退 10 秒），能力实验室的「本地音乐播放」卡片是完整示例，沿用 `audioVideo` 开关，不新增权限。
+
+- **蓝牙音响由系统连接，应用不负责配对**：先在手机系统的蓝牙设置里配对并连接音响，应用播放时声音会自动走系统当前的输出设备。应用不扫描设备，也不显示输出设备名（`expo-audio` 没有提供输出设备信息，要显示得自写原生模块）。
+- Android 上卡片提供「打开系统蓝牙设置」入口；iOS 没有公开接口能打开蓝牙页面，只给文字提示。
+- iOS 静音拨片打开时也会出声（已设置 `playsInSilentMode`）。
+- **后台播放（锁屏、切到其他应用后继续）默认关闭**：打开 `app.identity.ts` 里的 `backgroundAudio` 会在原生层加入 iOS 后台音频模式和 Android 前台服务权限，需要重新生成原生工程，上架 App Store 时还要向 Apple 说明用途。
+- 更换播放内核：通过 `capabilities.musicDriver` 注入自己的 `MusicPlayerDriver`。
+
 ---
 
 ## 7. 场景六：商业第三方 SDK、二阶段隐私唤醒 (`Privacy Gate`) 与 OTA 热更接入
