@@ -219,14 +219,7 @@ export function DrawerMenu({
         </VStack>
       </ScrollView>
 
-      <HStack
-        align="center"
-        justify="space-between"
-        style={[styles.footer, { borderTopColor: tokens.colors.border }]}
-      >
-        <AppText variant="caption" tone="secondary">
-          v{resolvedVersion}
-        </AppText>
+      <VStack gap="sm" style={[styles.footer, { borderTopColor: tokens.colors.border }]}>
         {isAuthenticated ? (
           <Pressable
             accessibilityRole="button"
@@ -235,15 +228,15 @@ export function DrawerMenu({
               void handleSignOut();
             }}
             style={({ pressed }) => [
-              styles.signOutPill,
+              styles.signOutRow,
               {
                 backgroundColor: tokens.colors.surfaceMuted,
-                borderRadius: tokens.radii.full,
+                borderRadius: tokens.radii.md,
               },
               pressed && styles.pressed,
             ]}
           >
-            <HStack align="center" gap="xs">
+            <HStack align="center" justify="center" gap="xs">
               <Ionicons name="log-out-outline" size={16} color={tokens.colors.danger} />
               <AppText variant="bodySm" tone="danger" weight="600">
                 退出登录
@@ -251,7 +244,10 @@ export function DrawerMenu({
             </HStack>
           </Pressable>
         ) : null}
-      </HStack>
+        <AppText variant="caption" tone="secondary" align="center">
+          v{resolvedVersion}
+        </AppText>
+      </VStack>
     </VStack>
   );
 }
@@ -296,12 +292,13 @@ const styles = StyleSheet.create({
   },
   footer: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 14,
-    paddingHorizontal: 6,
+    paddingTop: 12,
   },
-  signOutPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  signOutRow: {
+    width: '100%',
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.72,
