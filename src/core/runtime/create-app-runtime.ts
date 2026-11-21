@@ -23,6 +23,7 @@ import { createObservabilitySuite } from '../observability/observability';
 import { createPermissionCoordinator } from '../permissions/permission-coordinator';
 import { createPreferencesStore } from '../preferences/preferences-store';
 import { createNativeKeyValueStorage, createNativeSecretStorage } from '../storage/native-storage';
+import { createDrawerStore } from '../ui/drawer-store';
 import { createToastStore } from '../ui/toast-store';
 import {
   createDeferredOtaInitializer,
@@ -110,6 +111,7 @@ export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
     logger: observability.logger,
   });
   const toastStore = createToastStore();
+  const drawerStore = createDrawerStore();
 
   const backendAdapter = options.backendAdapter ?? createDefaultBackendAdapter();
   const httpClient = createHttpClient({
@@ -152,6 +154,7 @@ export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
     privacyGateStore,
     devToolsStore,
     toastStore,
+    drawerStore,
     otaCoordinator,
     logger: observability.logger,
     errorReporter: observability.errorReporter,

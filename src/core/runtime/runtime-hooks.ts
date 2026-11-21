@@ -38,6 +38,18 @@ export function useDevTools<T>(selector: (state: DevToolsState) => T): T {
   return useStore(devToolsStore, selector);
 }
 
+export function useDrawer(): { open: () => void; close: () => void; toggle: () => void } {
+  const { drawerStore } = useAppRuntime();
+  return useMemo(
+    () => ({
+      open: () => drawerStore.getState().open(),
+      close: () => drawerStore.getState().close(),
+      toggle: () => drawerStore.getState().toggle(),
+    }),
+    [drawerStore],
+  );
+}
+
 export function useToast(): {
   show: (payload: ToastPayload | string) => number;
   dismiss: (id?: number) => void;

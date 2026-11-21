@@ -23,5 +23,6 @@ export {
   useDevTools,
   usePreferences,
   usePrivacyGate,
+  useDrawer,
   useToast,
 } from './runtime-hooks';

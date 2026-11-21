@@ -19,6 +19,7 @@ import type { PermissionCoordinator, PermissionOsDriver } from '../permissions/t
 import type { PreferencesStore } from '../preferences/preferences-store';
 import type { KeyValueStorageDriver, SecretStorageDriver } from '../storage/types';
 import type { ResolvedColorScheme } from '../theme/tokens';
+import type { DrawerStore } from '../ui/drawer-store';
 import type { ToastStore } from '../ui/toast-store';
 import type { OtaUpdateCoordinator, OtaUpdateDriver } from '../updates/ota-coordinator';
 import type { CommercialVendorAdapters } from '../vendors';
@@ -86,6 +87,7 @@ export interface AppRuntime {
   privacyGateStore: PrivacyGateStore;
   devToolsStore: DevToolsStore;
   toastStore: ToastStore;
+  drawerStore: DrawerStore;
   otaCoordinator: OtaUpdateCoordinator;
   logger: Logger;
   errorReporter: ErrorReporter;

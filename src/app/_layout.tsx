@@ -11,6 +11,8 @@ import {
   usePrivacyGate,
   useAppRuntime,
 } from '@/core/runtime';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppText, DrawerHost } from '@/core/ui';
 import { appTranslationResources, createDemoHttpTransport } from '@/shared';
 
 // 原因：Route Shell 仅声明路由树与守卫布尔条件，零状态副作用编排且零具体界面元素
@@ -69,6 +71,18 @@ function PerformanceMarkers(): null {
   return null;
 }
 
+// 原因：抽屉盖在整个路由树（含底部导航）之上，所以挂在根 Stack 的兄弟位置；
+// 边缘拖出只在底部导航根页面开启，栈页面里最左边缘要留给"左滑返回"
+function AppDrawer(): React.JSX.Element {
+  const { drawerStore } = useAppRuntime();
+  const segments = useSegments();
+  return (
+    <DrawerHost drawerStore={drawerStore} edgeSwipeEnabled={segments[0] === '(tabs)'}>
+      <AppText variant="titleLg">Drawer</AppText>
+    </DrawerHost>
+  );
+}
+
 export default function RootLayout(): React.JSX.Element {
   const runtime = useMemo(() => {
     const env = resolveStartupRuntimeEnv();
@@ -82,9 +96,12 @@ export default function RootLayout(): React.JSX.Element {
   }, []);
 
   return (
-    <AppRuntimeProvider runtime={runtime}>
-      <PerformanceMarkers />
-      <GuardedRootStack />
-    </AppRuntimeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppRuntimeProvider runtime={runtime}>
+        <PerformanceMarkers />
+        <GuardedRootStack />
+        <AppDrawer />
+      </AppRuntimeProvider>
+    </GestureHandlerRootView>
   );
 }
