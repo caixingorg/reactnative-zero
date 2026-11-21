@@ -505,7 +505,27 @@ createAppRuntime({
 
 ### 8.2 安卓国内应用市场多渠道打包 (`APP_CHANNEL`)
 
-国内上架需要为华为（`huawei`）、小米（`xiaomi`）、OPPO（`oppo`）、vivo（`vivo`）、荣耀（`honor`）、应用宝（`yingyongbao`）及官网（`official`）注入不同渠道号：
+国内上架需要为华为（`huawei`）、小米（`xiaomi`）、OPPO（`oppo`）、vivo（`vivo`）、荣耀（`honor`）、应用宝（`yingyongbao`）及官网（`official`）注入不同渠道号。
+
+首次使用前需要安装 Ruby 与 Bundler，并在仓库根目录安装已锁定版本的 fastlane（`Gemfile` / `Gemfile.lock`）：
+
+```bash
+bundle install
+bundle exec fastlane lanes   # 确认能列出 android / ios 的 lane
+```
+
+若 `bundle install` 因镜像证书失败，可临时绕过镜像直连官方源（变量名含 `/`，必须通过 `env` 传入）：
+
+```bash
+env 'BUNDLE_MIRROR__HTTPS://RUBYGEMS__ORG/=https://rubygems.org' bundle install
+```
+
+**版本号与 build number**：应用版本以 `package.json` 的 `version` 为唯一来源，Expo 配置与 `pnpm distribute` 共用同一读取逻辑。
+
+- 升级版本：`pnpm version:bump patch`（或 `minor` / `major` / 具体版本号），不会创建 git tag。
+- 版本覆盖：设置 `APP_VERSION` 可临时覆盖；`DISTRIBUTE_APP_VERSION` 或 `--version` 只影响分发通知文案。
+- iOS build number：`IOS_BUILD_NUMBER` → CI 流水线序号（`GITHUB_RUN_NUMBER` / `CI_PIPELINE_IID`）→ `1`。
+- Android versionCode：`ANDROID_VERSION_CODE` → CI 流水线序号 → `1`。本地构建没有 CI 序号时固定为 `1`，需要递增请显式传入环境变量。
 
 ```bash
 # 1. 打单个指定渠道的 Android Release 包（自动注入 AndroidManifest APP_CHANNEL 与 UMENG_CHANNEL meta-data）
@@ -598,3 +618,11 @@ pnpm verify
 | `pnpm lint`               | 运行 ESLint（含四层单向依赖禁令与禁用 `any` 检查）                                                            |
 | `pnpm test`               | 运行 Jest 双接缝（Seam 1 运行时接缝 + Seam 2 原生预构建配置接缝）自动化测试套件                               |
 | `pnpm format`             | 使用 Prettier 统一格式化仓库代码与文档                                                                        |
+
+## 参与贡献
+
+分支命名、提交规范、合并策略与必需检查见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告,不要公开提 issue。
+
+## 许可证
+
+[MIT](LICENSE)
