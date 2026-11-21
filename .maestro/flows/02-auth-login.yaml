@@ -1,0 +1,17 @@
+appId: ${MAESTRO_APP_ID || 'com.enterprise.rntemplate.dev'}
+name: 02 - Auth Validation and Login Flow
+---
+# 1. 验证前端实时表单校验
+- assertVisible: '账号登录'
+- tapOn: '请输入账号'
+- inputText: 'ab'
+- assertVisible: '请输入至少 3 位账号'
+
+# 2. 使用演示账号完成登录并进入受保护主页
+- eraseText: 2
+- inputText: 'admin'
+- tapOn: '请输入密码'
+- inputText: 'password123'
+- hideKeyboard
+- tapOn: '登录'
+- assertVisible: '业务动态列表'

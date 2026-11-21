@@ -1,0 +1,22 @@
+appId: ${MAESTRO_APP_ID || 'com.enterprise.rntemplate.dev'}
+name: 04 - Settings ConfirmDialog Sign-Out Flow
+---
+# 1. 滚动至退出登录并触发 ConfirmDialog 二次确认
+- assertVisible: '个人设置'
+- scrollUntilVisible:
+    element: '退出登录'
+    direction: DOWN
+- tapOn: '退出登录'
+- assertVisible: '确认退出登录？'
+
+# 2. 先测试取消不会误登出
+- tapOn: '取消'
+- assertVisible: '个人设置'
+
+# 3. 确认退出登录，验证清理凭证并重定向回登录页
+- tapOn: '退出登录'
+- assertVisible: '确认退出登录？'
+- tapOn:
+    text: '退出登录'
+    index: 1
+- assertVisible: '账号登录'

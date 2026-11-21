@@ -1,0 +1,57 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Format, 4-Layer Lint, Typecheck & Seam Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify formatting
+        run: pnpm format:check
+
+      - name: Verify ESLint & four-layer unidirectional boundaries
+        run: pnpm lint
+
+      - name: Verify TypeScript strict types
+        run: pnpm typecheck
+
+      - name: Smoke-test Expo CLI config loading across all 3 App Variants
+        run: |
+          APP_VARIANT=development pnpm exec expo config --type public > /dev/null
+          APP_VARIANT=staging pnpm exec expo config --type public > /dev/null
+          APP_VARIANT=production pnpm exec expo config --type public > /dev/null
+
+      - name: Guard release-mode variant env isolation (expo-constants mode=production × each variant)
+        run: pnpm verify:variants
+
+      - name: Validate Maestro E2E flow syntax and runFlow references
+        run: pnpm verify:maestro
+
+      - name: Run Seam 1 & Seam 2 automated test suites (including compiled prebuild manifest introspection)
+        run: pnpm exec jest --runInBand --ci

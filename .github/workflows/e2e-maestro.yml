@@ -1,0 +1,72 @@
+name: E2E Maestro Regression (iOS Simulator)
+
+on:
+  workflow_dispatch:
+    inputs:
+      flow:
+        description: 'Maestro flow file to execute'
+        required: false
+        default: '.maestro/smoke.yaml'
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: e2e-maestro-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-e2e:
+    name: Build Dev Client & Run Maestro E2E
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies (strict lockfile)
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Maestro flow definitions
+        run: pnpm verify:maestro
+
+      - name: Install Maestro CLI
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Prebuild iOS development variant
+        env:
+          APP_VARIANT: development
+          EXPO_USE_CHINA_MIRRORS: 'false'
+        run: pnpm prebuild:dev --platform ios --no-install
+
+      - name: Build and install iOS simulator app
+        env:
+          APP_VARIANT: development
+          EXPO_USE_CHINA_MIRRORS: 'false'
+        run: pnpm exec expo run:ios --configuration Debug
+
+      - name: Run Maestro E2E suite
+        env:
+          MAESTRO_APP_ID: com.enterprise.rntemplate.dev
+        run: maestro test "${{ github.event.inputs.flow || '.maestro/smoke.yaml' }}" --debug-output .maestro-artifacts
+
+      - name: Upload Maestro failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-e2e-artifacts
+          path: .maestro-artifacts
+          retention-days: 7

@@ -1,0 +1,3 @@
+# Enforce a Two-Phase Privacy Gate Bootstrap Before Deferred SDK Initialization
+
+Application startup is split into two explicit phases: Phase 1 boots only local UI, storage, and the Privacy Gate; Phase 2 initializes device-reading third-party SDKs (analytics, crash reporting, push notifications) strictly after the user grants privacy consent (or immediately when `requirePrivacyConsent` is disabled for overseas-only App Instances). Never initialize telemetry or third-party native SDKs at module-import time—doing so reads device identifiers before consent and triggers automatic rejection during mainland China Android app store compliance audits.

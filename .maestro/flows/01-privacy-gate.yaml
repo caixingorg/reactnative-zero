@@ -1,0 +1,11 @@
+appId: ${MAESTRO_APP_ID || 'com.enterprise.rntemplate.dev'}
+name: 01 - Privacy Gate Compliance Flow
+---
+# 1. 未同意前拦截：先点暂不同意，确认仍停留在合规引导页
+- assertVisible: '个人信息保护指引'
+- tapOn: '暂不同意'
+- assertVisible: '您需要同意隐私政策后方可使用完整功能.*'
+
+# 2. 点击同意并继续，放行至认证守卫
+- tapOn: '同意并继续'
+- assertVisible: '账号登录'

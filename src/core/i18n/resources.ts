@@ -1,0 +1,171 @@
+import type { SupportedLanguageCode } from '../config/types';
+
+export type SupportedLanguage = SupportedLanguageCode;
+
+export interface TranslationBundleMap {
+  'zh-CN': Record<string, unknown>;
+  'en-US': Record<string, unknown>;
+}
+
+// 原因：遵循 ADR-0002，底座内核仅维护通用动作、合规门禁、异常兜底与通用权限弹窗按钮，不含具体业务场景词条
+export const coreTranslationResources: TranslationBundleMap = {
+  'zh-CN': {
+    common: {
+      confirm: '确认',
+      cancel: '取消',
+      retry: '重试',
+      close: '关闭',
+      closeBackdrop: '关闭蒙层',
+      loading: '加载中...',
+      selectPlaceholder: '请选择',
+      offlineBanner: '当前网络不可用，请检查网络设置',
+    },
+    privacy: {
+      title: '个人信息保护指引',
+      summary:
+        '欢迎使用本应用。在您同意本指引前，我们不会初始化任何读取设备标识、定位或个人信息的第三方服务。请仔细阅读《用户协议》与《隐私政策》。',
+      userAgreementLink: '《用户协议》',
+      privacyPolicyLink: '《隐私政策》',
+      userAgreementTitle: '用户协议',
+      privacyPolicyTitle: '隐私政策',
+      agreeButton: '同意并继续',
+      declineButton: '暂不同意',
+      exitAppButton: '不同意并退出应用',
+      declinedHint: '您需要同意隐私政策后方可使用完整功能；如不同意可直接退出应用。',
+      declinedHintIos: '您需要同意隐私政策后方可使用完整功能，可随时返回本页重新查看并同意。',
+    },
+    errorBoundary: {
+      title: '页面遇到了一点问题',
+      description: '我们已拦截该局部异常，您可以点击下方按钮尝试恢复页面。',
+      retryButton: '重新加载页面',
+    },
+    permissions: {
+      continueButton: '继续授权',
+      blockedTitle: '权限已被系统关闭',
+      blockedDescription: '当前功能所需的系统权限已被永久拒绝，请前往系统设置手动开启后重试。',
+      openSettingsButton: '前往系统设置',
+    },
+    camera: {
+      captureModalTitle: '拍摄照片',
+      shutterButton: '快门拍照',
+    },
+    webview: {
+      disabledTitle: '网页容器能力已关闭',
+      disabledDescription: '当前应用已在 App Identity 中禁用内嵌网页容器。',
+      blockedTitle: '已拦截非受信任域名链接',
+      blockedDescription: '该链接不在受信任域名白名单内，已禁止在应用内直接加载',
+      openExternalButton: '使用系统浏览器打开',
+      loadErrorTitle: '网页加载失败',
+      simulateNoticeButton: '模拟 H5 发送通知消息',
+      simulatedNoticeContent: 'H5 消息桥联调成功',
+      simulateCloseButton: '模拟 H5 请求关闭容器',
+    },
+    devtools: {
+      title: '开发者调试面板',
+      diagnosticsTitle: '环境诊断概览',
+      variantLabel: '构建变体',
+      versionLabel: '应用与系统版本',
+      networkLabel: '网络状态',
+      networkOnline: '在线',
+      networkOffline: '离线',
+      credentialLabel: '登录凭证状态',
+      credentialPresent: '已持有加密凭证（硬件密钥库隔离）',
+      credentialEmpty: '未持有凭证',
+      activeApiLabel: '当前生效接口地址',
+      overrideSectionTitle: '动态切换接口基础地址',
+      overridePlaceholder: '输入覆盖接口地址 (https://...)',
+      overrideInvalidError: '请输入合法的 HTTP/HTTPS 接口基础地址',
+      applyUrlButton: '应用接口地址',
+      resetUrlButton: '恢复默认接口地址',
+      quickActionsTitle: '联调快捷操作',
+      simulateExpireButton: '模拟访问凭证过期',
+      clearCacheButton: '清空本地缓存',
+      resetPrivacyButton: '重置隐私合规门禁',
+      actionFeedbackExpired: '已将访问凭证替换为过期模拟值，下次请求将触发单飞续期',
+      actionFeedbackCleared: '已清空常规键值存储与查询缓存（机密凭证保持不变）',
+      recentLogsTitle: '最近内存日志（环形缓冲）',
+      emptyLogsHint: '暂无日志记录',
+    },
+  },
+  'en-US': {
+    common: {
+      confirm: 'Confirm',
+      cancel: 'Cancel',
+      retry: 'Retry',
+      close: 'Close',
+      closeBackdrop: 'Close backdrop',
+      loading: 'Loading...',
+      selectPlaceholder: 'Select an option',
+      offlineBanner: 'You are currently offline. Check your connection.',
+    },
+    privacy: {
+      title: 'Privacy & Data Protection Notice',
+      summary:
+        'Before you grant consent, no third-party SDK that reads device identifiers or personal telemetry will be initialized. Please review our Terms of Use and Privacy Policy.',
+      userAgreementLink: 'Terms of Use',
+      privacyPolicyLink: 'Privacy Policy',
+      userAgreementTitle: 'Terms of Use',
+      privacyPolicyTitle: 'Privacy Policy',
+      agreeButton: 'Agree & Continue',
+      declineButton: 'Not Now',
+      exitAppButton: 'Decline & Exit App',
+      declinedHint:
+        'Consent to the privacy policy is required to proceed. You may exit the app at any time.',
+      declinedHintIos:
+        'Consent to the privacy policy is required to proceed. You can review and accept it here at any time.',
+    },
+    errorBoundary: {
+      title: 'Something went wrong',
+      description: 'This view encountered an unexpected error. Tap below to recover.',
+      retryButton: 'Reload View',
+    },
+    permissions: {
+      continueButton: 'Continue',
+      blockedTitle: 'Permission Blocked in System Settings',
+      blockedDescription:
+        'This permission was permanently denied. Please enable it in your device system settings.',
+      openSettingsButton: 'Open System Settings',
+    },
+    camera: {
+      captureModalTitle: 'Capture Photo',
+      shutterButton: 'Take Photo',
+    },
+    webview: {
+      disabledTitle: 'WebView Disabled',
+      disabledDescription: 'Embedded WebView capability is disabled in App Identity.',
+      blockedTitle: 'Untrusted Domain Blocked',
+      blockedDescription: 'This URL is outside the trusted host allowlist',
+      openExternalButton: 'Open in System Browser',
+      loadErrorTitle: 'Failed to Load Web Page',
+      simulateNoticeButton: 'Simulate H5 Notice Message',
+      simulatedNoticeContent: 'H5 JSBridge Verified',
+      simulateCloseButton: 'Simulate H5 Close Request',
+    },
+    devtools: {
+      title: 'Developer Tools',
+      diagnosticsTitle: 'Runtime Diagnostics',
+      variantLabel: 'App Variant',
+      versionLabel: 'App & OS Version',
+      networkLabel: 'Connectivity',
+      networkOnline: 'Online',
+      networkOffline: 'Offline',
+      credentialLabel: 'Credential Summary',
+      credentialPresent: 'Encrypted Credentials Present (Hardware Keystore)',
+      credentialEmpty: 'No Credentials Stored',
+      activeApiLabel: 'Effective API Base URL',
+      overrideSectionTitle: 'Live API Base URL Override',
+      overridePlaceholder: 'Enter override API URL (https://...)',
+      overrideInvalidError: 'Please enter a valid HTTP or HTTPS base URL',
+      applyUrlButton: 'Apply API URL',
+      resetUrlButton: 'Restore Default URL',
+      quickActionsTitle: 'Debug Quick Actions',
+      simulateExpireButton: 'Simulate Token Expiration',
+      clearCacheButton: 'Clear Local Caches',
+      resetPrivacyButton: 'Reset Privacy Gate',
+      actionFeedbackExpired: 'Access token marked expired; next API call will trigger refresh',
+      actionFeedbackCleared: 'Cleared non-secret KV storage & Query cache (secrets preserved)',
+      recentLogsTitle: 'Recent Ring-Buffer Logs',
+      emptyLogsHint: 'No log entries recorded yet',
+    },
+  },
+};

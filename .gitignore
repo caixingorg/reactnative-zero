@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Expo & Continuous Native Generation (CNG) generated native directories
+# 原因：遵循 ADR-0001，原生目录由 app.config.ts 按需生成，避免克隆改包名及上游合并产生冲突
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+/ios
+/android
+
+# Build & test artifacts
+coverage/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Local overrides & OS files
+.agents/
+.claude/
+.env*.local
+.DS_Store
+*.pem
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Local-only working files (never commit)
+/.scratch/
+/docs/superpowers/
+/docs/agents/
+/AGENTS.md

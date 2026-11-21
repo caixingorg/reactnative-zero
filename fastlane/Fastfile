@@ -1,0 +1,150 @@
+# 原因：遵循 ADR-0001 去 EAS 海外云锁死策略，提供内网 Mac / GitLab Runner 本地自动化构建、安卓多渠道循环出包与蒲公英/群机器人分发流水线
+default_platform(:android)
+
+VALID_VARIANTS = %w[development staging production].freeze
+DEFAULT_DOMESTIC_CHANNELS = %w[official huawei xiaomi oppo vivo honor yingyongbao].freeze
+
+def resolve_variant(options)
+  variant = (options[:variant] || ENV['APP_VARIANT'] || 'staging').to_s
+  UI.user_error!("Unsupported APP_VARIANT '#{variant}'. Expected one of: #{VALID_VARIANTS.join(', ')}") unless VALID_VARIANTS.include?(variant)
+  variant
+end
+
+def resolve_channel(options, fallback = 'official')
+  channel = (options[:channel] || ENV['APP_CHANNEL'] || fallback).to_s
+  UI.user_error!("Invalid APP_CHANNEL '#{channel}'.") unless channel.match?(/\A[a-zA-Z0-9][a-zA-Z0-9_-]{0,31}\z/)
+  channel
+end
+
+# 原因：在执行 expo prebuild、Gradle 与 Xcode Release 打包期间统一锁定 ENV，确保 metro.config.js 与 expo-constants 都能读取到正确的 APP_VARIANT 与 APP_CHANNEL，防止生产包混入 DevTools 或回落为 development 配置
+def with_scoped_env(overrides)
+  previous = {}
+  overrides.each do |key, value|
+    previous[key] = ENV.key?(key) ? ENV[key] : :__unset__
+    ENV[key] = value.to_s
+  end
+  yield
+ensure
+  previous.each do |key, old_value|
+    if old_value == :__unset__
+      ENV.delete(key)
+    else
+      ENV[key] = old_value
+    end
+  end
+end
+
+platform :android do
+  desc '生成指定变体与渠道号的 Android 原生工程并执行本地 Gradle Release 打包'
+  lane :build_channel do |options|
+    variant = resolve_variant(options)
+    channel = resolve_channel(options, 'official')
+    use_china_mirrors = options[:china_mirrors].nil? ? (ENV['EXPO_USE_CHINA_MIRRORS'] || 'true') : options[:china_mirrors].to_s
+
+    UI.message("🚀 [Android] Prebuilding variant=#{variant} channel=#{channel} china_mirrors=#{use_china_mirrors}")
+
+    apk_target = nil
+    with_scoped_env(
+      'APP_VARIANT' => variant,
+      'APP_CHANNEL' => channel,
+      'EXPO_USE_CHINA_MIRRORS' => use_china_mirrors
+    ) do
+      sh('pnpm', 'exec', 'expo', 'prebuild', '--platform', 'android', '--clean', '--no-install')
+
+      gradle(
+        project_dir: 'android',
+        task: 'assemble',
+        build_type: 'Release',
+        flags: '--no-daemon'
+      )
+
+      output_dir = File.expand_path('../dist/android', __dir__)
+      FileUtils.mkdir_p(output_dir)
+      apk_source = File.expand_path('../android/app/build/outputs/apk/release/app-release.apk', __dir__)
+      UI.user_error!("Expected Release APK not found at #{apk_source}") unless File.exist?(apk_source)
+
+      apk_target = File.join(output_dir, "app-#{variant}-#{channel}-release.apk")
+      FileUtils.cp(apk_source, apk_target)
+
+      if options[:distribute]
+        with_scoped_env(
+          'DISTRIBUTE_PLATFORM' => 'android',
+          'DISTRIBUTE_ARTIFACT_PATH' => apk_target
+        ) do
+          sh('pnpm', 'run', 'distribute')
+        end
+      end
+    end
+
+    apk_target
+  end
+
+  desc '批量构建国内主流安卓应用市场（华米OV/荣耀/应用宝/官网）多渠道 Release 安装包'
+  lane :build_domestic_matrix do |options|
+    variant = resolve_variant(options)
+    raw_channels = options[:channels] ? options[:channels].to_s.split(',') : DEFAULT_DOMESTIC_CHANNELS
+    built_apks = []
+
+    raw_channels.each do |ch|
+      built_apks << build_channel(
+        variant: variant,
+        channel: ch.strip,
+        china_mirrors: 'true',
+        distribute: options[:distribute]
+      )
+    end
+
+    UI.success("✅ 已完成 #{built_apks.size} 个国内应用市场渠道包构建: #{built_apks.join(', ')}")
+  end
+end
+
+platform :ios do
+  desc '生成指定变体的 iOS 原生工程并执行本地 Xcode 归档出包（无需 EAS 云服务）'
+  lane :build_archive do |options|
+    variant = resolve_variant(options)
+    channel = resolve_channel(options, 'app_store')
+    export_method = (options[:export_method] || 'ad-hoc').to_s
+    use_china_mirrors = options[:china_mirrors].nil? ? (ENV['EXPO_USE_CHINA_MIRRORS'] || 'true') : options[:china_mirrors].to_s
+
+    UI.message("🚀 [iOS] Prebuilding variant=#{variant} channel=#{channel} china_mirrors=#{use_china_mirrors}")
+
+    ipa_target = nil
+    with_scoped_env(
+      'APP_VARIANT' => variant,
+      'APP_CHANNEL' => channel,
+      'EXPO_USE_CHINA_MIRRORS' => use_china_mirrors
+    ) do
+      sh('pnpm', 'exec', 'expo', 'prebuild', '--platform', 'ios', '--clean')
+
+      workspace = Dir[File.expand_path('../ios/*.xcworkspace', __dir__)].first
+      UI.user_error!('iOS .xcworkspace not found after expo prebuild.') unless workspace
+
+      output_dir = File.expand_path('../dist/ios', __dir__)
+      FileUtils.mkdir_p(output_dir)
+      ipa_name = "app-#{variant}-#{channel}.ipa"
+
+      build_app(
+        workspace: workspace,
+        configuration: 'Release',
+        export_method: export_method,
+        output_directory: output_dir,
+        output_name: ipa_name,
+        clean: true
+      )
+
+      ipa_target = File.join(output_dir, ipa_name)
+      UI.user_error!("Expected Release IPA not found at #{ipa_target}") unless File.exist?(ipa_target)
+
+      if options[:distribute]
+        with_scoped_env(
+          'DISTRIBUTE_PLATFORM' => 'ios',
+          'DISTRIBUTE_ARTIFACT_PATH' => ipa_target
+        ) do
+          sh('pnpm', 'run', 'distribute')
+        end
+      end
+    end
+
+    ipa_target
+  end
+end

@@ -1,0 +1,10 @@
+appId: ${MAESTRO_APP_ID || 'com.enterprise.rntemplate.dev'}
+name: Enterprise RN Template Core Smoke Flow
+---
+- launchApp:
+    clearState: true
+
+- runFlow: flows/01-privacy-gate.yaml
+- runFlow: flows/02-auth-login.yaml
+- runFlow: flows/03-feed-and-detail.yaml
+- runFlow: flows/04-settings-and-logout.yaml

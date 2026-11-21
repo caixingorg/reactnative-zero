@@ -1,0 +1,4 @@
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+pnpm lint-staged
+pnpm typecheck
+pnpm exec jest --runInBand

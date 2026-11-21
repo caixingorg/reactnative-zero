@@ -1,0 +1,11 @@
+node_modules/
+.agents/
+.expo/
+.claude/
+.scratch/
+ios/
+android/
+coverage/
+pnpm-lock.yaml
+CONTEXT.md
+docs/

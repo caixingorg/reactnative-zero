@@ -1,0 +1,11 @@
+appId: ${MAESTRO_APP_ID || 'com.enterprise.rntemplate.dev'}
+name: 03 - Protected Feed and Tab Navigation Flow
+---
+# 1. 验证受保护首页信息流加载
+- assertVisible: '业务动态列表'
+
+# 2. 切换能力实验室与个人设置标签页
+- tapOn: '能力实验室'
+- assertVisible: '原生能力实验室'
+- tapOn: '个人设置'
+- assertVisible: '个人设置'
