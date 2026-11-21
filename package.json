@@ -31,12 +31,15 @@
     "e2e:smoke": "maestro test .maestro/smoke.yaml",
     "verify:maestro": "node scripts/verify-maestro-flows.cjs",
     "verify:variants": "node scripts/verify-variant-config.cjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm verify:maestro && pnpm exec jest --runInBand"
+    "verify": "pnpm typecheck && pnpm lint && pnpm verify:maestro && pnpm exec jest --runInBand",
+    "version:bump": "npm version --no-git-tag-version",
+    "test:coverage": "jest --coverage"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs}": [
       "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "jest --findRelatedTests --passWithNoTests --bail"
     ],
     "*.{json,md}": [
       "prettier --write"
@@ -94,11 +97,14 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@react-native/jest-preset": "^0.88.1",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.0",
     "@types/react": "~19.3.0",
+    "babel-plugin-transform-remove-console": "^6.9.4",
     "eslint": "^9.39.5",
     "eslint-config-expo": "^58.0.4",
     "husky": "^9.1.7",
