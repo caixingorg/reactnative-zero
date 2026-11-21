@@ -3,7 +3,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { AppApiError } from '@/core/network/types';
 import { useAppRuntime, useConnectivity, useDrawer } from '@/core/runtime';
@@ -109,14 +109,12 @@ interface RecommendedFeedTabProps {
   isActive: boolean;
   onSelectItem?: (itemId: string) => void;
   onSelectRecord?: (record: MockListRecord) => void;
-  onCarouselActiveChange?: (active: boolean) => void;
 }
 
 function RecommendedFeedTab({
   isActive,
   onSelectItem,
   onSelectRecord,
-  onCarouselActiveChange,
 }: RecommendedFeedTabProps): React.JSX.Element {
   const { t } = useTranslation();
   const { httpClient } = useAppRuntime();
@@ -222,18 +220,8 @@ function RecommendedFeedTab({
         </View>
       </Pressable>
 
-      {/* 2. Horizontal Topic Carousel */}
-      <ScrollView
-        horizontal
-        nestedScrollEnabled
-        showsHorizontalScrollIndicator={false}
-        onTouchStart={() => onCarouselActiveChange?.(true)}
-        onTouchEnd={() => onCarouselActiveChange?.(false)}
-        onTouchCancel={() => onCarouselActiveChange?.(false)}
-        onScrollEndDrag={() => onCarouselActiveChange?.(false)}
-        onMomentumScrollEnd={() => onCarouselActiveChange?.(false)}
-        contentContainerStyle={styles.carouselRow}
-      >
+      {/* 2. 3-Column Equal-Width Topic Cards (matches mockup, zero horizontal overflow or TabPager conflict) */}
+      <HStack gap="sm" style={styles.fullRow}>
         {FEATURED_CAROUSEL.map((col) => (
           <Pressable
             key={col.id}
@@ -253,7 +241,7 @@ function RecommendedFeedTab({
               pressed && styles.pressed,
             ]}
           >
-            <AppText variant="caption" style={styles.carouselTag}>
+            <AppText variant="caption" style={styles.carouselTag} numberOfLines={1}>
               {col.tag}
             </AppText>
             <AppText variant="bodySm" weight="700" style={styles.carouselTitle} numberOfLines={2}>
@@ -261,10 +249,10 @@ function RecommendedFeedTab({
             </AppText>
           </Pressable>
         ))}
-      </ScrollView>
+      </HStack>
 
-      {/* 3. 2-Column Pastel Editorial Magazine Cards */}
-      <HStack gap="sm">
+      {/* 3. 2-Column Equal-Width Pastel Editorial Magazine Cards */}
+      <HStack gap="sm" style={styles.fullRow}>
         {MAGAZINE_CARDS.map((card) => (
           <Pressable
             key={card.id}
@@ -557,7 +545,6 @@ export function HomeStarterScreen({
   const { tokens } = useAppTheme();
   const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [carouselDragging, setCarouselDragging] = useState(false);
   const scrollProgress = useSharedValue(0);
 
   return (
@@ -588,7 +575,6 @@ export function HomeStarterScreen({
         activeIndex={activeIndex}
         onIndexChange={setActiveIndex}
         scrollProgress={scrollProgress}
-        scrollEnabled={!carouselDragging}
         renderPage={(index, isActive) => {
           const tabKey = HOME_TABS[index]?.key;
           if (tabKey === 'recommended') {
@@ -597,7 +583,6 @@ export function HomeStarterScreen({
                 isActive={isActive}
                 onSelectItem={onSelectItem}
                 onSelectRecord={onSelectRecord}
-                onCarouselActiveChange={setCarouselDragging}
               />
             );
           }
@@ -666,12 +651,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
   },
-  carouselRow: {
-    gap: 10,
+  fullRow: {
+    width: '100%',
   },
   carouselCard: {
-    width: 132,
-    height: 82,
+    flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    height: 86,
     padding: 12,
     justifyContent: 'space-between',
   },
@@ -683,7 +670,9 @@ const styles = StyleSheet.create({
   },
   magazineCard: {
     flex: 1,
-    minHeight: 102,
+    flexBasis: 0,
+    minWidth: 0,
+    minHeight: 104,
     padding: 14,
     justifyContent: 'space-between',
   },
