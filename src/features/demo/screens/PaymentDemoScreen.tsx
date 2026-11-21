@@ -221,7 +221,7 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
 
   return (
     <Screen scrollable backgroundColor={tokens.colors.background}>
-      <AppHeader title="全场景支付演示" onBack={onBack} />
+      <AppHeader title="全场景支付演示" showBack onBack={onBack} />
       <VStack p="lg" gap="lg">
         {/* One-time checkout card */}
         <VStack
@@ -242,21 +242,28 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
           <AppText variant="bodySm" tone="secondary">
             后端下发可用渠道与本地已注册驱动取交集；支付结果强制经后端查单核实，支持切回前台与冷启恢复。
           </AppText>
-          <HStack align="center" justify="space-between">
-            <VStack>
-              <AppText variant="caption" tone="secondary">
-                演示商品
+          <VStack
+            p="md"
+            gap="sm"
+            style={{
+              backgroundColor: tokens.colors.surfaceMuted,
+              borderRadius: tokens.radii.md,
+            }}
+          >
+            <HStack align="center" justify="space-between" gap="sm">
+              <AppText variant="bodyMd" weight="600" style={styles.flex1}>
+                企业版物理硬件套装
               </AppText>
-              <AppText variant="bodyMd" weight="600">
-                企业版物理硬件套装 · ¥199.00
+              <AppText variant="bodyMd" weight="700">
+                ¥199.00
               </AppText>
-            </VStack>
+            </HStack>
             <Button
               testID="open-cashier-button"
               label="打开收银台"
               onPress={() => setSheetVisible(true)}
             />
-          </HStack>
+          </VStack>
         </VStack>
 
         {/* IAP Subscription card */}
@@ -285,8 +292,8 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
                 borderRadius: tokens.radii.md,
               }}
             >
-              <HStack align="center" justify="space-between">
-                <AppText variant="bodyMd" weight="600">
+              <HStack align="center" justify="space-between" gap="sm">
+                <AppText variant="bodyMd" weight="600" style={styles.flex1}>
                   {product.title}
                 </AppText>
                 <AppText variant="bodyMd" weight="700">
