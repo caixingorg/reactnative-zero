@@ -23,8 +23,9 @@ export function KeyboardStickyFooter({
   const { tokens } = useAppTheme();
   const insets = useSafeAreaInsets();
 
+  // 原因：键盘收起时用 insets.bottom + md 避开底部导航条并保留呼吸间距；键盘弹起时通过 opened 偏移抵消 insets.bottom，避免按钮与键盘之间出现多余白边
   return (
-    <KeyboardStickyView offset={{ closed: closedOffset, opened: openedOffset }}>
+    <KeyboardStickyView offset={{ closed: closedOffset, opened: openedOffset + insets.bottom }}>
       <View
         style={[
           styles.container,
