@@ -4,12 +4,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useFilesCapability } from '@/core/capabilities/files';
 import { useMediaCapability } from '@/core/capabilities/media';
-import { useAuthSession, useDrawer, useToast } from '@/core/runtime';
+import { useAuthSession, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppImage,
   AppText,
-  DrawerTriggerButton,
   HStack,
   ListTemplate,
   Screen,
@@ -203,7 +202,6 @@ export function ProfileScreen({
   onSelectRecord,
 }: ProfileScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
-  const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
@@ -214,7 +212,6 @@ export function ProfileScreen({
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
-        leftSlot={<DrawerTriggerButton testID="profile-drawer-button" onPress={drawer.open} />}
         rightSlot={
           onOpenSettings ? (
             <Pressable

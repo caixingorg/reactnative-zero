@@ -4,11 +4,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useFilesCapability } from '@/core/capabilities/files';
 import { useNotificationsCapability } from '@/core/capabilities/notifications';
-import { useDrawer, useToast } from '@/core/runtime';
+import { useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppText,
-  DrawerTriggerButton,
   HStack,
   ListTemplate,
   Screen,
@@ -201,7 +200,6 @@ function MessagesSubTab({
 }
 
 export function MessagesScreen({ onSelectRecord }: MessagesScreenProps = {}): React.JSX.Element {
-  const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
@@ -212,7 +210,6 @@ export function MessagesScreen({ onSelectRecord }: MessagesScreenProps = {}): Re
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
-        leftSlot={<DrawerTriggerButton testID="messages-drawer-button" onPress={drawer.open} />}
       />
       <TabPager
         pageCount={MESSAGES_TABS.length}

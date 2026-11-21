@@ -21,6 +21,8 @@ export interface TabPagerProps {
   onIndexChange: (index: number) => void;
   /** 可选 Reanimated 共享值，由本容器在横向滚动时写入连续页码进度（0 .. pageCount - 1）。 */
   scrollProgress?: SharedValue<number>;
+  /** 当子页面内部存在横向滚动栏被触摸时，可临时锁定外层分页滑动避免误切 Tab。 */
+  scrollEnabled?: boolean;
   renderPage: (index: number, isActive: boolean) => React.ReactNode;
   testID?: string;
 }
@@ -30,6 +32,7 @@ export function TabPager({
   activeIndex,
   onIndexChange,
   scrollProgress,
+  scrollEnabled = true,
   renderPage,
   testID = 'tab-pager',
 }: TabPagerProps): React.JSX.Element {
@@ -84,6 +87,8 @@ export function TabPager({
         testID="tab-pager-scroll"
         horizontal
         pagingEnabled
+        scrollEnabled={scrollEnabled}
+        nestedScrollEnabled
         bounces={false}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}

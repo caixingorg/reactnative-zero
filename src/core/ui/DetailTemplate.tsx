@@ -49,7 +49,17 @@ export function DetailTemplate({
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
         {coverUri ? (
           <View style={styles.coverWrapper}>
-            <AppImage uri={coverUri} height={200} style={styles.coverImage} />
+            <View
+              style={[
+                styles.coverFrame,
+                {
+                  borderRadius: tokens.radii.lg,
+                  backgroundColor: tokens.colors.surfaceMuted,
+                },
+              ]}
+            >
+              <AppImage uri={coverUri} height={200} style={styles.coverImage} />
+            </View>
           </View>
         ) : null}
 
@@ -146,6 +156,12 @@ const styles = StyleSheet.create({
   },
   coverWrapper: {
     width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  coverFrame: {
+    width: '100%',
+    overflow: 'hidden',
   },
   coverImage: {
     width: '100%',

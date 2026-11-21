@@ -109,12 +109,14 @@ interface RecommendedFeedTabProps {
   isActive: boolean;
   onSelectItem?: (itemId: string) => void;
   onSelectRecord?: (record: MockListRecord) => void;
+  onCarouselActiveChange?: (active: boolean) => void;
 }
 
 function RecommendedFeedTab({
   isActive,
   onSelectItem,
   onSelectRecord,
+  onCarouselActiveChange,
 }: RecommendedFeedTabProps): React.JSX.Element {
   const { t } = useTranslation();
   const { httpClient } = useAppRuntime();
@@ -223,7 +225,13 @@ function RecommendedFeedTab({
       {/* 2. Horizontal Topic Carousel */}
       <ScrollView
         horizontal
+        nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
+        onTouchStart={() => onCarouselActiveChange?.(true)}
+        onTouchEnd={() => onCarouselActiveChange?.(false)}
+        onTouchCancel={() => onCarouselActiveChange?.(false)}
+        onScrollEndDrag={() => onCarouselActiveChange?.(false)}
+        onMomentumScrollEnd={() => onCarouselActiveChange?.(false)}
         contentContainerStyle={styles.carouselRow}
       >
         {FEATURED_CAROUSEL.map((col) => (
@@ -549,6 +557,7 @@ export function HomeStarterScreen({
   const { tokens } = useAppTheme();
   const drawer = useDrawer();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [carouselDragging, setCarouselDragging] = useState(false);
   const scrollProgress = useSharedValue(0);
 
   return (
@@ -579,6 +588,7 @@ export function HomeStarterScreen({
         activeIndex={activeIndex}
         onIndexChange={setActiveIndex}
         scrollProgress={scrollProgress}
+        scrollEnabled={!carouselDragging}
         renderPage={(index, isActive) => {
           const tabKey = HOME_TABS[index]?.key;
           if (tabKey === 'recommended') {
@@ -587,6 +597,7 @@ export function HomeStarterScreen({
                 isActive={isActive}
                 onSelectItem={onSelectItem}
                 onSelectRecord={onSelectRecord}
+                onCarouselActiveChange={setCarouselDragging}
               />
             );
           }

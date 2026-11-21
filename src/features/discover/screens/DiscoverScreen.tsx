@@ -7,12 +7,11 @@ import { useFilesCapability } from '@/core/capabilities/files';
 import { useLocationCapability } from '@/core/capabilities/location';
 import { useMediaCapability } from '@/core/capabilities/media';
 import { useMusicCapability } from '@/core/capabilities/music';
-import { useDrawer, useToast } from '@/core/runtime';
+import { useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppText,
   BottomSheetModal,
-  DrawerTriggerButton,
   HStack,
   ListTemplate,
   Screen,
@@ -365,7 +364,6 @@ export function DiscoverScreen({
   onOpenWebView,
 }: DiscoverScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
-  const drawer = useDrawer();
   const toast = useToast();
   const [activeIndex, setActiveIndex] = useState(0);
   const [scannerVisible, setScannerVisible] = useState(false);
@@ -378,7 +376,6 @@ export function DiscoverScreen({
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
-        leftSlot={<DrawerTriggerButton testID="discover-drawer-button" onPress={drawer.open} />}
         rightSlot={
           onOpenSearch ? (
             <Pressable

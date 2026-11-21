@@ -24,7 +24,7 @@ function createRuntime() {
 }
 
 describe('Seam: Discover, Messages, and Profile 3-tab skeletons', () => {
-  it('renders DiscoverScreen with drawer button, 分类/榜单/专题 lazy tabs, and reselect registration', async () => {
+  it('renders DiscoverScreen without drawer button, with 广场/榜单/专题 lazy tabs and reselect registration', async () => {
     const runtime = createRuntime();
     await render(
       <AppRuntimeProvider runtime={runtime}>
@@ -32,8 +32,7 @@ describe('Seam: Discover, Messages, and Profile 3-tab skeletons', () => {
       </AppRuntimeProvider>,
     );
 
-    await fireEvent.press(screen.getByTestId('discover-drawer-button'));
-    expect(runtime.drawerStore.getState().isOpen).toBe(true);
+    expect(screen.queryByTestId('discover-drawer-button')).toBeNull();
 
     expect(screen.getByTestId('discover-tab-categories')).toBeTruthy();
     expect(screen.queryByTestId('discover-tab-rankings')).toBeNull();
@@ -48,7 +47,7 @@ describe('Seam: Discover, Messages, and Profile 3-tab skeletons', () => {
     expect(pageActionsRegistry.reselect()).toBe('refreshed');
   });
 
-  it('renders MessagesScreen with unread badges/dot and 通知/互动/私信 lazy tabs', async () => {
+  it('renders MessagesScreen without drawer button, with unread badges/dot and 通知/互动/私信 lazy tabs', async () => {
     const runtime = createRuntime();
     await render(
       <AppRuntimeProvider runtime={runtime}>
@@ -56,8 +55,7 @@ describe('Seam: Discover, Messages, and Profile 3-tab skeletons', () => {
       </AppRuntimeProvider>,
     );
 
-    await fireEvent.press(screen.getByTestId('messages-drawer-button'));
-    expect(runtime.drawerStore.getState().isOpen).toBe(true);
+    expect(screen.queryByTestId('messages-drawer-button')).toBeNull();
 
     expect(screen.getByTestId('top-tab-badge-notifications')).toBeTruthy();
     expect(screen.getByTestId('top-tab-dot-interactions')).toBeTruthy();
@@ -73,7 +71,7 @@ describe('Seam: Discover, Messages, and Profile 3-tab skeletons', () => {
     await waitFor(() => expect(screen.getByTestId('messages-tab-direct')).toBeTruthy());
   });
 
-  it('renders ProfileScreen with drawer button, settings trigger, and 收藏/历史/动态 lazy tabs', async () => {
+  it('renders ProfileScreen without drawer button, with settings trigger and 收藏/历史/动态 lazy tabs', async () => {
     const runtime = createRuntime();
     let settingsOpened = 0;
 
@@ -87,8 +85,7 @@ describe('Seam: Discover, Messages, and Profile 3-tab skeletons', () => {
       </AppRuntimeProvider>,
     );
 
-    await fireEvent.press(screen.getByTestId('profile-drawer-button'));
-    expect(runtime.drawerStore.getState().isOpen).toBe(true);
+    expect(screen.queryByTestId('profile-drawer-button')).toBeNull();
 
     await fireEvent.press(screen.getByTestId('profile-settings-button'));
     expect(settingsOpened).toBe(1);
