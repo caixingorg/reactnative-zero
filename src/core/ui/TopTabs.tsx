@@ -114,6 +114,8 @@ export function TopTabs({
     });
   };
 
+  const hasSideSlots = Boolean(leftSlot) || Boolean(rightSlot);
+
   return (
     <View
       testID={testID}
@@ -125,7 +127,7 @@ export function TopTabs({
         },
       ]}
     >
-      {leftSlot ? <View style={styles.sideSlot}>{leftSlot}</View> : null}
+      {hasSideSlots ? <View style={styles.sideSlot}>{leftSlot}</View> : null}
 
       <View style={styles.scrollContainer} onLayout={handleScrollContainerLayout}>
         <ScrollView
@@ -205,7 +207,7 @@ export function TopTabs({
         </ScrollView>
       </View>
 
-      {rightSlot ? <View style={styles.sideSlot}>{rightSlot}</View> : null}
+      {hasSideSlots ? <View style={styles.sideSlot}>{rightSlot}</View> : null}
     </View>
   );
 }
@@ -219,6 +221,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   sideSlot: {
+    minWidth: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -226,6 +229,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 8,
   },
   tabRow: {
