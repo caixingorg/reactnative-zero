@@ -12,7 +12,8 @@ import {
   SettingsList,
   type SettingsSection,
 } from '@/core/ui';
-import { SearchScreen, StatusPageScreen } from '@/features/templates';
+import { StatusPageScreen } from '@/features/demo';
+import { SearchScreen } from '@/features/search';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 

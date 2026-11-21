@@ -2,6 +2,33 @@
 
 A clonable mobile application foundation designed to initialize independent iOS and Android business products while preserving a clean boundary for upstream foundation updates.
 
+## 10-Minute Onboarding Map
+
+### 1. Five Entry Files to Read First
+1. `app.identity.ts` — Single source of truth for app name, bundle/package IDs, theme seed, compliance gates, and capability switches.
+2. `src/app/_layout.tsx` — Root Route Shell (`GuardedRootStack` + `AppRuntimeProvider` + `AppDrawerShell` + `WelcomeOverlayGate`).
+3. `src/core/runtime/create-app-runtime.ts` — Explicit 3-stage DI bootstrap (`bootStorageAndCompliance` → `bootCoreServices` → `bootNetworkAndUiStores`).
+4. `eslint.config.js` — Enforces the 4-layer dependency direction (`app → features → shared → core`) and forbids cross-slice deep imports.
+5. `metro.config.js` — Build-time `.prod.ts(x)` physical stub replacement when `APP_VARIANT=production`.
+
+### 2. What to Keep vs. What You Can Delete
+| Scope | Paths | Rule |
+|---|---|---|
+| **Template Core（勿随意改契约）** | `src/core/*` | Business-agnostic foundation (runtime, network, auth, storage, theme, UI primitives, capabilities). |
+| **正式业务切片** | `src/features/{auth,home,discover,messages,profile,search,feedback,settings,shell,webview}` | Product Feature Slices; external callers import only from `@/features/<slice>`. |
+| **可整包删除的 Starter / Demo** | `src/features/demo`, `src/features/capabilities-lab`, `src/shared/demo/*` | Reference slices & local demo transport; stripped automatically by `pnpm init:app --clean-starter`. |
+
+### 3. Build-Time Production Stubs (`metro.config.js`)
+When `APP_VARIANT=production`, Metro physically redirects these modules to zero-payload stubs:
+- `src/core/devtools/DevToolsOverlay.tsx` → `DevToolsOverlay.prod.tsx`
+- `src/core/devtools/devtools-store.ts` → `devtools-store.prod.ts`
+- `src/shared/demo/demo-http-transport.ts` → `demo-http-transport.prod.ts`
+
+### 4. State Ownership Rules
+- **AppRuntime DI Stores** (`src/core/runtime`): Cross-screen app state that must be isolated per test runtime (`auth`, `privacyGate`, `preferences`, `connectivity`, `toast`, `drawer`, `permissionPrompt`, `devTools`).
+- **TanStack Query**: All remote/paginated data (all channels go through `httpClient`).
+- **Module Singletons**: Pure UI coordination / telemetry registries (`pageActionsRegistry`, `appPerformanceMarks`).
+
 ## Language
 
 **Template Core（底座内核）**:

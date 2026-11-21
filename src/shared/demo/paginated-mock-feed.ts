@@ -6,6 +6,7 @@
  */
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { useAppRuntime } from '@/core/runtime';
 
 export interface MockListRecord {
   id: string;
@@ -209,16 +210,19 @@ export function setMockFeedDelayMs(ms: number): void {
   simulatedDelayMs = Math.max(0, ms);
 }
 
-async function fetchMockChannelPage(
+export function getMockFeedDelayMs(): number {
+  return simulatedDelayMs;
+}
+
+export interface DemoChannelPagePayload {
+  items: MockListRecord[];
+  nextPage: number | null;
+}
+
+export function buildDemoChannelPage(
   channelKey: string,
   pageParam: number,
-): Promise<{ items: MockListRecord[]; nextPage: number | null }> {
-  if (simulatedDelayMs > 0) {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, simulatedDelayMs);
-    });
-  }
-
+): DemoChannelPagePayload {
   const seed = CHANNEL_SEEDS[channelKey] ?? DEFAULT_SEED;
   const startRank = (pageParam - 1) * PAGE_SIZE;
 
@@ -243,11 +247,16 @@ async function fetchMockChannelPage(
   };
 }
 
+// 原因：所有演示频道统一经由 httpClient 发起请求，与首页推荐保持唯一数据链路（共享鉴权头、离线检测、DevTools 抓包与生产空桩隔离）
 export function useMockPaginatedFeed(channelKey: string) {
+  const { httpClient } = useAppRuntime();
   const query = useInfiniteQuery({
-    queryKey: ['mock-channel', channelKey],
+    queryKey: ['channel-feed', channelKey],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => fetchMockChannelPage(channelKey, pageParam),
+    queryFn: ({ pageParam }) =>
+      httpClient.get<DemoChannelPagePayload>(`/channels/${encodeURIComponent(channelKey)}/items`, {
+        params: { page: pageParam },
+      }),
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
   });
 

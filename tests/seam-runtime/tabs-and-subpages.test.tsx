@@ -7,6 +7,7 @@ import { DiscoverScreen } from '@/features/discover';
 import { MessagesScreen } from '@/features/messages';
 import { ProfileScreen } from '@/features/profile';
 import { SettingsScreen } from '@/features/settings';
+import { createDemoHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -20,6 +21,9 @@ function createRuntime() {
       },
     },
     env: TEST_RUNTIME_ENV,
+    overrides: {
+      httpTransport: createDemoHttpTransport(),
+    },
   });
 }
 

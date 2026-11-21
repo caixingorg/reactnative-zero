@@ -1,21 +1,18 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { appIdentity } from '@root/app.identity';
 import { AuthHydrationGate } from '@/core/auth/AuthHydrationGate';
 import { appPerformanceMarks } from '@/core/observability/performance-marks';
-import { StyleSheet, View } from 'react-native';
 import {
   AppRuntimeProvider,
   createAppRuntime,
   resolveStartupRuntimeEnv,
-  useAuthSession,
-  usePreferences,
-  usePrivacyGate,
   useAppRuntime,
+  useAuthSession,
+  usePrivacyGate,
 } from '@/core/runtime';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { DrawerHost } from '@/core/ui';
-import { DrawerMenu, WelcomeScreen, type DrawerNavTarget } from '@/features/shell';
+import { AppDrawerShell, WelcomeOverlayGate } from '@/features/shell';
 import { appTranslationResources, createDemoHttpTransport } from '@/shared';
 
 // 原因：Route Shell 仅声明路由树与守卫布尔条件，零状态副作用编排且零具体界面元素
@@ -81,59 +78,16 @@ function PerformanceMarkers(): null {
   return null;
 }
 
-// 原因：抽屉盖在整个路由树（含底部导航）之上，所以挂在根 Stack 的兄弟位置；
-// 边缘拖出只在底部导航根页面开启，栈页面里最左边缘要留给"左滑返回"
-function AppDrawer(): React.JSX.Element {
-  const { drawerStore } = useAppRuntime();
+// 原因：抽屉盖在整个路由树之上，边缘拖出只在底部导航根页面开启，栈页面最左边缘留给「左滑返回」
+function RootDrawerBridge(): React.JSX.Element {
   const segments = useSegments();
   const router = useRouter();
 
-  const handleNavigate = (target: DrawerNavTarget): boolean => {
-    switch (target) {
-      case 'settings':
-        router.push('/settings');
-        return true;
-      case 'profile':
-        router.push('/(tabs)/profile');
-        return true;
-      case 'favorites':
-        router.push({ pathname: '/list', params: { title: '收藏' } });
-        return true;
-      case 'history':
-        router.push({ pathname: '/list', params: { title: '历史' } });
-        return true;
-      case 'feedback':
-        router.push('/form');
-        return true;
-      case 'about':
-        router.push({ pathname: '/status', params: { kind: 'empty', title: '关于' } });
-        return true;
-      case 'login':
-        router.push('/login');
-        return true;
-    }
-  };
-
   return (
-    <DrawerHost drawerStore={drawerStore} edgeSwipeEnabled={segments[0] === '(tabs)'}>
-      <DrawerMenu onClose={() => drawerStore.getState().close()} onNavigate={handleNavigate} />
-    </DrawerHost>
-  );
-}
-
-function WelcomeGate(): React.JSX.Element | null {
-  const { preferencesStore } = useAppRuntime();
-  const isPrivacyReady = usePrivacyGate((state) => state.phase === 'ready');
-  const hasCompletedWelcome = usePreferences((state) => state.hasCompletedWelcome);
-
-  if (!isPrivacyReady || hasCompletedWelcome) {
-    return null;
-  }
-
-  return (
-    <View style={[StyleSheet.absoluteFill, styles.welcomeOverlay]}>
-      <WelcomeScreen onComplete={() => preferencesStore.getState().completeWelcome()} />
-    </View>
+    <AppDrawerShell
+      edgeSwipeEnabled={segments[0] === '(tabs)'}
+      onNavigateRoute={(route) => router.push(route)}
+    />
   );
 }
 
@@ -154,15 +108,9 @@ export default function RootLayout(): React.JSX.Element {
       <AppRuntimeProvider runtime={runtime}>
         <PerformanceMarkers />
         <GuardedRootStack />
-        <AppDrawer />
-        <WelcomeGate />
+        <RootDrawerBridge />
+        <WelcomeOverlayGate />
       </AppRuntimeProvider>
     </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  welcomeOverlay: {
-    zIndex: 50,
-  },
-});

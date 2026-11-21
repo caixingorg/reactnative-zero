@@ -213,7 +213,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
     expect(screen.queryByText('开发者调试面板')).toBeNull();
   });
 
-  it('physically redirects DevToolsDrawerHost and demo-http-transport to zero-payload stubs via metro.config.js ONLY when APP_VARIANT=production', () => {
+  it('physically redirects DevToolsOverlay and demo-http-transport to zero-payload stubs via metro.config.js ONLY when APP_VARIANT=production', () => {
     const repoRoot = path.resolve(__dirname, '../..');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const metroConfig = require('@root/metro.config.js') as {
@@ -228,11 +228,8 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
       };
     };
 
-    const devToolsRealPath = path.resolve(repoRoot, 'src/core/devtools/DevToolsDrawerHost.tsx');
-    const devToolsStubPath = path.resolve(
-      repoRoot,
-      'src/core/devtools/DevToolsDrawerHost.prod.tsx',
-    );
+    const devToolsRealPath = path.resolve(repoRoot, 'src/core/devtools/DevToolsOverlay.tsx');
+    const devToolsStubPath = path.resolve(repoRoot, 'src/core/devtools/DevToolsOverlay.prod.tsx');
     const devToolsStoreRealPath = path.resolve(repoRoot, 'src/core/devtools/devtools-store.ts');
     const devToolsStoreStubPath = path.resolve(
       repoRoot,
@@ -244,7 +241,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
     const fakeContext = {
       resolveRequest: (_ctx: unknown, moduleName: string) => ({
         type: 'sourceFile',
-        filePath: moduleName.includes('DevToolsDrawerHost')
+        filePath: moduleName.includes('DevToolsOverlay')
           ? devToolsRealPath
           : moduleName.includes('devtools-store')
             ? devToolsStoreRealPath
@@ -256,7 +253,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
     try {
       process.env.APP_VARIANT = 'staging';
       expect(
-        metroConfig.resolver.resolveRequest(fakeContext, '../devtools/DevToolsDrawerHost', 'ios')
+        metroConfig.resolver.resolveRequest(fakeContext, '../devtools/DevToolsOverlay', 'ios')
           .filePath,
       ).toBe(devToolsRealPath);
       expect(
@@ -266,7 +263,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
 
       process.env.APP_VARIANT = 'production';
       expect(
-        metroConfig.resolver.resolveRequest(fakeContext, '../devtools/DevToolsDrawerHost', 'ios')
+        metroConfig.resolver.resolveRequest(fakeContext, '../devtools/DevToolsOverlay', 'ios')
           .filePath,
       ).toBe(devToolsStubPath);
       expect(
@@ -303,7 +300,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
       };
     };
 
-    const devToolsRealPath = path.resolve(repoRoot, 'src/core/devtools/DevToolsDrawerHost.tsx');
+    const devToolsRealPath = path.resolve(repoRoot, 'src/core/devtools/DevToolsOverlay.tsx');
     const existsSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(false);
     const prevVariant = process.env.APP_VARIANT;
     try {
@@ -313,7 +310,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
           {
             resolveRequest: () => ({ type: 'sourceFile', filePath: devToolsRealPath }),
           },
-          '../devtools/DevToolsDrawerHost',
+          '../devtools/DevToolsOverlay',
           'ios',
         ),
       ).toThrow(/Missing production stub file/);

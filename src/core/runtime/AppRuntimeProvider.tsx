@@ -12,7 +12,7 @@ import {
   initialWindowMetrics,
   type Metrics,
 } from 'react-native-safe-area-context';
-import type { DevToolsDrawerHostProps } from '../devtools/DevToolsDrawerHost';
+import type { DevToolsOverlayProps } from '../devtools/DevToolsOverlay';
 import { isDevToolsEnabled } from '../devtools/devtools-store';
 import { OfflineBanner } from '../network/OfflineBanner';
 import { AppErrorBoundary } from '../observability/AppErrorBoundary';
@@ -35,12 +35,12 @@ export interface AppRuntimeProviderProps {
 }
 
 // 原因：仅在外层 isDevToolsEnabled(runtime.env) 为真时渲染；延迟 require 配合 metro.config.js 生产空桩替换，防止调试代码打入生产包
-function NonProdDevToolsBoundary(props: DevToolsDrawerHostProps): React.JSX.Element {
+function NonProdDevToolsBoundary(props: DevToolsOverlayProps): React.JSX.Element {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { DevToolsDrawerHost } = require('../devtools/DevToolsDrawerHost') as {
-    DevToolsDrawerHost: React.ComponentType<DevToolsDrawerHostProps>;
+  const { DevToolsOverlay } = require('../devtools/DevToolsOverlay') as {
+    DevToolsOverlay: React.ComponentType<DevToolsOverlayProps>;
   };
-  return <DevToolsDrawerHost {...props} />;
+  return <DevToolsOverlay {...props} />;
 }
 
 export function AppRuntimeProvider({

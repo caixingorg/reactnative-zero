@@ -42,11 +42,30 @@ export function resolveStartupRuntimeEnv(
   return parseRuntimeEnv(sourceEnv);
 }
 
-export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
-  const env = options.env ?? resolveStartupRuntimeEnv();
+interface BootStorageStage {
+  readonly secretStorage: AppRuntime['secretStorage'];
+  readonly keyValueStorage: AppRuntime['keyValueStorage'];
+  readonly hadSandboxStateAtBoot: boolean;
+  readonly observability: ReturnType<typeof createObservabilitySuite>;
+  readonly i18n: AppRuntime['i18n'];
+  readonly preferencesStore: AppRuntime['preferencesStore'];
+}
+
+interface CoreServicesStage {
+  readonly queryClient: AppRuntime['queryClient'];
+  readonly authSessionStore: AppRuntime['authSessionStore'];
+  readonly otaCoordinator: AppRuntime['otaCoordinator'];
+  readonly privacyGateStore: AppRuntime['privacyGateStore'];
+  readonly devToolsStore: AppRuntime['devToolsStore'];
+}
+
+// 阶段 1：存储初始化 + 沙盒重装采样 + 隐私状态检查 + i18n 与偏好（必须在任何启动期写入前完成采样）
+function bootStorageAndCompliance(
+  options: AppRuntimeOptions,
+  env: RuntimePublicEnv,
+): BootStorageStage {
   const secretStorage = options.overrides?.secretStorage ?? createNativeSecretStorage();
   const keyValueStorage = options.overrides?.keyValueStorage ?? createNativeKeyValueStorage();
-  // 原因：必须在任何启动期写入（如隐私同意、偏好落盘）之前采样沙盒既有状态，确保 iOS 重装检测不被首次隐私同意写入污染
   const hadSandboxStateAtBoot = hasPreExistingSandboxState(keyValueStorage);
   const consentAlreadyGranted = hasGrantedCurrentPrivacyConsent(options.identity, keyValueStorage);
 
@@ -71,14 +90,30 @@ export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
   });
   void i18n.changeLanguage(preferencesStore.getState().language);
 
-  const queryClient = createAppQueryClient(options.overrides?.queryClientOptions);
-  const queryPersistence = attachOptInQueryPersistence(queryClient, keyValueStorage);
-  const authSessionStore = createAuthSessionStore({
+  return {
     secretStorage,
     keyValueStorage,
+    hadSandboxStateAtBoot,
+    observability,
+    i18n,
+    preferencesStore,
+  };
+}
+
+// 阶段 2：缓存、会话鉴权、隐私双阶段门禁、OTA 与 DevTools（显式依赖阶段 1 的 hadSandboxStateAtBoot）
+function bootCoreServices(
+  options: AppRuntimeOptions,
+  env: RuntimePublicEnv,
+  boot: BootStorageStage,
+): CoreServicesStage {
+  const queryClient = createAppQueryClient(options.overrides?.queryClientOptions);
+  const queryPersistence = attachOptInQueryPersistence(queryClient, boot.keyValueStorage);
+  const authSessionStore = createAuthSessionStore({
+    secretStorage: boot.secretStorage,
+    keyValueStorage: boot.keyValueStorage,
     reconcileFreshInstall:
       options.overrides?.reconcileFreshInstall ?? options.overrides?.secretStorage === undefined,
-    hadSandboxStateAtBoot,
+    hadSandboxStateAtBoot: boot.hadSandboxStateAtBoot,
   });
   authSessionStore.getState().onSessionCleared(() => {
     queryClient.clear();
@@ -92,8 +127,8 @@ export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
 
   const privacyGateStore = createPrivacyGateStore({
     identity: options.identity,
-    keyValueStorage,
-    observability,
+    keyValueStorage: boot.keyValueStorage,
+    observability: boot.observability,
     deferredInitializers: [
       createDeferredOtaInitializer(otaCoordinator),
       ...(options.deferredInitializers ?? []),
@@ -103,22 +138,39 @@ export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
 
   const devToolsStore = createDevToolsStore({
     env,
-    keyValueStorage,
-    secretStorage,
+    keyValueStorage: boot.keyValueStorage,
+    secretStorage: boot.secretStorage,
     queryClient,
     privacyGateStore,
-    preferencesStore,
-    logger: observability.logger,
+    preferencesStore: boot.preferencesStore,
+    logger: boot.observability.logger,
   });
+
+  return {
+    queryClient,
+    authSessionStore,
+    otaCoordinator,
+    privacyGateStore,
+    devToolsStore,
+  };
+}
+
+// 阶段 3：网络客户端、连通性、权限协调器与 UI 状态容器（显式依赖阶段 1 与阶段 2）
+function bootNetworkAndUiStores(
+  options: AppRuntimeOptions,
+  env: RuntimePublicEnv,
+  boot: BootStorageStage,
+  core: CoreServicesStage,
+): AppRuntime {
   const toastStore = createToastStore();
   const drawerStore = createDrawerStore();
 
   const backendAdapter = options.backendAdapter ?? createDefaultBackendAdapter();
   const httpClient = createHttpClient({
-    getBaseUrl: () => devToolsStore.getState().effectiveApiBaseUrl,
+    getBaseUrl: () => core.devToolsStore.getState().effectiveApiBaseUrl,
     backendAdapter,
-    authSessionStore,
-    logger: observability.logger,
+    authSessionStore: core.authSessionStore,
+    logger: boot.observability.logger,
     httpTransport: options.overrides?.httpTransport,
   });
 
@@ -131,35 +183,42 @@ export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
       requirePermissionRationale: options.identity.compliance.requirePermissionRationale,
       overrideDriver: options.overrides?.permissionDriver,
       getBlockedStrings: () => ({
-        title: i18n.t('permissions.blockedTitle'),
-        description: i18n.t('permissions.blockedDescription'),
+        title: boot.i18n.t('permissions.blockedTitle'),
+        description: boot.i18n.t('permissions.blockedDescription'),
       }),
     });
 
   return {
     identity: options.identity,
     env,
-    secretStorage,
-    keyValueStorage,
+    secretStorage: boot.secretStorage,
+    keyValueStorage: boot.keyValueStorage,
     backendAdapter,
     httpClient,
-    queryClient,
+    queryClient: core.queryClient,
     connectivityStore,
-    authSessionStore,
+    authSessionStore: core.authSessionStore,
     permissionCoordinator,
     permissionPromptStore,
     vendors: options.vendors,
     capabilityOverrides: options.overrides?.capabilities,
-    preferencesStore,
-    privacyGateStore,
-    devToolsStore,
+    preferencesStore: boot.preferencesStore,
+    privacyGateStore: core.privacyGateStore,
+    devToolsStore: core.devToolsStore,
     toastStore,
     drawerStore,
-    otaCoordinator,
-    logger: observability.logger,
-    errorReporter: observability.errorReporter,
-    analytics: observability.analytics,
-    i18n,
+    otaCoordinator: core.otaCoordinator,
+    logger: boot.observability.logger,
+    errorReporter: boot.observability.errorReporter,
+    analytics: boot.observability.analytics,
+    i18n: boot.i18n,
     initialSystemColorScheme: options.overrides?.initialSystemColorScheme,
   };
+}
+
+export function createAppRuntime(options: AppRuntimeOptions): AppRuntime {
+  const env = options.env ?? resolveStartupRuntimeEnv();
+  const boot = bootStorageAndCompliance(options, env);
+  const core = bootCoreServices(options, env, boot);
+  return bootNetworkAndUiStores(options, env, boot, core);
 }

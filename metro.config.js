@@ -8,8 +8,8 @@ const upstreamResolveRequest = config.resolver.resolveRequest;
 
 const PRODUCTION_MODULE_REPLACEMENTS = new Map([
   [
-    path.resolve(projectRoot, 'src/core/devtools/DevToolsDrawerHost.tsx'),
-    path.resolve(projectRoot, 'src/core/devtools/DevToolsDrawerHost.prod.tsx'),
+    path.resolve(projectRoot, 'src/core/devtools/DevToolsOverlay.tsx'),
+    path.resolve(projectRoot, 'src/core/devtools/DevToolsOverlay.prod.tsx'),
   ],
   [
     path.resolve(projectRoot, 'src/core/devtools/devtools-store.ts'),

@@ -1,4 +1,5 @@
 import type { HttpTransportDriver, RawHttpRequest, RawHttpResponse } from '@/core/network/types';
+import { buildDemoChannelPage, getMockFeedDelayMs } from './paginated-mock-feed';
 
 interface DemoFeedRecord {
   id: string;
@@ -129,6 +130,26 @@ export function createDemoHttpTransport(): HttpTransportDriver {
         data: {
           code: 0,
           data: found,
+        },
+      };
+    }
+
+    const channelMatch = /\/channels\/([^/]+)\/items$/.exec(req.url);
+    if (channelMatch && req.method === 'GET') {
+      const delayMs = getMockFeedDelayMs();
+      if (delayMs > 0) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+      const channelKey = decodeURIComponent(channelMatch[1] ?? 'following');
+      const page = Number(req.params?.page ?? 1);
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          code: 0,
+          data: buildDemoChannelPage(channelKey, page),
         },
       };
     }

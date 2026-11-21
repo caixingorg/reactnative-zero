@@ -11,7 +11,7 @@ import { appPerformanceMarks } from '../observability/performance-marks';
 import { AppText, BottomSheetModal, Box, Button, HStack, TextField, VStack } from '../ui';
 import type { DevToolsStore } from './devtools-store';
 
-export interface DevToolsDrawerHostProps {
+export interface DevToolsOverlayProps {
   env: RuntimePublicEnv;
   devToolsStore: DevToolsStore;
   authSessionStore: AuthSessionStore;
@@ -25,7 +25,7 @@ function OpenDevToolsDrawerContent({
   authSessionStore,
   connectivityStore,
   logger,
-}: DevToolsDrawerHostProps): React.JSX.Element {
+}: DevToolsOverlayProps): React.JSX.Element {
   const { t } = useTranslation();
   const effectiveApiBaseUrl = useStore(devToolsStore, (state) => state.effectiveApiBaseUrl);
   const authStatus = useStore(authSessionStore, (state) => state.status);
@@ -197,7 +197,7 @@ function OpenDevToolsDrawerContent({
 }
 
 // 原因：仅在非生产变体且抽屉展开时才挂载视图与状态订阅，确保正式包零渲染开销且关闭态零后台重绘
-export function DevToolsDrawerHost(props: DevToolsDrawerHostProps): React.JSX.Element | null {
+export function DevToolsOverlay(props: DevToolsOverlayProps): React.JSX.Element | null {
   const enabled = useStore(props.devToolsStore, (state) => state.enabled);
   const drawerOpen = useStore(props.devToolsStore, (state) => state.drawerOpen);
 
