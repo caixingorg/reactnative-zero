@@ -59,7 +59,8 @@ production 缺少 Android 签名变量时，release 打包会失败，不会回�
 
 - 灰度：先发 `-rc.N`（staging）给测试，确认后再打正式标签。**第一次真实发布务必用 rc 标签**：这条流水线（含 fastlane 的 Android 出包 lane）还没有在 GitHub 上完整跑过，先让问题出现在 staging，而不是 production。
 - 回滚：目前没有热更新（OTA 暂缓），回滚的做法是**用修复后的代码重新发一个更高的版本，同时在分发平台下架有问题的旧包**。不要重打或移动已有标签。
-- 紧急情况下如需强制升级或关闭功能，见后续的最低版本与 kill switch 方案（issue 16）。
+- 紧急回退：**重新分发上一个可用的构建**——在蒲公英或应用商店里把上一个正常版本重新上架，同时下架有问题的包。上一个构建的安装包要在发版时保留（流水线产物或蒲公英历史版本）。
+- 强制升级与 kill switch：模板提供客户端契约 `src/core/version-policy/`（服务端接口由各应用自己实现）。应用提供 `VersionPolicyAdapter` 后，低于服务端下发的最低版本会进入阻断的升级页；网络失败时正常启动；kill switch 默认全部关闭。请求默认不带任何标识符，只有隐私同意之后、且应用显式提供标识符来源时才会附带。接入方式：在应用启动处创建 `createVersionPolicyStore`，用 `ForceUpdateGate` 包住根路由，并在需要时调用 `store.getState().check()`。
 
 ## 七、故障处理
 

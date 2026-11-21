@@ -197,6 +197,7 @@ flowchart LR
 | `src/core/capabilities/` | 9 大免第三方商业密钥的预置原生能力模块：`camera`（扫码/拍照）、`media`（相册选图/保存）、`files`（文档选择/系统分享）、`webview`（安全混合容器 + 域名白名单 + 防 iframe 劫持 JSBridge）、`biometrics`（面容/指纹核身）、`location`（前台定位）、`notifications`（本地/推送通知）、`audio-video`（音视频播放录制）、`device-feedback`（震动/剪贴板/设备信息） | 各子目录 `index.ts(x)`<br/>安全桥协议见 [`webview/bridge.ts`](../src/core/capabilities/webview/bridge.ts) | 每个子目录自包含且可物理删除；关闭 `app.identity.ts` 对应布尔开关即在构建期剔除原生权限；WebView 桥仅注入顶层 `window === window.top` 并校验 128-bit 一次性 nonce |
 | `src/core/vendors/` | 商业第三方 SDK 适配器契约（社交登录、微信/支付宝/IAP 支付、外部地图导航、厂商推送）及 `useCommercialVendorAdapters` Hook | [`vendors/index.ts`](../src/core/vendors/index.ts) | 非生产环境自动回退免密钥 Mock 实现；**生产环境未显式注入真实实现时立即抛出 `VendorAdapterNotConfiguredError`**，严禁静默返回假成功 |
 | `src/core/updates/` | OTA 热更新协调器与二阶段延迟初始化钩子 | [`ota-coordinator.ts`](../src/core/updates/ota-coordinator.ts) | 默认关闭；仅在显式开启并传入 `OtaUpdateDriver` 后于隐私门禁放行后检查更新 |
+| `src/core/version-policy/` | 最低版本强制升级与远程 kill-switch 的客户端契约：适配器接口、策略 Store、阻断页。默认没有适配器即整体关闭，失败一律放行，请求默认不带标识符 | [`version-policy.ts`](../src/core/version-policy/version-policy.ts)<br/>[`ForceUpdateGate.tsx`](../src/core/version-policy/ForceUpdateGate.tsx) | 服务端接口由各应用提供；标识符只在隐私同意之后且应用显式提供来源时才会附带 |
 | `src/core/devtools/` | 非生产环境真机悬浮调试抽屉（查看环境/渠道、动态切换 API BaseURL、查看环形日志、重置隐私/缓存、模拟断网） | [`DevToolsDrawerHost.tsx`](../src/core/devtools/DevToolsDrawerHost.tsx)<br/>[`devtools-store.ts`](../src/core/devtools/devtools-store.ts) | 配套 `.prod.ts(x)` 空桩，由 `metro.config.js` 在 `APP_VARIANT=production` 时物理替换 |
 
 ### C. 应用装配与业务层（派生应用自有资产）
