@@ -1,7 +1,8 @@
-import { Stack } from 'expo-router';
-import React, { useMemo } from 'react';
+import { Stack, usePathname } from 'expo-router';
+import React, { useEffect, useMemo } from 'react';
 import { appIdentity } from '@root/app.identity';
 import { AuthHydrationGate } from '@/core/auth/AuthHydrationGate';
+import { appPerformanceMarks } from '@/core/observability/performance-marks';
 import {
   AppRuntimeProvider,
   createAppRuntime,
@@ -51,6 +52,21 @@ export function GuardedRootStack(): React.JSX.Element {
   );
 }
 
+// 原因：只在根布局记录标记——首次提交即「首屏可交互」的近似点，路径变化记录为路由切换；标记只保存在内存里
+function PerformanceMarkers(): null {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    appPerformanceMarks.mark('first-interactive');
+  }, []);
+
+  useEffect(() => {
+    appPerformanceMarks.mark(`route:${pathname}`);
+  }, [pathname]);
+
+  return null;
+}
+
 export default function RootLayout(): React.JSX.Element {
   const runtime = useMemo(() => {
     const env = resolveStartupRuntimeEnv();
@@ -65,6 +81,7 @@ export default function RootLayout(): React.JSX.Element {
 
   return (
     <AppRuntimeProvider runtime={runtime}>
+      <PerformanceMarkers />
       <GuardedRootStack />
     </AppRuntimeProvider>
   );
