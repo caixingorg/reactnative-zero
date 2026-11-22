@@ -10,7 +10,7 @@ import {
 } from '@/core/storage/memory-storage';
 import { LoginScreen } from '@/features/auth';
 import { SettingsScreen } from '@/features/settings';
-import { appTranslationResources, createDemoHttpTransport } from '@/shared';
+import { appTranslationResources, createMockHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -27,7 +27,7 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
     const user = userEvent.setup();
     const secretStorage = createMemorySecretStorage();
     const keyValueStorage = createMemoryKeyValueStorage();
-    const demoTransport = createDemoHttpTransport();
+    const mockTransport = createMockHttpTransport();
 
     const firstRuntime = createTestRuntime({
       identity: noPrivacyGateIdentity,
@@ -37,7 +37,7 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
         secretStorage,
         keyValueStorage,
         initialDeviceLocale: 'zh-CN',
-        httpTransport: demoTransport,
+        httpTransport: mockTransport,
       },
     });
 
@@ -73,7 +73,7 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
     const passwordInput = screen.getByPlaceholderText('请输入密码');
     await user.type(passwordInput, 'wrongpass');
     await user.press(screen.getByRole('button', { name: '登录' }));
-    expect(await screen.findByText('演示账号为 admin，密码为 password123')).toBeTruthy();
+    expect(await screen.findByText('测试账号为 admin，密码为 password123')).toBeTruthy();
 
     // 3. Submit valid demo credentials
     await user.clear(passwordInput);
@@ -83,8 +83,8 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
     expect(await screen.findByText('已进入受保护主界面')).toBeTruthy();
 
     // Verify strict dual-storage boundary: tokens ONLY in secretStorage, NEVER in keyValueStorage
-    expect(await secretStorage.getSecret('auth.access_token')).toBe('demo-access-token');
-    expect(await secretStorage.getSecret('auth.refresh_token')).toBe('demo-refresh-token');
+    expect(await secretStorage.getSecret('auth.access_token')).toBe('mock-access-token');
+    expect(await secretStorage.getSecret('auth.refresh_token')).toBe('mock-refresh-token');
     expect(keyValueStorage.getString('auth.access_token')).toBeUndefined();
     expect(keyValueStorage.getString('auth.refresh_token')).toBeUndefined();
 
@@ -99,7 +99,7 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
         secretStorage,
         keyValueStorage,
         initialDeviceLocale: 'zh-CN',
-        httpTransport: demoTransport,
+        httpTransport: mockTransport,
       },
     });
     await secondRuntime.authSessionStore.getState().hydrateSession();

@@ -323,7 +323,7 @@ function writeVariantEnvFile(
     `EXPO_PUBLIC_API_BASE_URL=${apiUrl}`,
     `EXPO_PUBLIC_PRIVACY_POLICY_URL=${privacyUrl}`,
     `EXPO_PUBLIC_USER_AGREEMENT_URL=${termsUrl}`,
-    `EXPO_PUBLIC_ENABLE_DEMO_GATEWAY=${variant === 'development' ? 'true' : 'false'}`,
+    `EXPO_PUBLIC_ENABLE_MOCK_GATEWAY=${variant === 'development' ? 'true' : 'false'}`,
     `EXPO_PUBLIC_ENABLE_DEVTOOLS=${variant === 'production' ? 'false' : 'true'}`,
     '',
   ].join('\n');
@@ -479,13 +479,13 @@ export default function HomeTabRoute(): React.JSX.Element {
     writeRel('src/shared/index.ts', updatedSharedIndex);
   }
 
-  // Surgical strip of demo feed records from src/shared/mock/mock-http-transport.ts while preserving auth gateway
-  const demoTransportPath = path.join(projectRoot, 'src/shared/mock/mock-http-transport.ts');
-  if (fs.existsSync(demoTransportPath)) {
+  // Surgical strip of mock feed records from src/shared/mock/mock-http-transport.ts while preserving auth gateway
+  const mockTransportPath = path.join(projectRoot, 'src/shared/mock/mock-http-transport.ts');
+  if (fs.existsSync(mockTransportPath)) {
     const cleanAuthTransport = `import type { HttpTransportDriver, RawHttpRequest, RawHttpResponse } from '@/core/network/types';
 
-// 原因：保留最小认证网关演示驱动，使新派生项目在尚未联调真实后端时仍可跑通首日登录与单飞刷新
-export function createDemoHttpTransport(): HttpTransportDriver {
+// 原因：保留最小认证网关 Mock 驱动，使新派生项目在尚未联调真实后端时仍可跑通首日登录与单飞刷新
+export function createMockHttpTransport(): HttpTransportDriver {
   return async (req: RawHttpRequest): Promise<RawHttpResponse> => {
     if (req.url.endsWith('/auth/login') && req.method === 'POST') {
       const body = (req.data ?? {}) as { username?: string; password?: string };
@@ -498,13 +498,13 @@ export function createDemoHttpTransport(): HttpTransportDriver {
             message: 'ok',
             data: {
               tokens: {
-                accessToken: 'demo-access-token',
-                refreshToken: 'demo-refresh-token',
+                accessToken: 'mock-access-token',
+                refreshToken: 'mock-refresh-token',
               },
               user: {
-                id: 'demo-u1',
+                id: 'mock-u1',
                 username: 'admin',
-                displayName: '演示管理员',
+                displayName: '测试管理员',
               },
             },
           },
@@ -513,7 +513,7 @@ export function createDemoHttpTransport(): HttpTransportDriver {
       return {
         status: 200,
         headers: {},
-        data: { code: 10002, message: '演示账号为 admin，密码为 password123', data: null },
+        data: { code: 10002, message: '测试账号为 admin，密码为 password123', data: null },
       };
     }
 
@@ -524,8 +524,8 @@ export function createDemoHttpTransport(): HttpTransportDriver {
         data: {
           code: 0,
           data: {
-            accessToken: \`demo-access-\${Date.now()}\`,
-            refreshToken: 'demo-refresh-token',
+            accessToken: \`mock-access-\${Date.now()}\`,
+            refreshToken: 'mock-refresh-token',
           },
         },
       };
@@ -608,7 +608,7 @@ export const appTranslationResources: TranslationBundleMap = {
     },
     auth: {
       title: 'Sign In',
-      subtitle: 'Sign in with your enterprise account (Demo: admin / password123)',
+      subtitle: 'Sign in with your enterprise account (Test: admin / password123)',
       usernameLabel: 'Account',
       usernamePlaceholder: 'Enter username',
       usernameMinError: 'Username must be at least 3 characters',
@@ -621,7 +621,7 @@ export const appTranslationResources: TranslationBundleMap = {
       subtitle: 'Active API Base URL',
       variantLabel: 'App Variant',
       cleanWelcome:
-        'Starter demo slices removed. Create your first feature slice in src/features/.',
+        'Starter sample slices removed. Create your first feature slice in src/features/.',
     },
     settings: {
       title: 'Settings',

@@ -144,7 +144,7 @@ export const appTranslationResources: TranslationBundleMap = {
     },
     auth: {
       title: 'Sign In',
-      subtitle: 'Sign in with your enterprise account (Demo: admin / password123)',
+      subtitle: 'Sign in with your enterprise account (Test: admin / password123)',
       usernameLabel: 'Account',
       usernamePlaceholder: 'Enter username',
       usernameMinError: 'Username must be at least 3 characters',

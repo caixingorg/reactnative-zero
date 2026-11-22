@@ -1,6 +1,6 @@
 /**
  * @module core/capabilities/payment/drivers/mock-drivers
- * 职责：开发联调、Demo 演示与 CI 单测用的 Mock 一次性支付驱动与 Mock IAP/订阅驱动。
+ * 职责：开发联调与 CI 单测用的 Mock 一次性支付驱动与 Mock IAP/订阅驱动。
  */
 import type {
   CheckoutDriver,

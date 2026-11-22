@@ -97,8 +97,8 @@ export interface RuntimePublicEnv {
   privacyPolicyUrl: string;
   /** 用户协议网页地址（生产变体强制 `https://`）。 */
   userAgreementUrl: string;
-  /** 非生产环境下是否启用内置免后端演示网关（生产构建由 Metro 物理剔除）。 */
-  enableDemoGateway?: boolean;
+  /** 非生产环境下是否启用本地 Mock 网关（生产构建由 Metro 物理剔除）。 */
+  enableMockGateway?: boolean;
   /** 非生产环境下是否挂载悬浮调试抽屉（生产构建由 Metro 物理剔除）。 */
   enableDevTools?: boolean;
 }

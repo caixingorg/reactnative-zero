@@ -214,15 +214,15 @@ export function getMockFeedDelayMs(): number {
   return simulatedDelayMs;
 }
 
-export interface DemoChannelPagePayload {
+export interface MockChannelPagePayload {
   items: MockListRecord[];
   nextPage: number | null;
 }
 
-export function buildDemoChannelPage(
+export function buildMockChannelPage(
   channelKey: string,
   pageParam: number,
-): DemoChannelPagePayload {
+): MockChannelPagePayload {
   const seed = CHANNEL_SEEDS[channelKey] ?? DEFAULT_SEED;
   const startRank = (pageParam - 1) * PAGE_SIZE;
 
@@ -254,7 +254,7 @@ export function useMockPaginatedFeed(channelKey: string) {
     queryKey: ['channel-feed', channelKey],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
-      httpClient.get<DemoChannelPagePayload>(`/channels/${encodeURIComponent(channelKey)}/items`, {
+      httpClient.get<MockChannelPagePayload>(`/channels/${encodeURIComponent(channelKey)}/items`, {
         params: { page: pageParam },
       }),
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,

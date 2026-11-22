@@ -39,13 +39,13 @@ export interface CheckoutScreenProps {
   onBack?: () => void;
 }
 
-const DEMO_H5_CHECKOUT_URL = 'https://opendocs.alipay.com/open/204/105297';
+const SANDBOX_H5_CHECKOUT_URL = 'https://opendocs.alipay.com/open/204/105297';
 
 // 原因：无真实商户签名串时仅用于真机验证能够成功拉起支付宝官方 SDK/收银台界面（支付宝会按规范提示订单参数无效）
 const SAMPLE_ALIPAY_ORDER_INFO =
-  'app_id=2021000000000000&biz_content=%7B%22out_trade_no%22%3A%22DEMO001%22%2C%22total_amount%22%3A%220.01%22%2C%22subject%22%3A%22Demo%22%7D&charset=utf-8&method=alipay.trade.app.pay&sign_type=RSA2&timestamp=2026-01-01+00%3A00%3A00&version=1.0&sign=DEMO_SIGN';
+  'app_id=2021000000000000&biz_content=%7B%22out_trade_no%22%3A%22SANDBOX001%22%2C%22total_amount%22%3A%220.01%22%2C%22subject%22%3A%22Order%22%7D&charset=utf-8&method=alipay.trade.app.pay&sign_type=RSA2&timestamp=2026-01-01+00%3A00%3A00&version=1.0&sign=SANDBOX_SIGN';
 
-const DEMO_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
+const DEFAULT_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
   {
     channelCode: 'alipay',
     driverId: ALIPAY_DRIVER_ID,
@@ -85,7 +85,7 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
   const user = useAuthSession((state) => state.user);
   const toast = useToast();
   const { tokens } = useAppTheme();
-  const currentUserId = user?.id ?? 'demo-user';
+  const currentUserId = user?.id ?? 'guest-user';
   const alipayNativeLinked = isAlipayNativeModuleAvailable();
   const wechatNativeLinked = isWechatNativeModuleAvailable();
 
@@ -184,7 +184,7 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
     void (async () => {
       await paymentService.initializeDrivers();
       const [resolvedChannels, storeProducts] = await Promise.all([
-        paymentService.resolveChannels(DEMO_REMOTE_CHANNELS),
+        paymentService.resolveChannels(DEFAULT_REMOTE_CHANNELS),
         paymentService.billing.fetchProducts(['pro_monthly'], 'subscription'),
       ]);
       if (!active) {
@@ -208,7 +208,7 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
     setSheetVisible(false);
     try {
       const orderId = `ORD-${Date.now().toString().slice(-6)}`;
-      let payload: unknown = { demoChannel: channel.channelCode };
+      let payload: unknown = { channelCode: channel.channelCode };
 
       if (channel.driverId === ALIPAY_DRIVER_ID) {
         payload = {
@@ -218,18 +218,18 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
         };
       } else if (channel.driverId === WEB_CHECKOUT_DRIVER_ID) {
         payload = {
-          checkoutUrl: DEMO_H5_CHECKOUT_URL,
+          checkoutUrl: SANDBOX_H5_CHECKOUT_URL,
           returnUrlPrefix: `${identity.scheme}://payment/return`,
         };
       } else if (channel.driverId === WECHAT_DRIVER_ID) {
         payload = {
           appId: 'wx0000000000000000',
           partnerId: '1900000109',
-          prepayId: 'wx2026demoprepayid',
+          prepayId: 'wx2026sandboxprepayid',
           packageValue: 'Sign=WXPay',
-          nonceStr: 'demo_nonce_123',
+          nonceStr: 'sandbox_nonce_123',
           timeStamp: String(Math.floor(Date.now() / 1000)),
-          sign: 'DEMO_WECHAT_SIGN',
+          sign: 'SANDBOX_WECHAT_SIGN',
         };
       }
 

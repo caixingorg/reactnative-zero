@@ -1,7 +1,7 @@
 import type { HttpTransportDriver, RawHttpRequest, RawHttpResponse } from '@/core/network/types';
-import { buildDemoChannelPage, getMockFeedDelayMs } from './paginated-mock-feed';
+import { buildMockChannelPage, getMockFeedDelayMs } from './paginated-mock-feed';
 
-interface DemoFeedRecord {
+interface MockFeedRecord {
   id: string;
   title: string;
   summary: string;
@@ -12,9 +12,9 @@ interface DemoFeedRecord {
   publishedAt: string;
 }
 
-const DEMO_PAGE_1: DemoFeedRecord[] = [
+const MOCK_PAGE_1: MockFeedRecord[] = [
   {
-    id: 'demo-1',
+    id: 'feed-1',
     title: '企业级移动端四层边界规范发布',
     summary: '通过 ESLint 物理路径锁彻底阻断跨层越权调用',
     content:
@@ -25,7 +25,7 @@ const DEMO_PAGE_1: DemoFeedRecord[] = [
     publishedAt: '2026-11-17',
   },
   {
-    id: 'demo-2',
+    id: 'feed-2',
     title: '双端敏感权限动态剥离指南',
     summary: '在 app.identity.ts 一键关闭未用能力以通过应用市场审核',
     content:
@@ -37,9 +37,9 @@ const DEMO_PAGE_1: DemoFeedRecord[] = [
   },
 ];
 
-const DEMO_PAGE_2: DemoFeedRecord[] = [
+const MOCK_PAGE_2: MockFeedRecord[] = [
   {
-    id: 'demo-3',
+    id: 'feed-3',
     title: '单飞 401 刷新锁压测报告',
     summary: '消除高并发场景下访问凭证过期引发的连环续期冲突',
     content: '通过比对请求所持旧令牌与最新存储令牌，避免晚到的过期响应触发二次刷新。',
@@ -50,8 +50,8 @@ const DEMO_PAGE_2: DemoFeedRecord[] = [
   },
 ];
 
-// 原因：将开箱演示数据源收敛为标准边缘传输驱动，使业务切片保持 100% 纯净真实接口调用而无需散落环境判断分支
-export function createDemoHttpTransport(): HttpTransportDriver {
+// 原因：将本地开发 Mock 数据源收敛为标准边缘传输驱动，使业务切片保持 100% 纯净真实接口调用而无需散落环境判断分支
+export function createMockHttpTransport(): HttpTransportDriver {
   return async (req: RawHttpRequest): Promise<RawHttpResponse> => {
     if (req.url.endsWith('/auth/login') && req.method === 'POST') {
       const body = (req.data ?? {}) as { username?: string; password?: string };
@@ -64,13 +64,13 @@ export function createDemoHttpTransport(): HttpTransportDriver {
             message: 'ok',
             data: {
               tokens: {
-                accessToken: 'demo-access-token',
-                refreshToken: 'demo-refresh-token',
+                accessToken: 'mock-access-token',
+                refreshToken: 'mock-refresh-token',
               },
               user: {
-                id: 'demo-u1',
+                id: 'mock-u1',
                 username: 'admin',
-                displayName: '演示管理员',
+                displayName: '测试管理员',
               },
             },
           },
@@ -79,7 +79,7 @@ export function createDemoHttpTransport(): HttpTransportDriver {
       return {
         status: 200,
         headers: {},
-        data: { code: 10002, message: '演示账号为 admin，密码为 password123', data: null },
+        data: { code: 10002, message: '测试账号为 admin，密码为 password123', data: null },
       };
     }
 
@@ -90,8 +90,8 @@ export function createDemoHttpTransport(): HttpTransportDriver {
         data: {
           code: 0,
           data: {
-            accessToken: `demo-access-${Date.now()}`,
-            refreshToken: 'demo-refresh-token',
+            accessToken: `mock-access-${Date.now()}`,
+            refreshToken: 'mock-refresh-token',
           },
         },
       };
@@ -113,7 +113,7 @@ export function createDemoHttpTransport(): HttpTransportDriver {
         data: {
           code: 0,
           data: {
-            items: page === 1 ? DEMO_PAGE_1 : DEMO_PAGE_2,
+            items: page === 1 ? MOCK_PAGE_1 : MOCK_PAGE_2,
             nextPage: page === 1 ? 2 : null,
           },
         },
@@ -122,8 +122,8 @@ export function createDemoHttpTransport(): HttpTransportDriver {
 
     if (req.url.includes('/feed/') && req.method === 'GET') {
       const itemId = req.url.split('/').pop() ?? '';
-      const all = [...DEMO_PAGE_1, ...DEMO_PAGE_2];
-      const found = all.find((item) => item.id === itemId) ?? DEMO_PAGE_1[0]!;
+      const all = [...MOCK_PAGE_1, ...MOCK_PAGE_2];
+      const found = all.find((item) => item.id === itemId) ?? MOCK_PAGE_1[0]!;
       return {
         status: 200,
         headers: {},
@@ -149,7 +149,7 @@ export function createDemoHttpTransport(): HttpTransportDriver {
         headers: {},
         data: {
           code: 0,
-          data: buildDemoChannelPage(channelKey, page),
+          data: buildMockChannelPage(channelKey, page),
         },
       };
     }

@@ -13,7 +13,7 @@ import {
   usePrivacyGate,
 } from '@/core/runtime';
 import { AppDrawerShell, WelcomeOverlayGate } from '@/features/shell';
-import { appTranslationResources, createDemoHttpTransport } from '@/shared';
+import { appTranslationResources, createMockHttpTransport } from '@/shared';
 
 // 原因：Route Shell 仅声明路由树与守卫布尔条件，零状态副作用编排且零具体界面元素
 export function GuardedRootStack(): React.JSX.Element {
@@ -92,12 +92,12 @@ function RootDrawerBridge(): React.JSX.Element {
 export default function RootLayout(): React.JSX.Element {
   const runtime = useMemo(() => {
     const env = resolveStartupRuntimeEnv();
-    const useDemoGateway = Boolean(env.enableDemoGateway) && env.appVariant !== 'production';
+    const useMockGateway = Boolean(env.enableMockGateway) && env.appVariant !== 'production';
     return createAppRuntime({
       identity: appIdentity,
       env,
       translations: appTranslationResources,
-      overrides: useDemoGateway ? { httpTransport: createDemoHttpTransport() } : undefined,
+      overrides: useMockGateway ? { httpTransport: createMockHttpTransport() } : undefined,
     });
   }, []);
 

@@ -93,7 +93,7 @@ export function LoginScreen({
     }
   });
 
-  const handleFillDemoAccount = (): void => {
+  const handleFillTestAccount = (): void => {
     setValue('username', 'admin', { shouldValidate: true });
     setValue('password', 'password123', { shouldValidate: true });
   };
@@ -275,9 +275,9 @@ export function LoginScreen({
             <HStack justify="space-between" align="center" style={styles.auxRow}>
               {env.appVariant !== 'production' ? (
                 <Pressable
-                  testID="login-demo-autofill"
+                  testID="login-test-autofill"
                   accessibilityRole="button"
-                  onPress={handleFillDemoAccount}
+                  onPress={handleFillTestAccount}
                   hitSlop={8}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >

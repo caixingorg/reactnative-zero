@@ -223,7 +223,7 @@ pnpm start:prod     # production 变体
 
 ### 4.3 免后端演示网关与真机 `DevTools` 调试面板
 
-- **内置演示账号**：当 `config/env/development.env` 中 `EXPO_PUBLIC_ENABLE_DEMO_GATEWAY=true` 时，无需启动任何后端服务，直接使用账号 **`admin`** / 密码 **`password123`** 即可体验完整登录、分页列表加载与 401 令牌自动刷新。
+- **内置测试账号**：当 `config/env/development.env` 中 `EXPO_PUBLIC_ENABLE_MOCK_GATEWAY=true` 时，无需启动任何后端服务，直接使用账号 **`admin`** / 密码 **`password123`** 即可体验完整登录、分页列表加载与 401 令牌自动刷新。
 - **呼出真机 `DevTools` 抽屉**：在 `development` 或 `staging` 包中，点击**首页顶部的环境胶囊徽章（如 `DEV` / `STG`）**，或进入**“个人设置 → 打开开发者调试面板”**，可执行：
   1. 查看当前变体、分发渠道号（`APP_CHANNEL`）、网络在线状态、加密凭证持有状态及最近 15 条结构化日志。
   2. **免重打包动态切换后端 API 地址**（持久化生效，冷重启依然保留）。

@@ -5,7 +5,7 @@ import { parseRuntimePublicEnv } from '@/core/config/env-schema';
 import { AppRuntimeProvider, resolveStartupRuntimeEnv } from '@/core/runtime';
 import { HomeStarterScreen } from '@/features/home';
 import { SettingsScreen } from '@/features/settings';
-import { appTranslationResources, createDemoHttpTransport } from '@/shared';
+import { appTranslationResources, createMockHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 
 describe('Seam 1: Walking skeleton startup screen & runtime env enforcement', () => {
@@ -27,7 +27,7 @@ describe('Seam 1: Walking skeleton startup screen & runtime env enforcement', ()
       },
       translations: appTranslationResources,
       overrides: {
-        httpTransport: createDemoHttpTransport(),
+        httpTransport: createMockHttpTransport(),
       },
     });
 
@@ -68,10 +68,10 @@ describe('Seam 1: Walking skeleton startup screen & runtime env enforcement', ()
       apiBaseUrl: 'https://api.example.com',
       privacyPolicyUrl: 'https://legal.example.com/privacy',
       userAgreementUrl: 'https://legal.example.com/terms',
-      enableDemoGateway: true,
+      enableMockGateway: true,
       enableDevTools: true,
     });
-    expect(validProd.enableDemoGateway).toBe(false);
+    expect(validProd.enableMockGateway).toBe(false);
     expect(validProd.enableDevTools).toBe(false);
     expect(validProd.appChannel).toBe('huawei');
 
@@ -82,7 +82,7 @@ describe('Seam 1: Walking skeleton startup screen & runtime env enforcement', ()
       userAgreementUrl: 'https://legal.example.com/terms',
     });
     expect(validStagingDefaults.appChannel).toBe('official');
-    expect(validStagingDefaults.enableDemoGateway).toBe(false);
+    expect(validStagingDefaults.enableMockGateway).toBe(false);
     expect(validStagingDefaults.enableDevTools).toBe(true);
   });
 });

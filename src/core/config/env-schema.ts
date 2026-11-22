@@ -61,7 +61,7 @@ const rawEnvSchema = z
     EXPO_PUBLIC_API_BASE_URL: httpUrlSchema,
     EXPO_PUBLIC_PRIVACY_POLICY_URL: httpUrlSchema,
     EXPO_PUBLIC_USER_AGREEMENT_URL: httpUrlSchema,
-    EXPO_PUBLIC_ENABLE_DEMO_GATEWAY: z.enum(['true', 'false']).optional(),
+    EXPO_PUBLIC_ENABLE_MOCK_GATEWAY: z.enum(['true', 'false']).optional(),
     EXPO_PUBLIC_ENABLE_DEVTOOLS: z.enum(['true', 'false']).optional(),
   })
   .superRefine((data, ctx) => {
@@ -84,7 +84,7 @@ const runtimePublicEnvSchema = z
     apiBaseUrl: httpUrlSchema,
     privacyPolicyUrl: httpUrlSchema,
     userAgreementUrl: httpUrlSchema,
-    enableDemoGateway: z.boolean().optional(),
+    enableMockGateway: z.boolean().optional(),
     enableDevTools: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
@@ -129,10 +129,10 @@ export function parseRuntimeEnv(rawEnv: Record<string, string | undefined>): Run
     apiBaseUrl: result.data.EXPO_PUBLIC_API_BASE_URL,
     privacyPolicyUrl: result.data.EXPO_PUBLIC_PRIVACY_POLICY_URL,
     userAgreementUrl: result.data.EXPO_PUBLIC_USER_AGREEMENT_URL,
-    // 原因：生产变体强制锁死 enableDemoGateway 为 false，杜绝内置演示账号混入正式发布包
-    enableDemoGateway:
+    // 原因：生产变体强制锁死 enableMockGateway 为 false，杜绝本地 Mock 账号混入正式发布包
+    enableMockGateway:
       result.data.APP_VARIANT !== 'production' &&
-      result.data.EXPO_PUBLIC_ENABLE_DEMO_GATEWAY === 'true',
+      result.data.EXPO_PUBLIC_ENABLE_MOCK_GATEWAY === 'true',
     // 原因：DevTools 开关随 extra.runtimeEnv 下发而非依赖 Metro 内联 process.env；生产变体强制关闭，非生产缺省开启
     enableDevTools:
       result.data.APP_VARIANT !== 'production' &&
@@ -153,8 +153,8 @@ export function parseRuntimePublicEnv(raw: unknown): RuntimePublicEnv {
     apiBaseUrl: result.data.apiBaseUrl,
     privacyPolicyUrl: result.data.privacyPolicyUrl,
     userAgreementUrl: result.data.userAgreementUrl,
-    enableDemoGateway:
-      result.data.appVariant !== 'production' && result.data.enableDemoGateway === true,
+    enableMockGateway:
+      result.data.appVariant !== 'production' && result.data.enableMockGateway === true,
     enableDevTools: result.data.appVariant !== 'production' && result.data.enableDevTools !== false,
   };
 }

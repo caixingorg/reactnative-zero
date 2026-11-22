@@ -6,7 +6,7 @@ import { DiscoverScreen } from '@/features/discover';
 import { FeedDetailScreen } from '@/features/home';
 import { SettingsScreen } from '@/features/settings';
 import { WelcomeScreen } from '@/features/shell';
-import { createDemoHttpTransport, type MockListRecord } from '@/shared';
+import { createMockHttpTransport, type MockListRecord } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -21,7 +21,7 @@ function createRuntime() {
     },
     env: TEST_RUNTIME_ENV,
     overrides: {
-      httpTransport: createDemoHttpTransport(),
+      httpTransport: createMockHttpTransport(),
     },
   });
 }

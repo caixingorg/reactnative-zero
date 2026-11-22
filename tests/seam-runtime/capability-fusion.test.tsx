@@ -6,7 +6,7 @@ import { DiscoverScreen } from '@/features/discover';
 import { HomeStarterScreen } from '@/features/home';
 import { MessagesScreen } from '@/features/messages';
 import { SettingsScreen } from '@/features/settings';
-import { createDemoHttpTransport } from '@/shared';
+import { createMockHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -25,7 +25,7 @@ function createFusionRuntime() {
     },
     env: TEST_RUNTIME_ENV,
     overrides: {
-      httpTransport: createDemoHttpTransport(),
+      httpTransport: createMockHttpTransport(),
       capabilities: {
         biometrics: {
           checkSupport: async () => ({ available: true, biometricTypes: ['facial'] }),

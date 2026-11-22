@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { appIdentity } from '@root/app.identity';
 import { AppRuntimeProvider } from '@/core/runtime';
 import { HomeStarterScreen } from '@/features/home';
-import { createDemoHttpTransport } from '@/shared';
+import { createMockHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -18,7 +18,7 @@ function createHomeRuntime() {
     },
     env: TEST_RUNTIME_ENV,
     overrides: {
-      httpTransport: createDemoHttpTransport(),
+      httpTransport: createMockHttpTransport(),
     },
   });
 }

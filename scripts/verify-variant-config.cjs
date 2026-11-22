@@ -92,8 +92,8 @@ for (const variant of variants) {
         variant !== 'production' && expected.EXPO_PUBLIC_ENABLE_DEVTOOLS !== 'false',
       ],
       [
-        'enableDemoGateway',
-        variant !== 'production' && expected.EXPO_PUBLIC_ENABLE_DEMO_GATEWAY === 'true',
+        'enableMockGateway',
+        variant !== 'production' && expected.EXPO_PUBLIC_ENABLE_MOCK_GATEWAY === 'true',
       ],
     ];
     const failuresBefore = failures.length;
