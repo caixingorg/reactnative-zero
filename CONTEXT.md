@@ -15,8 +15,8 @@ A clonable mobile application foundation designed to initialize independent iOS 
 | Scope | Paths | Rule |
 |---|---|---|
 | **Template Core（勿随意改契约）** | `src/core/*` | Business-agnostic foundation (runtime, network, auth, storage, theme, UI primitives, capabilities). |
-| **正式业务切片** | `src/features/{auth,home,discover,messages,profile,payment,content,search,feedback,settings,shell,webview}` | Product Feature Slices; external callers import only from `@/features/<slice>`. |
-| **可整包删除的 Starter / Mock** | `src/features/capabilities-lab`, `src/features/content`, `src/features/payment`, `src/shared/mock/*` | Reference slices & local mock transport; stripped automatically by `pnpm init:app --clean-starter`. |
+| **正式业务切片** | `src/features/{auth,home,discover,messages,profile,search,feedback,settings,shell,templates,webview}` | Product Feature Slices; external callers import only from `@/features/<slice>`. |
+| **可整包删除的 Starter / Mock** | `src/features/{capabilities-lab,content,payment}`, `src/shared/mock/*` | Reference slices & local mock transport; stripped automatically by `pnpm init-app --clean-starter`. |
 
 ### 3. Build-Time Production Stubs (`metro.config.js`)
 When `APP_VARIANT=production`, Metro physically redirects these modules to zero-payload stubs:

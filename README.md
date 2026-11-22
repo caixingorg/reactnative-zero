@@ -126,8 +126,8 @@ pnpm verify
 1. **零内核侵入改名**：自动重写 `app.identity.ts`、`package.json` 及 `config/env/{example,development,staging,production}.env`（自动根据生产域名推导 `api-dev` 与 `api-staging` 地址），`src/core/` 保持 0 字节改动。
 2. **防误推保护**：自动将原指向底座仓库的 `origin` 远端重命名为 `template-upstream`，防止开发人员顺手 `git push origin main` 把业务代码推回底座仓库。
 3. **`--clean-starter` 净壳裁剪**：
-   - **如果不加 `--clean-starter`**：保留完整的演示切片（包含分页动态列表 `src/features/home`、9 大原生能力实验室 `src/features/capabilities-lab`），适合新成员先在模拟器上跑通体验所有内置能力。
-   - **如果加了 `--clean-starter`**：自动物理删除演示动态列表与能力实验室切片、同步清理路由与 Maestro 冒烟脚本，仅保留**隐私合规门禁 + 登录认证流 + 干净首页壳 + 个人设置页**，立即可写正式业务。
+   - **如果不加 `--clean-starter`**：保留完整的内置样板切片（首页动态、发现、消息、我的、能力实验室 `capabilities-lab`、内容模板 `content`、收银台 `payment` 等），适合新成员先在模拟器上跑通体验所有内置能力。
+   - **如果加了 `--clean-starter`**：自动物理删除能力实验室与示例内容/支付等样板切片、同步清理路由与 Maestro 冒烟脚本，仅保留**隐私合规门禁 + 登录认证流 + 干净首页壳 + 个人设置页**，立即可写正式业务。
 
 ---
 
@@ -144,9 +144,9 @@ export const appIdentity: AppIdentity = {
   scheme: 'enterprisern',
   defaultLanguage: 'zh-CN', // 默认语言：'zh-CN' | 'en-US'
   theme: {
-    primaryLight: '#2563EB', // 亮色模式品牌主色
-    primaryDark: '#60A5FA', // 暗色模式品牌主色
-    radiusBase: 10, // 全局圆角基准（自动推导 sm/md/lg/full）
+    primaryLight: '#D7191A', // 亮色模式品牌主色
+    primaryDark: '#F04438', // 暗色模式品牌主色
+    radiusBase: 12, // 全局圆角基准（自动推导 sm/md/lg/full）
     spacingUnit: 4, // 全局间距基准（自动推导 xs=4, sm=8, md=12, lg=16, xl=24, 2xl=32）
   },
   privacyPolicyVersion: '1.0.0', // 隐私协议版本号：升版（如改为 '1.1.0'）会自动要求已授权老用户重新弹窗签署
@@ -229,7 +229,7 @@ pnpm start:prod     # production 变体
   2. **免重打包动态切换后端 API 地址**（持久化生效，冷重启依然保留）。
   3. **一键模拟 AccessToken 过期**：验证下一次请求触发后台静默单飞 401 续期。
   4. **一键清空本地 MMKV 缓存**或**重置隐私合规门禁**（立即回退到隐私弹窗拦截页）。
-- **生产包零残留保障**：当 `APP_VARIANT=production` 时，[`metro.config.js`](./metro.config.js) 会在打包期将 `DevToolsDrawerHost`、`devtools-store` 与 `demo-http-transport` 物理重定向为空桩文件（`.prod.ts`），正式包中不包含任何调试 UI 与演示代码。
+- **生产包零残留保障**：当 `APP_VARIANT=production` 时，[`metro.config.js`](./metro.config.js) 会在打包期将 `DevToolsOverlay`、`devtools-store` 与 `mock-http-transport` 物理重定向为空桩文件（`.prod.ts`），正式包中不包含任何调试 UI 与 Mock 代码。
 
 ---
 
@@ -352,12 +352,14 @@ const runtime = createAppRuntime({
 为避免 NativeWind 等第三方 Babel/Metro 样式编译插件在升级 React Native 大版本时崩溃，本底座采用零编译插件的语义化主题引擎（[ADR-0003](./docs/adr/0003-zero-dependency-themed-stylesheet.md)）：
 
 - **直接使用的布局与交互原语**（从 `@/core/ui` 导入）：
-  - 布局容器：`Screen`（自带安全区与软键盘避让）、`VStack`（纵向间距栈）、`HStack`（横向间距栈）、`Box`（语义背景/边框/内边距盒子）
-  - 交互与反馈：`AppText`、`Button`、`TextField`（兼容 `react-hook-form` + `zod`）、`AppImage`（基于 `expo-image` 二级缓存）、`BottomSheetModal`、`Skeleton`、`EmptyState`
+  - 布局与导航壳：`Screen`（自带安全区、状态栏底色与软键盘避让）、`VStack`、`HStack`、`Box`、`AppHeader`、`TopTabs`、`TabPager`、`DrawerHost`、`KeyboardStickyFooter`
+  - 页面模板：`PageTemplate`、`ListTemplate`、`FormTemplate`、`DetailTemplate`、`SettingsList`
+  - 交互与表单：`AppText`、`Button`、`TextField`（兼容 `react-hook-form` + `zod`）、`SearchBar`、`Select`、`Switch`、`DatePickerField`、`RegionPickerField`、`AppImage`（基于 `expo-image` 二级缓存）、`BottomSheetModal`、`ConfirmDialog`、`ToastHost`、`Skeleton`、`EmptyState`
 - **在自定义样式中获取当前亮/暗主题颜色**：
   ```tsx
   import { useAppTheme } from '@/core/theme/theme-context';
-  const { colors, spacing, radius, isDark } = useAppTheme();
+  const { tokens } = useAppTheme();
+  // 通过 tokens.colors / tokens.spacing / tokens.radii / tokens.isDark 访问
   ```
 
 ### 5.5 双层安全存储规范 (`secretStorage` vs `keyValueStorage`)
@@ -453,7 +455,7 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 pnpm android --device
 
 本底座将启动拆分为两个严格阶段（[ADR-0004](./docs/adr/0004-two-phase-privacy-gate-bootstrap.md)）：
 
-1. **第一阶段（未同意隐私前）**：仅渲染本地 UI 与隐私协议弹窗，零网络请求、零设备标识读取（连默认语言都只读静态配置 `defaultLanguage` 而不调系统 Locale 原生接口）。同时在 `AndroidManifest.xml` 中自动通过 `tools:node="remove"` 剥离 Firebase、极光、友盟、Sentry 等常见 AAR 的 `ContentProvider` 抢跑自启动。
+1. **第一阶段（未同意隐私前）**：首次冷启动先展示纯静态欢迎引导页（不初始化三方 SDK），随后进入登录页由用户勾选同意《用户协议》与《隐私政策》后登录；若已登录老用户遇到隐私协议升版，则由 `Stack.Protected` 自动拦截至隐私协议重签页。在用户明确同意前保持零设备标识读取（连默认语言都只读静态配置 `defaultLanguage` 而不调系统 Locale 原生接口），同时在 `AndroidManifest.xml` 中自动通过 `tools:node="remove"` 剥离 Firebase、极光、友盟、Sentry 等常见 AAR 的 `ContentProvider` 抢跑自启动。
 2. **第二阶段（用户点击“同意”后）**：自动按序触发 `deferredInitializers` 钩子。
 
 **接入 Sentry / 友盟 / 极光推送等 SDK 的标准写法（在 `src/app/_layout.tsx` 中注册）：**
@@ -679,7 +681,7 @@ pnpm verify
 | :------------------------ | :------------------------------------------------------------------------------------------------------------ |
 | `pnpm init-app`           | 交互式或参数化初始化新派生项目（改名、改包名、可选 `--clean-starter` 剥离演示切片）                           |
 | `pnpm preflight`          | 原生构建环境预检（非 ASCII 项目路径、代理虚拟网卡）；`init-app` / `ios` / `android` / `prebuild:*` 会自动先跑 |
-| `pnpm verify`             | **全量门禁（提交前必跑）**：TypeScript 严格类型检查 + ESLint 四层架构检查 + 全套 Jest 双接缝测试              |
+| `pnpm verify`             | **全量门禁（提交前必跑）**：TypeScript 类型检查 + ESLint 四层架构检查 + Maestro 流校验 + 全套 Jest 测试       |
 | `pnpm verify:variants`    | 验证 `development` / `staging` / `production` 在 `development` 与 `production` 编译模式下的配置隔离           |
 | `pnpm distribute:dry-run` | 离线演练蒲公英上传与飞书/企微/钉钉群机器人通知卡片生成                                                        |
 | `pnpm typecheck`          | 运行 TypeScript 严格模式全量类型检查 (`tsc --noEmit`)                                                         |

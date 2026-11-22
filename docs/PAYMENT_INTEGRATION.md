@@ -39,7 +39,7 @@ src/app/_layout.tsx (或 App 装配层)       # 唯一接线处：按当前项�
 ### C. 官方仅提供原生 SDK 的渠道（微信支付 / 支付宝 / 云闪付）
 1. 使用 `npx create-expo-module --local` 在 `modules/payment-<vendor>/` 下建本地模块（纳入 git，不被 `expo prebuild --clean` 清除）。
 2. 在 `ios/*.podspec` 和 `android/build.gradle` 中声明官方 CocoaPods / Maven 坐标（**严禁将闭源 `.aar` / `.xcframework` 打包发布至公共 npm**）。
-3. 在 `modules/payment-<vendor>/plugin/` 中编写 Expo Config Plugin 注入 `Info.plist` URL Schemes / Universal Links 与 `AndroidManifest.xml`；微信支付模块通过 Config Plugin 自动按宿主包名生成 `<androidPackage>.wxapi.WXPayEntryActivity`。
+3. 在 `modules/payment-<vendor>/app.plugin.js` 中编写 Expo Config Plugin 注入 `Info.plist` URL Schemes / Universal Links 与 `AndroidManifest.xml`；微信支付模块（[`modules/payment-wechat/app.plugin.js`](../modules/payment-wechat/app.plugin.js)）会自动按宿主包名生成 `<androidPackage>.wxapi.WXPayEntryActivity` 并处理 Apple Silicon 模拟器 Pod 架构兼容。
 4. 不论后端是直连微信/支付宝，还是经由二级聚合平台（拉卡拉/通联/易宝等）在服务端换取原厂签名参数，客户端均复用同一个原厂 `CheckoutDriver`。
 
 ### D. 二级平台仅提供离线 `.aar` / `.xcframework`

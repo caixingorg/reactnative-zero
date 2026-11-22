@@ -1,6 +1,6 @@
 # Pluggable Payment Capability Architecture
 
-Status: Proposed
+Status: Accepted
 
 We will implement payment support as a **headless, driver-based capability** under `src/core/capabilities/payment/` (with zero third-party payment SDKs bundled by default), separating **upstream payment providers** (first-party or secondary/aggregator gateways) from **client execution transports** (native vendor SDK, aggregator SDK, web/H5 checkout, mini-program jump, and store billing/IAP).
 
@@ -20,4 +20,4 @@ Channel visibility is determined by the **intersection** of backend-supplied eli
 - Client callbacks are never trusted as payment proof: both checkout and store billing flows enforce a server verification hook (`verifyOrder` / `verifyReceipt`) before resolving success or finishing IAP transactions.
 - Pending checkout sessions are persisted in MMKV (with TTL expiry) so both `AppState` foreground resume and cold-start recovery after OS process death can reconcile order state automatically.
 - UI stays strictly outside `core/capabilities/payment/`; reusable cashier UI and checkout flows live in `src/features/payment/` and can be stripped cleanly by `--clean-starter` if unused.
-- Full technical specification lives in `.scratch/payment-capability/spec.md`.
+- Integration guide and module layout conventions live in [`docs/PAYMENT_INTEGRATION.md`](../PAYMENT_INTEGRATION.md).
