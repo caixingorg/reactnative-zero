@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { StatusPageScreen, type StatusPageKind } from '@/features/demo';
+import { StatusPageScreen, type StatusPageKind } from '@/features/content';
 
 function parseKind(raw: string | string[] | undefined): StatusPageKind {
   if (raw === 'empty' || raw === 'error' || raw === 'offline' || raw === 'not-found') {

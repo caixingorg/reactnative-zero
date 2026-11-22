@@ -1,5 +1,5 @@
 /**
- * @module features/demo/components/PaymentCashierSheet
+ * @module features/payment/components/PaymentCashierSheet
  * 职责：Starter Slice 默认可复用收银台弹窗，基于 core/ui BottomSheetModal 展示金额与经交集过滤后的支付渠道列表。
  * 边界：与 core/capabilities/payment 内核严格解耦，执行 --clean-starter 时可整体移除。
  */

@@ -1,5 +1,5 @@
 /**
- * @module features/demo/screens/PaymentDemoScreen
+ * @module features/payment/screens/CheckoutScreen
  * 职责：演示全场景可插拔支付能力——接入真实本地支付宝原生 SDK（唤起客户端/自动降级 H5）、真实系统浏览器 H5 收银台（含切回前台自动查单）、0 元单、未安装置灰与 IAP 订阅/恢复购买。
  * 边界：仅依赖 core/capabilities/payment 公开门面与 core/ui，执行 --clean-starter 时自动移除。
  */
@@ -35,7 +35,7 @@ import { useAppTheme } from '@/core/theme/theme-context';
 import { AppHeader, AppText, Button, HStack, Screen, Switch, TextField, VStack } from '@/core/ui';
 import { PaymentCashierSheet } from '../components/PaymentCashierSheet';
 
-export interface PaymentDemoScreenProps {
+export interface CheckoutScreenProps {
   onBack?: () => void;
 }
 
@@ -80,7 +80,7 @@ const DEMO_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
   },
 ];
 
-export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX.Element {
+export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Element {
   const { identity, keyValueStorage, capabilityOverrides } = useAppRuntime();
   const user = useAuthSession((state) => state.user);
   const toast = useToast();
@@ -296,7 +296,7 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
       backgroundColor={tokens.colors.background}
       statusBarBackgroundColor={tokens.colors.surface}
     >
-      <AppHeader title="全场景支付演示" showBack onBack={onBack} />
+      <AppHeader title="收银台" showBack onBack={onBack} />
       <VStack p="lg" gap="lg">
         {/* One-time checkout card */}
         <VStack

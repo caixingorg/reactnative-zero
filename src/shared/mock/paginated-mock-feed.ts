@@ -1,5 +1,5 @@
 /**
- * @module shared/demo/paginated-mock-feed
+ * @module shared/mock/paginated-mock-feed
  * 职责：为 12 个通用子页面提供多页异步模拟数据源（每频道 3 页 × 8 条 = 24 条），
  * 让真机可真实体验首次懒加载骨架屏、多屏滚动、下拉刷新、上拉分页加载与再次点击底栏回顶。
  * 边界：测试环境（NODE_ENV === 'test'）延迟自动降为 0ms，保证单元测试快速稳定。

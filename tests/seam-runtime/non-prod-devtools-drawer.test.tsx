@@ -213,7 +213,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
     expect(screen.queryByText('开发者调试面板')).toBeNull();
   });
 
-  it('physically redirects DevToolsOverlay and demo-http-transport to zero-payload stubs via metro.config.js ONLY when APP_VARIANT=production', () => {
+  it('physically redirects DevToolsOverlay and mock-http-transport to zero-payload stubs via metro.config.js ONLY when APP_VARIANT=production', () => {
     const repoRoot = path.resolve(__dirname, '../..');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const metroConfig = require('@root/metro.config.js') as {
@@ -235,8 +235,8 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
       repoRoot,
       'src/core/devtools/devtools-store.prod.ts',
     );
-    const demoRealPath = path.resolve(repoRoot, 'src/shared/demo/demo-http-transport.ts');
-    const demoStubPath = path.resolve(repoRoot, 'src/shared/demo/demo-http-transport.prod.ts');
+    const demoRealPath = path.resolve(repoRoot, 'src/shared/mock/mock-http-transport.ts');
+    const demoStubPath = path.resolve(repoRoot, 'src/shared/mock/mock-http-transport.prod.ts');
 
     const fakeContext = {
       resolveRequest: (_ctx: unknown, moduleName: string) => ({
@@ -271,7 +271,7 @@ describe('Seam 1: Non-production In-App DevTools drawer & strict production stri
           .filePath,
       ).toBe(devToolsStoreStubPath);
       expect(
-        metroConfig.resolver.resolveRequest(fakeContext, './demo/demo-http-transport', 'android')
+        metroConfig.resolver.resolveRequest(fakeContext, './mock/mock-http-transport', 'android')
           .filePath,
       ).toBe(demoStubPath);
     } finally {

@@ -9,7 +9,7 @@ export default function LoginRoute(): React.JSX.Element {
 
   return (
     <LoginScreen
-      onOpenRegister={() => router.push('/register-demo')}
+      onOpenRegister={() => router.push('/register')}
       onOpenPrivacyPolicy={() => router.push('/privacy-consent')}
       onOpenUserAgreement={() =>
         router.push({

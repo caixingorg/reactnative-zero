@@ -15,14 +15,14 @@ A clonable mobile application foundation designed to initialize independent iOS 
 | Scope | Paths | Rule |
 |---|---|---|
 | **Template Core（勿随意改契约）** | `src/core/*` | Business-agnostic foundation (runtime, network, auth, storage, theme, UI primitives, capabilities). |
-| **正式业务切片** | `src/features/{auth,home,discover,messages,profile,search,feedback,settings,shell,webview}` | Product Feature Slices; external callers import only from `@/features/<slice>`. |
-| **可整包删除的 Starter / Demo** | `src/features/demo`, `src/features/capabilities-lab`, `src/shared/demo/*` | Reference slices & local demo transport; stripped automatically by `pnpm init:app --clean-starter`. |
+| **正式业务切片** | `src/features/{auth,home,discover,messages,profile,payment,content,search,feedback,settings,shell,webview}` | Product Feature Slices; external callers import only from `@/features/<slice>`. |
+| **可整包删除的 Starter / Mock** | `src/features/capabilities-lab`, `src/features/content`, `src/features/payment`, `src/shared/mock/*` | Reference slices & local mock transport; stripped automatically by `pnpm init:app --clean-starter`. |
 
 ### 3. Build-Time Production Stubs (`metro.config.js`)
 When `APP_VARIANT=production`, Metro physically redirects these modules to zero-payload stubs:
 - `src/core/devtools/DevToolsOverlay.tsx` → `DevToolsOverlay.prod.tsx`
 - `src/core/devtools/devtools-store.ts` → `devtools-store.prod.ts`
-- `src/shared/demo/demo-http-transport.ts` → `demo-http-transport.prod.ts`
+- `src/shared/mock/mock-http-transport.ts` → `mock-http-transport.prod.ts`
 
 ### 4. State Ownership Rules
 - **AppRuntime DI Stores** (`src/core/runtime`): Cross-screen app state that must be isolated per test runtime (`auth`, `privacyGate`, `preferences`, `connectivity`, `toast`, `drawer`, `permissionPrompt`, `devTools`).

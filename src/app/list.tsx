@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { GenericListScreen } from '@/features/demo';
+import { GenericListScreen } from '@/features/content';
 
 export default function GenericListStackRoute(): React.JSX.Element {
   const router = useRouter();

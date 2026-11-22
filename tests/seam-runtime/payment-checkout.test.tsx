@@ -1,16 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { AppRuntimeProvider } from '@/core/runtime';
-import { PaymentDemoScreen } from '@/features/demo';
+import { CheckoutScreen } from '@/features/payment';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 
-describe('PaymentDemoScreen & PaymentCashierSheet (seam-runtime)', () => {
+describe('CheckoutScreen & PaymentCashierSheet (seam-runtime)', () => {
   it('opens cashier sheet, filters unavailable channels, completes checkout, and runs IAP purchase & restore', async () => {
     const runtime = createTestRuntime();
 
     await render(
       <AppRuntimeProvider runtime={runtime}>
-        <PaymentDemoScreen />
+        <CheckoutScreen />
       </AppRuntimeProvider>,
     );
 

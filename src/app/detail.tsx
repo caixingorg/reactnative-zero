@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { ContentDetailScreen } from '@/features/demo';
+import { ContentDetailScreen } from '@/features/content';
 
 export default function ContentDetailStackRoute(): React.JSX.Element {
   const router = useRouter();

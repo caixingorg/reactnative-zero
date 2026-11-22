@@ -1,5 +1,5 @@
 /**
- * @module features/demo/screens/ProfileRegisterDemoScreen
+ * @module features/auth/screens/RegisterScreen
  * 职责：完整用户资料注册表单示范页，集中展示头像上传（Media Capability）、文本输入、下拉单选、日期选择（DatePickerField）、
  * 省市区三级联动地址选择（RegionPickerField）、协议开关与 Zod 校验联动。
  */
@@ -46,28 +46,28 @@ const registerSchema = z.object({
   agreedTerms: z.boolean().refine((val) => val, '请先同意用户注册协议与隐私条款'),
 });
 
-export type ProfileRegisterFormValues = z.infer<typeof registerSchema>;
+export type RegisterFormValues = z.infer<typeof registerSchema>;
 
-export interface ProfileRegisterDemoScreenProps {
+export interface RegisterScreenProps {
   onBack?: () => void;
-  onSubmitted?: (values: ProfileRegisterFormValues) => void;
+  onSubmitted?: (values: RegisterFormValues) => void;
 }
 
-export function ProfileRegisterDemoScreen({
+export function RegisterScreen({
   onBack,
   onSubmitted,
-}: ProfileRegisterDemoScreenProps = {}): React.JSX.Element {
+}: RegisterScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
   const media = useMediaCapability();
   const toast = useToast();
-  const [submittedValues, setSubmittedValues] = useState<ProfileRegisterFormValues | null>(null);
+  const [submittedValues, setSubmittedValues] = useState<RegisterFormValues | null>(null);
 
   const {
     control,
     handleSubmit,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<ProfileRegisterFormValues>({
+  } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     mode: 'onChange',
     defaultValues: {
@@ -104,7 +104,7 @@ export function ProfileRegisterDemoScreen({
 
   return (
     <FormTemplate
-      title="资料注册（表单示范）"
+      title="注册账号"
       onBack={onBack}
       submitLabel="提交注册资料"
       submitting={isSubmitting}

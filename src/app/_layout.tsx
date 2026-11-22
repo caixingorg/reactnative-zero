@@ -34,7 +34,7 @@ export function GuardedRootStack(): React.JSX.Element {
         >
           <Stack.Screen name="privacy-consent" />
         </Stack.Protected>
-        <Stack.Screen name="register-demo" />
+        <Stack.Screen name="register" />
         <Stack.Protected guard={authStatus !== 'authenticated'} redirectTo={guardFallback}>
           <Stack.Screen name="(auth)/login" />
         </Stack.Protected>
@@ -50,7 +50,7 @@ export function GuardedRootStack(): React.JSX.Element {
           <Stack.Screen name="detail" />
           <Stack.Screen name="search" />
           <Stack.Screen name="form" />
-          <Stack.Screen name="payment-demo" />
+          <Stack.Screen name="checkout" />
           <Stack.Screen name="status" />
           <Stack.Screen name="index" />
         </Stack.Protected>

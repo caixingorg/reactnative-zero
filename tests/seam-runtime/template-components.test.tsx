@@ -12,7 +12,7 @@ import {
   SettingsList,
   type SettingsSection,
 } from '@/core/ui';
-import { StatusPageScreen } from '@/features/demo';
+import { StatusPageScreen } from '@/features/content';
 import { SearchScreen } from '@/features/search';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';

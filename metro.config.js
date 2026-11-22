@@ -16,8 +16,8 @@ const PRODUCTION_MODULE_REPLACEMENTS = new Map([
     path.resolve(projectRoot, 'src/core/devtools/devtools-store.prod.ts'),
   ],
   [
-    path.resolve(projectRoot, 'src/shared/demo/demo-http-transport.ts'),
-    path.resolve(projectRoot, 'src/shared/demo/demo-http-transport.prod.ts'),
+    path.resolve(projectRoot, 'src/shared/mock/mock-http-transport.ts'),
+    path.resolve(projectRoot, 'src/shared/mock/mock-http-transport.prod.ts'),
   ],
 ]);
 

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { appIdentity } from '@root/app.identity';
 import { AppRuntimeProvider } from '@/core/runtime';
 import { formatDateYmd, getDaysInMonth } from '@/core/ui';
-import { ProfileRegisterDemoScreen, type ProfileRegisterFormValues } from '@/features/demo';
+import { RegisterScreen, type RegisterFormValues } from '@/features/auth';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -28,14 +28,14 @@ describe('Seam: DatePickerField pure helpers', () => {
   });
 });
 
-describe('Seam: ProfileRegisterDemoScreen', () => {
+describe('Seam: RegisterScreen', () => {
   it('validates required fields and submits full profile with date, region, and switch', async () => {
     const runtime = createRuntime();
-    const submitted: ProfileRegisterFormValues[] = [];
+    const submitted: RegisterFormValues[] = [];
 
     await render(
       <AppRuntimeProvider runtime={runtime}>
-        <ProfileRegisterDemoScreen onSubmitted={(values) => submitted.push(values)} />
+        <RegisterScreen onSubmitted={(values) => submitted.push(values)} />
       </AppRuntimeProvider>,
     );
 

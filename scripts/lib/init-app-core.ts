@@ -337,12 +337,12 @@ function applyCleanStarterTransform(projectRoot: string): {
 } {
   const relPathsToDelete = [
     'src/features/capabilities-lab',
-    'src/features/demo',
+    'src/features/content',
+    'src/features/payment',
     'src/app/developer-lab.tsx',
     'src/app/list.tsx',
     'src/app/detail.tsx',
-    'src/app/register-demo.tsx',
-    'src/app/payment-demo.tsx',
+    'src/app/checkout.tsx',
     'src/app/status.tsx',
     'src/app/feed',
     'src/shared/components/FeedStatusBadge.tsx',
@@ -352,8 +352,7 @@ function applyCleanStarterTransform(projectRoot: string): {
     'tests/seam-runtime/welcome-and-polish.test.tsx',
     'tests/seam-runtime/capability-fusion.test.tsx',
     'tests/seam-runtime/template-components.test.tsx',
-    'tests/seam-runtime/profile-register-form.test.tsx',
-    'tests/seam-runtime/payment-demo.test.tsx',
+    'tests/seam-runtime/payment-checkout.test.tsx',
     'tests/seam-runtime/server-query-and-offline-banner.test.tsx',
     'tests/seam-runtime/permission-rationale-and-capabilities.test.tsx',
     'tests/seam-runtime/image-upload-lab.test.tsx',
@@ -424,32 +423,32 @@ export default function HomeTabRoute(): React.JSX.Element {
   writeRel('src/features/home/index.ts', cleanHomeIndex);
   writeRel('src/app/(tabs)/index.tsx', cleanHomeTabRoute);
 
-  // Surgical removal of feed/[id], developer-lab, and payment-demo route registrations from src/app/_layout.tsx
+  // Surgical removal of feed/[id], developer-lab, and checkout route registrations from src/app/_layout.tsx
   const rootLayoutPath = path.join(projectRoot, 'src/app/_layout.tsx');
   if (fs.existsSync(rootLayoutPath)) {
     const updatedRootLayout = fs
       .readFileSync(rootLayoutPath, 'utf8')
       .replace(/^\s*<Stack\.Screen name="feed\/\[id\]" \/>\r?\n/m, '')
       .replace(/^\s*<Stack\.Screen name="developer-lab" \/>\r?\n/m, '')
-      .replace(/^\s*<Stack\.Screen name="payment-demo" \/>\r?\n/m, '');
+      .replace(/^\s*<Stack\.Screen name="checkout" \/>\r?\n/m, '');
     writeRel('src/app/_layout.tsx', updatedRootLayout);
   }
 
-  // Surgical removal of paymentDemo drawer entry from DrawerMenu.tsx & AppShellOverlays.tsx
+  // Surgical removal of checkout drawer entry from DrawerMenu.tsx & AppShellOverlays.tsx
   const drawerMenuPath = path.join(projectRoot, 'src/features/shell/DrawerMenu.tsx');
   if (fs.existsSync(drawerMenuPath)) {
     const updatedDrawerMenu = fs
       .readFileSync(drawerMenuPath, 'utf8')
-      .replace(/^\s*\| 'paymentDemo'\r?\n/m, '')
-      .replace(/^\s*\{ target: 'paymentDemo',.*?\},\r?\n/m, '');
+      .replace(/^\s*\| 'checkout'\r?\n/m, '')
+      .replace(/^\s*\{ target: 'checkout',.*?\},\r?\n/m, '');
     writeRel('src/features/shell/DrawerMenu.tsx', updatedDrawerMenu);
   }
   const overlaysPath = path.join(projectRoot, 'src/features/shell/AppShellOverlays.tsx');
   if (fs.existsSync(overlaysPath)) {
     const updatedOverlays = fs
       .readFileSync(overlaysPath, 'utf8')
-      .replace(/^\s*\| '\/payment-demo'\r?\n/m, '')
-      .replace(/^\s*paymentDemo: '\/payment-demo',\r?\n/m, '');
+      .replace(/^\s*\| '\/checkout'\r?\n/m, '')
+      .replace(/^\s*checkout: '\/checkout',\r?\n/m, '');
     writeRel('src/features/shell/AppShellOverlays.tsx', updatedOverlays);
   }
 
@@ -480,8 +479,8 @@ export default function HomeTabRoute(): React.JSX.Element {
     writeRel('src/shared/index.ts', updatedSharedIndex);
   }
 
-  // Surgical strip of demo feed records from src/shared/demo/demo-http-transport.ts while preserving auth gateway
-  const demoTransportPath = path.join(projectRoot, 'src/shared/demo/demo-http-transport.ts');
+  // Surgical strip of demo feed records from src/shared/mock/mock-http-transport.ts while preserving auth gateway
+  const demoTransportPath = path.join(projectRoot, 'src/shared/mock/mock-http-transport.ts');
   if (fs.existsSync(demoTransportPath)) {
     const cleanAuthTransport = `import type { HttpTransportDriver, RawHttpRequest, RawHttpResponse } from '@/core/network/types';
 
@@ -548,7 +547,7 @@ export function createDemoHttpTransport(): HttpTransportDriver {
   };
 }
 `;
-    writeRel('src/shared/demo/demo-http-transport.ts', cleanAuthTransport);
+    writeRel('src/shared/mock/mock-http-transport.ts', cleanAuthTransport);
   }
 
   // Update app-resources.ts with clean welcome copy while keeping auth & settings copy intact

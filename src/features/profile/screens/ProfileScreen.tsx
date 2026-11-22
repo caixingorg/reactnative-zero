@@ -141,7 +141,7 @@ function ProfileSubTab({
             )}
           </Pressable>
           <VStack flex={1} gap="xs">
-            <AppText variant="titleMd">{user?.displayName ?? '演示用户'}</AppText>
+            <AppText variant="titleMd">{user?.displayName ?? '未登录用户'}</AppText>
             <AppText variant="caption" tone="secondary">
               点击头像可从相册更换 · 下方支持图文动态发布
             </AppText>

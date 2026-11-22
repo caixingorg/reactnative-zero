@@ -160,7 +160,7 @@ flowchart LR
 
   subgraph MetroBundle["Metro JS 打包期 (metro.config.js)"]
     Metro["resolver.resolveRequest<br/>按 APP_VARIANT === 'production' 拦截"]
-    ProdStubs["物理替换为 .prod 空桩<br/>DevToolsDrawerHost.prod.tsx<br/>devtools-store.prod.ts<br/>demo-http-transport.prod.ts"]
+    ProdStubs["物理替换为 .prod 空桩<br/>DevToolsDrawerHost.prod.tsx<br/>devtools-store.prod.ts<br/>mock-http-transport.prod.ts"]
   end
 
   Id --> Loader
@@ -206,7 +206,7 @@ flowchart LR
 | :--- | :--- | :--- | :--- |
 | `src/app/` | Expo Router 文件路由装配壳：根布局组装 `AppRuntime` 并以 `Stack.Protected` 声明三态守卫（未同意隐私 → 未登录 → 已登录），其余文件仅透传渲染 Feature 屏幕 | [`_layout.tsx`](../src/app/_layout.tsx)<br/>`(tabs)/_layout.tsx` | 保持薄壳：零业务状态、零复杂 UI，只通过 `@/features/<slice>` 顶层入口导入页面 |
 | `src/features/` | 5 个预置业务/样板切片：`auth`（登录页）、`home`（信息流列表与详情页，含 `feed-api.ts` 示例）、`settings`（主题/语言/隐私撤回/登出设置）、`webview`（内置安全浏览器页）、`capabilities-lab`（9 大原生能力联调实验室） | 各切片 `index.ts` | 切片间完全隔离；运行 `pnpm init-app --clean-starter` 可剥离样板演示切片 |
-| `src/shared/` | 本应用跨切片复用的业务组件（`FeedStatusBadge`、`VariantCapsuleBadge`）、应用级多语言词条、法律文档跳转 Hook、以及免后端演示网关（`demo-http-transport.ts`，生产打包物理替换为 `.prod.ts` 空桩） | [`shared/index.ts`](../src/shared/index.ts) | 只能依赖 `src/core`，严禁反向依赖 `src/features` 或 `src/app` |
+| `src/shared/` | 本应用跨切片复用的业务组件（`FeedStatusBadge`、`VariantCapsuleBadge`）、应用级多语言词条、法律文档跳转 Hook、以及本地 Mock 网关（`mock-http-transport.ts`，生产打包物理替换为 `.prod.ts` 空桩） | [`shared/index.ts`](../src/shared/index.ts) | 只能依赖 `src/core`，严禁反向依赖 `src/features` 或 `src/app` |
 
 ### D. 构建期配置、工程脚本与验证防线
 

@@ -282,7 +282,7 @@ export function LoginScreen({
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
                   <AppText variant="caption" tone="secondary" weight="600">
-                    填入演示账号
+                    填入测试账号
                   </AppText>
                 </Pressable>
               ) : (

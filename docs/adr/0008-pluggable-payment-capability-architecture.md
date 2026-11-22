@@ -19,5 +19,5 @@ Channel visibility is determined by the **intersection** of backend-supplied eli
 - Default template builds remain free of closed-source payment binaries; downstream apps install or add only the native drivers (`modules/payment-*` or npm packages) they actually contract with.
 - Client callbacks are never trusted as payment proof: both checkout and store billing flows enforce a server verification hook (`verifyOrder` / `verifyReceipt`) before resolving success or finishing IAP transactions.
 - Pending checkout sessions are persisted in MMKV (with TTL expiry) so both `AppState` foreground resume and cold-start recovery after OS process death can reconcile order state automatically.
-- UI stays strictly outside `core/capabilities/payment/`; reusable cashier UI and demo flows live in `src/features/demo/` and are stripped cleanly by `--clean-starter`.
+- UI stays strictly outside `core/capabilities/payment/`; reusable cashier UI and checkout flows live in `src/features/payment/` and can be stripped cleanly by `--clean-starter` if unused.
 - Full technical specification lives in `.scratch/payment-capability/spec.md`.

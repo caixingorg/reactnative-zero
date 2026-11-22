@@ -270,10 +270,11 @@ describe('Seam 2: Clone initializer (init-app) & --clean-starter verification', 
         skipGit: true,
       });
 
-      // Removed demo slices & routes
+      // Removed starter slices & routes
       expect(fs.existsSync(path.join(sandboxDir, 'src/features/capabilities-lab'))).toBe(false);
-      expect(fs.existsSync(path.join(sandboxDir, 'src/features/demo'))).toBe(false);
-      expect(fs.existsSync(path.join(sandboxDir, 'src/app/payment-demo.tsx'))).toBe(false);
+      expect(fs.existsSync(path.join(sandboxDir, 'src/features/payment'))).toBe(false);
+      expect(fs.existsSync(path.join(sandboxDir, 'src/features/content'))).toBe(false);
+      expect(fs.existsSync(path.join(sandboxDir, 'src/app/checkout.tsx'))).toBe(false);
       expect(fs.existsSync(path.join(sandboxDir, 'src/app/(tabs)/lab.tsx'))).toBe(false);
       expect(fs.existsSync(path.join(sandboxDir, 'src/app/feed'))).toBe(false);
       expect(
@@ -283,13 +284,13 @@ describe('Seam 2: Clone initializer (init-app) & --clean-starter verification', 
         fs.existsSync(path.join(sandboxDir, 'src/features/home/screens/FeedDetailScreen.tsx')),
       ).toBe(false);
 
-      // Drawer shell has no dangling paymentDemo route
+      // Drawer shell has no dangling checkout route
       expect(
         fs.readFileSync(path.join(sandboxDir, 'src/features/shell/DrawerMenu.tsx'), 'utf8'),
-      ).not.toContain('paymentDemo');
+      ).not.toContain('checkout');
       expect(
         fs.readFileSync(path.join(sandboxDir, 'src/features/shell/AppShellOverlays.tsx'), 'utf8'),
-      ).not.toContain('/payment-demo');
+      ).not.toContain('/checkout');
 
       // Headless payment capability retained and zero closed-source payment SDKs in default dependencies
       expect(fs.existsSync(path.join(sandboxDir, 'src/core/capabilities/payment/index.ts'))).toBe(

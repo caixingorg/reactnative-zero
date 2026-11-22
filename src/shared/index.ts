@@ -11,7 +11,7 @@ export {
 export { QuickComposerCard, type QuickComposerCardProps } from './components/QuickComposerCard';
 export { QuickMusicBar } from './components/QuickMusicBar';
 export { VariantCapsuleBadge } from './components/VariantCapsuleBadge';
-export { createDemoHttpTransport } from './demo/demo-http-transport';
-export { useMockPaginatedFeed, type MockListRecord } from './demo/paginated-mock-feed';
+export { createDemoHttpTransport } from './mock/mock-http-transport';
+export { useMockPaginatedFeed, type MockListRecord } from './mock/paginated-mock-feed';
 export { appTranslationResources } from './i18n/app-resources';
 export { useLegalDocumentOpener } from './navigation/use-legal-document-opener';

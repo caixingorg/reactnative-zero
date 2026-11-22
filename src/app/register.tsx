@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useAppRuntime } from '@/core/runtime';
-import { ProfileRegisterDemoScreen } from '@/features/demo';
+import { RegisterScreen } from '@/features/auth';
 
-export default function RegisterDemoRoute(): React.JSX.Element {
+export default function RegisterRoute(): React.JSX.Element {
   const router = useRouter();
   const { authSessionStore } = useAppRuntime();
 
@@ -21,5 +21,5 @@ export default function RegisterDemoRoute(): React.JSX.Element {
     router.replace('/login');
   };
 
-  return <ProfileRegisterDemoScreen onBack={() => router.back()} onSubmitted={handleSubmitted} />;
+  return <RegisterScreen onBack={() => router.back()} onSubmitted={handleSubmitted} />;
 }
