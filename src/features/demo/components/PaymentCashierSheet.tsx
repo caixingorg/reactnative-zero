@@ -120,8 +120,13 @@ export function PaymentCashierSheet({
                       color={isSelected ? tokens.colors.primary : tokens.colors.textPrimary}
                     />
                     <VStack flex={1} gap="xs">
-                      <HStack align="center" gap="xs">
-                        <AppText variant="bodyMd" weight="600">
+                      <HStack align="center" gap="xs" style={styles.titleRow}>
+                        <AppText
+                          variant="bodyMd"
+                          weight="600"
+                          numberOfLines={1}
+                          style={styles.channelName}
+                        >
                           {channel.displayName}
                         </AppText>
                         {channel.gatewayTag ? (
@@ -183,6 +188,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderWidth: 1,
+  },
+  titleRow: {
+    flexWrap: 'nowrap',
+  },
+  channelName: {
+    flexShrink: 1,
   },
   tag: {
     paddingHorizontal: 6,

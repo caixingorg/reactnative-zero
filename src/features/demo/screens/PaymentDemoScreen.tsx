@@ -57,7 +57,7 @@ const DEMO_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
   {
     channelCode: 'paypal_web',
     driverId: WEB_CHECKOUT_DRIVER_ID,
-    displayName: 'PayPal / 二级 H5 收银台（真实外跳）',
+    displayName: 'PayPal / 二级 H5 收银台',
     subtitle: '直接打开手机浏览器，切回 App 后 1.5s 自动查单兜底',
     iconKey: 'web',
     gatewayTag: '真实H5',
@@ -70,11 +70,13 @@ const DEMO_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
     iconKey: 'coupon',
   },
   {
-    channelCode: 'wechat_unavailable',
-    driverId: 'wechat_sdk',
-    displayName: '微信支付（模拟未安装）',
+    channelCode: 'wechat',
+    driverId: WECHAT_DRIVER_ID,
+    displayName: '微信支付（原生 SDK）',
+    subtitle: '需重新构建原生包并安装微信客户端后可用',
     unavailablePolicy: 'disable',
     iconKey: 'wechat',
+    gatewayTag: '原生SDK',
   },
 ];
 
@@ -219,6 +221,16 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
           checkoutUrl: DEMO_H5_CHECKOUT_URL,
           returnUrlPrefix: `${identity.scheme}://payment/return`,
         };
+      } else if (channel.driverId === WECHAT_DRIVER_ID) {
+        payload = {
+          appId: 'wx0000000000000000',
+          partnerId: '1900000109',
+          prepayId: 'wx2026demoprepayid',
+          packageValue: 'Sign=WXPay',
+          nonceStr: 'demo_nonce_123',
+          timeStamp: String(Math.floor(Date.now() / 1000)),
+          sign: 'DEMO_WECHAT_SIGN',
+        };
       }
 
       const outcome = await paymentService.checkout.pay(
@@ -299,10 +311,8 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
             一次性支付（支付宝原生 SDK / 真实 H5 / 0 元单）
           </AppText>
           <AppText variant="caption" tone="secondary">
-            支付宝原生桥状态：
-            {alipayNativeLinked
-              ? '已链接（可真实唤起支付宝或内置 H5）'
-              : '未链接（需重新构建原生包，当前回退 Mock）'}
+            支付宝原生桥：{alipayNativeLinked ? '已链接' : '未链接'} · 微信原生桥：
+            {wechatNativeLinked ? '已链接' : '未链接'}
           </AppText>
           <Switch
             label="支付宝沙箱模式（Android EnvEnum.SANDBOX）"
