@@ -61,17 +61,17 @@ export function LoginScreen({
   });
 
   const requireConsent = identity.compliance.requirePrivacyConsent;
-  const effectiveConsent = !requireConsent || consentChecked || isPrivacyAccepted;
+  const effectiveConsent = !requireConsent || consentChecked;
 
+  // 原因：勾选框只切换本地意图，允许用户在点登录前自由勾选或取消；真正点击登录时再落盘隐私同意
   const handleToggleConsent = (): void => {
-    const next = !effectiveConsent;
-    setConsentChecked(next);
-    if (next) {
-      setServerError(null);
-      if (privacyGateStore.getState().phase !== 'ready') {
-        privacyGateStore.getState().acceptPrivacyPolicy();
+    setConsentChecked((prev) => {
+      const next = !prev;
+      if (next) {
+        setServerError(null);
       }
-    }
+      return next;
+    });
   };
 
   const onSubmit = handleSubmit(async (values) => {

@@ -547,4 +547,69 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
     expect(runtime.authSessionStore.getState().status).toBe('authenticated');
     expect(await secretStorage.getSecret('auth.refresh_token')).toBe('some-refresh-token');
   });
+
+  it('allows checking and unchecking privacy consent before login and only persists consent on submit', async () => {
+    const user = userEvent.setup();
+    const secretStorage = createMemorySecretStorage();
+    const keyValueStorage = createMemoryKeyValueStorage();
+    const onOpenPrivacyPolicy = jest.fn();
+    const onOpenUserAgreement = jest.fn();
+    const runtime = createTestRuntime({
+      identity: appIdentity,
+      env: TEST_RUNTIME_ENV,
+      translations: appTranslationResources,
+      overrides: {
+        secretStorage,
+        keyValueStorage,
+        initialDeviceLocale: 'zh-CN',
+        httpTransport: createMockHttpTransport(),
+      },
+    });
+    await runtime.authSessionStore.getState().hydrateSession();
+    expect(runtime.privacyGateStore.getState().phase).toBe('awaiting-consent');
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <LoginScreen
+          onOpenPrivacyPolicy={onOpenPrivacyPolicy}
+          onOpenUserAgreement={onOpenUserAgreement}
+        />
+      </AppRuntimeProvider>,
+    );
+
+    const checkbox = screen.getByTestId('login-privacy-checkbox');
+    expect(checkbox.props.accessibilityState?.checked).toBe(false);
+
+    // 1. Clicking legal links invokes their detail callbacks
+    await user.press(screen.getByText('《用户协议》'));
+    await user.press(screen.getByText('《隐私政策》'));
+    expect(onOpenUserAgreement).toHaveBeenCalledTimes(1);
+    expect(onOpenPrivacyPolicy).toHaveBeenCalledTimes(1);
+
+    // 2. Checking then unchecking works cleanly without prematurely persisting privacy consent
+    await user.press(checkbox);
+    expect(screen.getByTestId('login-privacy-checkbox').props.accessibilityState?.checked).toBe(
+      true,
+    );
+    expect(runtime.privacyGateStore.getState().phase).toBe('awaiting-consent');
+
+    await user.press(checkbox);
+    expect(screen.getByTestId('login-privacy-checkbox').props.accessibilityState?.checked).toBe(
+      false,
+    );
+
+    // 3. Submitting while unchecked blocks login and surfaces consent prompt
+    await user.type(screen.getByPlaceholderText('请输入账号'), 'admin');
+    await user.type(screen.getByPlaceholderText('请输入密码'), 'password123');
+    await user.press(screen.getByRole('button', { name: '登录' }));
+    expect(await screen.findByText('请先阅读并勾选同意《用户协议》与《隐私政策》')).toBeTruthy();
+    expect(runtime.privacyGateStore.getState().phase).toBe('awaiting-consent');
+    expect(runtime.authSessionStore.getState().status).toBe('unauthenticated');
+
+    // 4. Checking consent and submitting persists privacy acceptance and establishes session
+    await user.press(checkbox);
+    await user.press(screen.getByRole('button', { name: '登录' }));
+    expect(runtime.privacyGateStore.getState().phase).toBe('ready');
+    expect(runtime.authSessionStore.getState().status).toBe('authenticated');
+  });
 });
