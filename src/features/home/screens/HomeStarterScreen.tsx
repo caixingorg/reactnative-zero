@@ -34,7 +34,7 @@ export function HomeStarterScreen({
   const scrollProgress = useSharedValue(0);
 
   return (
-    <Screen>
+    <Screen statusBarBackgroundColor={tokens.colors.surface}>
       <TopTabs
         tabs={HOME_TABS}
         activeIndex={activeIndex}

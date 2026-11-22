@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { z } from 'zod';
 import type { LoginResult } from '@/core/network/types';
-import { useAppRuntime } from '@/core/runtime';
+import { useAppRuntime, usePrivacyGate } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import { AppText, Button, HStack, Screen, VStack } from '@/core/ui';
 
@@ -17,16 +17,24 @@ interface LoginFormValues {
 
 export interface LoginScreenProps {
   onOpenRegister?: () => void;
+  onOpenPrivacyPolicy?: () => void;
+  onOpenUserAgreement?: () => void;
 }
 
-export function LoginScreen({ onOpenRegister }: LoginScreenProps = {}): React.JSX.Element {
+export function LoginScreen({
+  onOpenRegister,
+  onOpenPrivacyPolicy,
+  onOpenUserAgreement,
+}: LoginScreenProps = {}): React.JSX.Element {
   const { t } = useTranslation();
-  const { identity, env, httpClient, authSessionStore } = useAppRuntime();
+  const { identity, env, httpClient, authSessionStore, privacyGateStore } = useAppRuntime();
+  const isPrivacyAccepted = usePrivacyGate((state) => state.phase === 'ready');
   const { tokens } = useAppTheme();
   const passwordInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [focusedField, setFocusedField] = useState<'username' | 'password' | null>(null);
+  const [consentChecked, setConsentChecked] = useState(isPrivacyAccepted);
 
   const loginSchema = useMemo(
     () =>
@@ -52,7 +60,28 @@ export function LoginScreen({ onOpenRegister }: LoginScreenProps = {}): React.JS
     },
   });
 
+  const requireConsent = identity.compliance.requirePrivacyConsent;
+  const effectiveConsent = !requireConsent || consentChecked || isPrivacyAccepted;
+
+  const handleToggleConsent = (): void => {
+    const next = !effectiveConsent;
+    setConsentChecked(next);
+    if (next) {
+      setServerError(null);
+      if (privacyGateStore.getState().phase !== 'ready') {
+        privacyGateStore.getState().acceptPrivacyPolicy();
+      }
+    }
+  };
+
   const onSubmit = handleSubmit(async (values) => {
+    if (!effectiveConsent) {
+      setServerError('请先阅读并勾选同意《用户协议》与《隐私政策》');
+      return;
+    }
+    if (privacyGateStore.getState().phase !== 'ready') {
+      privacyGateStore.getState().acceptPrivacyPolicy();
+    }
     setServerError(null);
     try {
       const result = await httpClient.post<LoginResult>('/auth/login', values, {
@@ -277,9 +306,38 @@ export function LoginScreen({ onOpenRegister }: LoginScreenProps = {}): React.JS
           </VStack>
         </VStack>
 
-        <AppText variant="caption" tone="secondary" align="center" style={styles.footerNote}>
-          登录即表示您已阅读并同意服务协议与隐私政策
-        </AppText>
+        <HStack align="center" justify="center" gap="xs" style={styles.footerNote}>
+          <Pressable
+            testID="login-privacy-checkbox"
+            accessibilityRole="checkbox"
+            accessibilityLabel="同意用户协议与隐私政策"
+            accessibilityState={{ checked: effectiveConsent }}
+            onPress={handleToggleConsent}
+            hitSlop={10}
+            style={styles.checkboxHit}
+          >
+            <Ionicons
+              name={effectiveConsent ? 'checkbox' : 'square-outline'}
+              size={18}
+              color={effectiveConsent ? tokens.colors.primary : tokens.colors.textSecondary}
+            />
+          </Pressable>
+          <AppText variant="caption" tone="secondary" style={styles.consentText}>
+            我已阅读并同意{' '}
+            <AppText
+              variant="caption"
+              tone="brand"
+              weight="600"
+              onPress={onOpenUserAgreement ?? onOpenPrivacyPolicy}
+            >
+              《用户协议》
+            </AppText>{' '}
+            和{' '}
+            <AppText variant="caption" tone="brand" weight="600" onPress={onOpenPrivacyPolicy}>
+              《隐私政策》
+            </AppText>
+          </AppText>
+        </HStack>
       </VStack>
     </Screen>
   );
@@ -347,7 +405,12 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     marginTop: 40,
-    opacity: 0.75,
+  },
+  checkboxHit: {
+    padding: 2,
+  },
+  consentText: {
+    flexShrink: 1,
   },
   pressed: {
     opacity: 0.65,

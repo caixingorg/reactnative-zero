@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useAppRuntime, usePreferences, usePrivacyGate } from '@/core/runtime';
+import { useAppRuntime, usePreferences } from '@/core/runtime';
 import { DrawerHost } from '@/core/ui';
 import { DrawerMenu, type DrawerNavTarget } from './DrawerMenu';
 import { WelcomeScreen } from './WelcomeScreen';
@@ -62,10 +62,10 @@ export function AppDrawerShell({
 
 export function WelcomeOverlayGate(): React.JSX.Element | null {
   const { preferencesStore } = useAppRuntime();
-  const isPrivacyReady = usePrivacyGate((state) => state.phase === 'ready');
   const hasCompletedWelcome = usePreferences((state) => state.hasCompletedWelcome);
 
-  if (!isPrivacyReady || hasCompletedWelcome) {
+  // 原因：欢迎页为纯静态引导且不初始化任何三方 SDK，首次冷启优先展示欢迎页，完成后进入登录页勾选同意协议
+  if (hasCompletedWelcome) {
     return null;
   }
 

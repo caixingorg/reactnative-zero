@@ -4,7 +4,12 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const { withAndroidManifest, withDangerousMod, withInfoPlist } = require('expo/config-plugins');
+const {
+  withAndroidManifest,
+  withDangerousMod,
+  withInfoPlist,
+  withPodfile,
+} = require('expo/config-plugins');
 
 const WX_ACTIVITY_TEMPLATE = (pkg) => `package ${pkg}.wxapi
 
@@ -101,6 +106,25 @@ function withWechatPay(config, options = {}) {
       return mod;
     },
   ]);
+
+  // 原因：WechatOpenSDK-XCFramework 2.0.8 实际已含 arm64 模拟器二进制，但官方 podspec 残留 EXCLUDED_ARCHS[sdk=iphonesimulator*]=arm64，会在 Apple Silicon Mac 上屏蔽 iOS 模拟器架构
+  config = withPodfile(config, (mod) => {
+    const marker = '# [payment-wechat] clear legacy EXCLUDED_ARCHS for Apple Silicon simulators';
+    if (!mod.modResults.contents.includes(marker)) {
+      const snippet = `
+    ${marker}
+    installer.aggregate_targets.each do |target|
+      target.xcconfigs.each do |_variant, xcconfig|
+        xcconfig.attributes.delete('EXCLUDED_ARCHS[sdk=iphonesimulator*]')
+      end
+    end`;
+      mod.modResults.contents = mod.modResults.contents.replace(
+        /post_install do \|installer\|/,
+        `post_install do |installer|${snippet}`,
+      );
+    }
+    return mod;
+  });
 
   return config;
 }

@@ -2,7 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { userEvent } from '@testing-library/react-native';
 import { Stack } from 'expo-router';
-import { act, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { act, renderRouter, screen } from 'expo-router/testing-library';
 import { GuardedRootStack } from '@/app/_layout';
 import WebViewRoute from '@/app/webview';
 import { AppRuntimeProvider, type AppRuntime } from '@/core/runtime';
@@ -46,32 +46,35 @@ function createRouteTree(
 }
 
 describe('Seam: root route guards on real cold start', () => {
-  it('lands a fresh install on privacy consent instead of the unguarded webview route', async () => {
+  it('lands a fresh install on login (where consent checkbox lives) instead of the unguarded webview route', async () => {
     const runtime = createFreshInstallRuntime();
 
     const router = await renderRouter(createRouteTree(runtime), { initialUrl: '/' });
 
-    expect(await screen.findByText('privacy-consent-screen')).toBeTruthy();
+    expect(await screen.findByText('login-screen')).toBeTruthy();
     expect(screen.queryByText('webview-screen')).toBeNull();
-    expect(router.getPathname()).toBe('/privacy-consent');
+    expect(router.getPathname()).toBe('/login');
   });
 
-  it('routes to login after consent when no session exists', async () => {
+  it('redirects an authenticated user with unaccepted privacy policy to privacy-consent before entering tabs', async () => {
     const runtime = createFreshInstallRuntime();
+    await runtime.authSessionStore.getState().establishSession({
+      tokens: { accessToken: 'tok', refreshToken: 'ref' },
+      user: { id: 'u1', username: 'admin', displayName: 'Admin' },
+    });
 
     const router = await renderRouter(createRouteTree(runtime), { initialUrl: '/' });
     expect(await screen.findByText('privacy-consent-screen')).toBeTruthy();
+    expect(router.getPathname()).toBe('/privacy-consent');
 
     await act(async () => {
       runtime.privacyGateStore.getState().acceptPrivacyPolicy();
     });
 
-    expect(await screen.findByText('login-screen')).toBeTruthy();
-    await waitFor(() => expect(router.getPathname()).toBe('/login'));
-    expect(screen.queryByText('webview-screen')).toBeNull();
+    expect(await screen.findByText('home-index-screen')).toBeTruthy();
   });
 
-  it('closing a webview opened as the first screen falls back to the guarded root instead of an unhandled GO_BACK', async () => {
+  it('closing a webview opened as the first screen falls back to the guarded login root instead of an unhandled GO_BACK', async () => {
     const user = userEvent.setup();
     const runtime = createFreshInstallRuntime();
 
@@ -83,7 +86,7 @@ describe('Seam: root route guards on real cold start', () => {
 
     await user.press(screen.getByText('关闭'));
 
-    expect(await screen.findByText('privacy-consent-screen')).toBeTruthy();
-    expect(router.getPathname()).toBe('/privacy-consent');
+    expect(await screen.findByText('login-screen')).toBeTruthy();
+    expect(router.getPathname()).toBe('/login');
   });
 });

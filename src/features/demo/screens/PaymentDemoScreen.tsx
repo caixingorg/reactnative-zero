@@ -291,7 +291,11 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
   };
 
   return (
-    <Screen scrollable backgroundColor={tokens.colors.background}>
+    <Screen
+      scrollable
+      backgroundColor={tokens.colors.background}
+      statusBarBackgroundColor={tokens.colors.surface}
+    >
       <AppHeader title="全场景支付演示" showBack onBack={onBack} />
       <VStack p="lg" gap="lg">
         {/* One-time checkout card */}

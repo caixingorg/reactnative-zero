@@ -20,28 +20,22 @@ export function GuardedRootStack(): React.JSX.Element {
   const { privacyGateStore, authSessionStore } = useAppRuntime();
   const isPrivacyReady = usePrivacyGate((state) => state.phase === 'ready');
   const authStatus = useAuthSession((state) => state.status);
-  // 原因：被守卫拦截时必须显式指定回退目标。expo-router 的默认回退按文件系统排序（同级按路由名长度）
-  // 挑选首个未受保护路由，会落到未受保护的 webview（空 URL）而绕过隐私同意页
-  const guardFallback = !isPrivacyReady
-    ? '/privacy-consent'
-    : authStatus === 'authenticated'
-      ? '/'
-      : '/login';
+  // 原因：首次启动先经欢迎引导页落到登录页，由登录页勾选同意隐私协议；若老用户已登录但隐私协议升版，仍强制拦截到协议页重签
+  const guardFallback =
+    authStatus === 'authenticated' ? (isPrivacyReady ? '/' : '/privacy-consent') : '/login';
 
   return (
     <AuthHydrationGate privacyGateStore={privacyGateStore} authSessionStore={authSessionStore}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="webview" />
-        <Stack.Protected guard={!isPrivacyReady} redirectTo={guardFallback}>
-          <Stack.Screen name="privacy-consent" />
-        </Stack.Protected>
-        <Stack.Protected guard={isPrivacyReady} redirectTo={guardFallback}>
-          <Stack.Screen name="register-demo" />
-        </Stack.Protected>
         <Stack.Protected
-          guard={isPrivacyReady && authStatus === 'unauthenticated'}
+          guard={!isPrivacyReady || authStatus !== 'authenticated'}
           redirectTo={guardFallback}
         >
+          <Stack.Screen name="privacy-consent" />
+        </Stack.Protected>
+        <Stack.Screen name="register-demo" />
+        <Stack.Protected guard={authStatus !== 'authenticated'} redirectTo={guardFallback}>
           <Stack.Screen name="(auth)/login" />
         </Stack.Protected>
         <Stack.Protected

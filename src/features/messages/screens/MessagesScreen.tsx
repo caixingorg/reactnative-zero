@@ -200,11 +200,12 @@ function MessagesSubTab({
 }
 
 export function MessagesScreen({ onSelectRecord }: MessagesScreenProps = {}): React.JSX.Element {
+  const { tokens } = useAppTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
   return (
-    <Screen>
+    <Screen statusBarBackgroundColor={tokens.colors.surface}>
       <TopTabs
         tabs={MESSAGES_TABS}
         activeIndex={activeIndex}
