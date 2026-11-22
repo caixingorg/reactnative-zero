@@ -104,8 +104,12 @@ export function RegisterScreen({
       if (!asset) {
         return;
       }
-      setAvatarPreviewUri(asset.uri);
-      setValue('avatarUri', asset.uri, { shouldDirty: true, shouldValidate: true });
+      const normalizedUri =
+        asset.uri.startsWith('/') && !asset.uri.startsWith('//')
+          ? `file://${asset.uri}`
+          : asset.uri;
+      setAvatarPreviewUri(normalizedUri);
+      setValue('avatarUri', normalizedUri, { shouldDirty: true, shouldValidate: true });
       toast.show({ message: '头像已选取', tone: 'success' });
     } catch (error) {
       toast.show({
@@ -167,14 +171,15 @@ export function RegisterScreen({
           style={({ pressed }) => [styles.avatarPressable, pressed && styles.pressed]}
         >
           {effectiveAvatarUri ? (
-            <AppImage
-              key={effectiveAvatarUri}
-              uri={effectiveAvatarUri}
-              width={76}
-              height={76}
-              borderRadius={38}
-              style={styles.avatarImage}
-            />
+            <View style={styles.avatarImageWrap}>
+              <AppImage
+                key={effectiveAvatarUri}
+                uri={effectiveAvatarUri}
+                width={76}
+                height={76}
+                borderRadius={38}
+              />
+            </View>
           ) : (
             <View
               style={[
@@ -381,8 +386,11 @@ const styles = StyleSheet.create({
   avatarPressable: {
     position: 'relative',
   },
-  avatarImage: {
+  avatarImageWrap: {
+    width: 76,
+    height: 76,
     borderRadius: 38,
+    overflow: 'hidden',
   },
   avatarPlaceholder: {
     width: 76,

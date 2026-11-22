@@ -24,12 +24,13 @@ export function AppImage({
   style,
 }: AppImageProps): React.JSX.Element {
   const { tokens } = useAppTheme();
+  const isRemote = uri.startsWith('http://') || uri.startsWith('https://');
 
   return (
     <Image
       source={{ uri }}
       contentFit={contentFit}
-      cachePolicy="memory-disk"
+      cachePolicy={isRemote ? 'memory-disk' : 'none'}
       accessibilityLabel={accessibilityLabel}
       style={[
         {
