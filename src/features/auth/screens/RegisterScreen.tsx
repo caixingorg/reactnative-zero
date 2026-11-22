@@ -66,6 +66,7 @@ export function RegisterScreen({
   const media = useMediaCapability();
   const toast = useToast();
   const [submittedValues, setSubmittedValues] = useState<RegisterFormValues | null>(null);
+  const [avatarPreviewUri, setAvatarPreviewUri] = useState('');
 
   const {
     control,
@@ -89,17 +90,29 @@ export function RegisterScreen({
   });
 
   const avatarUri = useWatch({ control, name: 'avatarUri' });
+  const effectiveAvatarUri = avatarPreviewUri || avatarUri || '';
 
   const handlePickAvatar = async (): Promise<void> => {
-    const asset = await media.pickImageWithPermission({
-      title: '相册权限说明',
-      description: '用于从手机相册选择您的个人头像图片。',
-    });
-    if (!asset) {
-      return;
+    try {
+      const asset = await media.pickImageWithPermission(
+        {
+          title: '相册权限说明',
+          description: '用于从手机相册选择您的个人头像图片。',
+        },
+        { allowsEditing: true },
+      );
+      if (!asset) {
+        return;
+      }
+      setAvatarPreviewUri(asset.uri);
+      setValue('avatarUri', asset.uri, { shouldDirty: true, shouldValidate: true });
+      toast.show({ message: '头像已选取', tone: 'success' });
+    } catch (error) {
+      toast.show({
+        message: error instanceof Error ? error.message : '选取头像失败，请重试',
+        tone: 'danger',
+      });
     }
-    setValue('avatarUri', asset.uri, { shouldDirty: true });
-    toast.show({ message: '头像已选取', tone: 'success' });
   };
 
   const submitForm = handleSubmit(async (values) => {
@@ -153,8 +166,15 @@ export function RegisterScreen({
           }}
           style={({ pressed }) => [styles.avatarPressable, pressed && styles.pressed]}
         >
-          {avatarUri ? (
-            <AppImage uri={avatarUri} width={76} height={76} style={styles.avatarImage} />
+          {effectiveAvatarUri ? (
+            <AppImage
+              key={effectiveAvatarUri}
+              uri={effectiveAvatarUri}
+              width={76}
+              height={76}
+              borderRadius={38}
+              style={styles.avatarImage}
+            />
           ) : (
             <View
               style={[

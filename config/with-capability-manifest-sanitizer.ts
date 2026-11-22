@@ -3,7 +3,12 @@
  * 职责：Expo Config Plugin 末端原生清单清洗器——剔除未启用能力的 iOS/Android 权限、阻断高风险后台/前台定位服务、关闭生产明文 HTTP、注入渠道号并拦截第三方 SDK 自动初始化 ContentProvider。
  * 边界：依赖 `@expo/config-plugins` 的逆序（LIFO）执行模型，必须注册在 `plugins[0]` 才能覆盖第三方插件注入的默认声明。
  */
-import { withAndroidManifest, withInfoPlist, type ConfigPlugin } from 'expo/config-plugins';
+import {
+  withAndroidManifest,
+  withEntitlementsPlist,
+  withInfoPlist,
+  type ConfigPlugin,
+} from 'expo/config-plugins';
 import type { AppVariant, CapabilityFlags } from '../src/core/config/types';
 import {
   collectBlockedAndroidPermissions,
@@ -231,6 +236,14 @@ export const withCapabilityManifestSanitizer: ConfigPlugin<CapabilityManifestSan
       }
     }
 
+    return modConfig;
+  });
+
+  // 原因：Expo SDK 58 自动加载 node_modules 中的 expo-notifications 插件并注入 aps-environment；关闭 notifications 时必须从 Entitlements 抹除
+  config = withEntitlementsPlist(config, (modConfig) => {
+    if (!capabilities.notifications) {
+      delete modConfig.modResults['aps-environment'];
+    }
     return modConfig;
   });
 

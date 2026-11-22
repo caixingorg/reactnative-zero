@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFilesCapability } from '@/core/capabilities/files';
 import { useLocationCapability } from '@/core/capabilities/location';
@@ -7,7 +7,7 @@ import { useMediaCapability } from '@/core/capabilities/media';
 import { useMusicCapability } from '@/core/capabilities/music';
 import { useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
-import { AppText, HStack, VStack } from '@/core/ui';
+import { AppImage, AppText, HStack, VStack } from '@/core/ui';
 import type { MockListRecord } from '@/shared';
 
 export interface DiscoverPlazaHeaderProps {
@@ -28,8 +28,34 @@ export function DiscoverPlazaHeader({
   const location = useLocationCapability();
   const files = useFilesCapability();
   const toast = useToast();
+  const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [pickedPhotoUri, setPickedPhotoUri] = useState<string | null>(null);
 
   const isPlaying = music.state.status === 'playing';
+
+  const handlePickPhoto = async (): Promise<void> => {
+    if (pickingPhoto) {
+      return;
+    }
+    setPickingPhoto(true);
+    try {
+      const asset = await media.pickImageWithPermission({
+        title: '相册权限说明',
+        description: '用于从手机相册挑选图片上传。',
+      });
+      if (asset) {
+        setPickedPhotoUri(asset.uri);
+        toast.show({ message: '已选取相册图片', tone: 'success' });
+      }
+    } catch (error) {
+      toast.show({
+        message: error instanceof Error ? error.message : '打开相册失败，请重试',
+        tone: 'danger',
+      });
+    } finally {
+      setPickingPhoto(false);
+    }
+  };
 
   const handleMusicAction = async (): Promise<void> => {
     if (!music.state.track) {
@@ -137,17 +163,10 @@ export function DiscoverPlazaHeader({
         <Pressable
           testID="discover-tool-photo"
           accessibilityRole="button"
+          disabled={pickingPhoto}
+          hitSlop={6}
           onPress={() => {
-            void media
-              .pickImageWithPermission({
-                title: '相册权限说明',
-                description: '用于从手机相册挑选图片上传。',
-              })
-              .then((asset) => {
-                if (asset) {
-                  toast.show({ message: '已选取相册图片', tone: 'success' });
-                }
-              });
+            void handlePickPhoto();
           }}
           style={({ pressed }) => [
             styles.utilityPill,
@@ -157,7 +176,7 @@ export function DiscoverPlazaHeader({
         >
           <Ionicons name="cloud-upload-outline" size={20} color={tokens.colors.textPrimary} />
           <AppText variant="caption" weight="600">
-            图库上传
+            {pickedPhotoUri ? '已选图片(重选)' : '图库上传'}
           </AppText>
         </Pressable>
 
@@ -205,6 +224,36 @@ export function DiscoverPlazaHeader({
           </AppText>
         </Pressable>
       </HStack>
+
+      {pickedPhotoUri ? (
+        <HStack
+          p="sm"
+          gap="sm"
+          align="center"
+          style={{
+            backgroundColor: tokens.colors.surfaceMuted,
+            borderRadius: tokens.radii.md,
+          }}
+        >
+          <AppImage key={pickedPhotoUri} uri={pickedPhotoUri} width={44} height={44} />
+          <VStack flex={1} gap="xs">
+            <AppText variant="caption" weight="600">
+              已选取本地图片
+            </AppText>
+            <AppText variant="caption" tone="secondary" numberOfLines={1}>
+              {pickedPhotoUri}
+            </AppText>
+          </VStack>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setPickedPhotoUri(null)}
+            hitSlop={8}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <Ionicons name="close-circle" size={18} color={tokens.colors.textSecondary} />
+          </Pressable>
+        </HStack>
+      ) : null}
 
       {/* Row 3: Weekly Editorial Poster Card */}
       <Pressable

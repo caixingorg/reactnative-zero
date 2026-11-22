@@ -1,12 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { BarcodeScannerView } from '@/core/capabilities/camera';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BarcodeScannerView, useCameraCapability } from '@/core/capabilities/camera';
 import { useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
-  BottomSheetModal,
+  AppText,
+  HStack,
   ListTemplate,
   Screen,
   TabPager,
@@ -112,16 +114,31 @@ function DiscoverSubTab({
   );
 }
 
+const SCANNER_RATIONALE = {
+  title: '相机权限说明',
+  description: '用于扫描二维码或条形码。',
+} as const;
+
 export function DiscoverScreen({
   onSelectRecord,
   onOpenSearch,
   onOpenWebView,
 }: DiscoverScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const camera = useCameraCapability();
   const toast = useToast();
   const [activeIndex, setActiveIndex] = useState(0);
   const [scannerVisible, setScannerVisible] = useState(false);
   const scrollProgress = useSharedValue(0);
+
+  // 原因：iOS 上不能同时叠加权限说明 Modal 与扫码 BottomSheetModal，必须先完成权限授权再打开扫码弹层
+  const handleOpenScanner = async (): Promise<void> => {
+    const granted = await camera.requestScannerAccess(SCANNER_RATIONALE);
+    if (granted) {
+      setScannerVisible(true);
+    }
+  };
 
   return (
     <Screen statusBarBackgroundColor={tokens.colors.surface}>
@@ -155,27 +172,74 @@ export function DiscoverScreen({
             tabKey={DISCOVER_TABS[index]?.key ?? 'categories'}
             isActive={isActive}
             onSelectRecord={onSelectRecord}
-            onOpenScanner={() => setScannerVisible(true)}
+            onOpenScanner={() => {
+              void handleOpenScanner();
+            }}
             onOpenWebView={onOpenWebView}
           />
         )}
       />
-      <BottomSheetModal
+      <Modal
         visible={scannerVisible}
-        title="扫一扫"
-        onClose={() => setScannerVisible(false)}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setScannerVisible(false)}
       >
-        <BarcodeScannerView
-          rationale={{
-            title: '相机权限说明',
-            description: '用于扫描二维码或条形码。',
-          }}
-          onScanned={(payload) => {
-            setScannerVisible(false);
-            toast.show({ message: `扫码结果：${payload.data}`, tone: 'success' });
-          }}
-        />
-      </BottomSheetModal>
+        <View style={styles.scannerRoot}>
+          {scannerVisible ? (
+            <BarcodeScannerView
+              fullScreen
+              rationale={SCANNER_RATIONALE}
+              onScanned={(payload) => {
+                setScannerVisible(false);
+                toast.show({ message: `扫码结果：${payload.data}`, tone: 'success' });
+              }}
+            />
+          ) : null}
+
+          {/* 顶部悬浮导航栏 */}
+          <HStack
+            align="center"
+            justify="space-between"
+            style={[styles.scannerTopBar, { paddingTop: Math.max(insets.top, 16) + 8 }]}
+          >
+            <Pressable
+              testID="scanner-close-btn"
+              accessibilityRole="button"
+              accessibilityLabel="关闭扫一扫"
+              onPress={() => setScannerVisible(false)}
+              style={({ pressed }) => [styles.scannerCloseBtn, pressed && styles.pressed]}
+            >
+              <Ionicons name="close" size={22} color="#FFFFFF" />
+            </Pressable>
+            <AppText variant="titleMd" weight="700" style={styles.scannerTitle}>
+              扫一扫
+            </AppText>
+            <View style={styles.scannerSpacer} />
+          </HStack>
+
+          {/* 中央取景框视觉引导 */}
+          <View pointerEvents="none" style={styles.scannerOverlay}>
+            <View style={styles.reticleBox}>
+              <View
+                style={[styles.corner, styles.cornerTL, { borderColor: tokens.colors.primary }]}
+              />
+              <View
+                style={[styles.corner, styles.cornerTR, { borderColor: tokens.colors.primary }]}
+              />
+              <View
+                style={[styles.corner, styles.cornerBL, { borderColor: tokens.colors.primary }]}
+              />
+              <View
+                style={[styles.corner, styles.cornerBR, { borderColor: tokens.colors.primary }]}
+              />
+            </View>
+            <AppText variant="bodySm" style={styles.scannerHint}>
+              将二维码 / 条形码放入框内，即可自动扫描
+            </AppText>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -189,5 +253,85 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.72,
+  },
+  scannerRoot: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  scannerTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
+  scannerCloseBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scannerTitle: {
+    color: '#FFFFFF',
+  },
+  scannerSpacer: {
+    width: 38,
+  },
+  scannerOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  reticleBox: {
+    width: 240,
+    height: 240,
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderTopLeftRadius: 6,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderTopRightRadius: 6,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderBottomLeftRadius: 6,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderBottomRightRadius: 6,
+  },
+  scannerHint: {
+    color: 'rgba(255,255,255,0.88)',
   },
 });

@@ -283,6 +283,7 @@ export interface BarcodeScannerViewProps {
   onScanned: (payload: { type: string; data: string }) => void;
   scanCooldownMs?: number;
   height?: number;
+  fullScreen?: boolean;
 }
 
 // 原因：挂载原生 CameraView 前强制经过 Permission Rationale 授权，并内置冷却互斥锁防止同帧连续重复回调同一条码
@@ -291,6 +292,7 @@ export function BarcodeScannerView({
   onScanned,
   scanCooldownMs = 1500,
   height = 200,
+  fullScreen = false,
 }: BarcodeScannerViewProps): React.JSX.Element | null {
   const { tokens } = useAppTheme();
   const { capabilityOverrides } = useAppRuntime();
@@ -299,24 +301,28 @@ export function BarcodeScannerView({
   const [authorized, setAuthorized] = useState(false);
   const scanLockedRef = useRef(false);
   const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rationaleTitle = rationale.title;
+  const rationaleDescription = rationale.description;
 
   useEffect(() => {
     let active = true;
     if (!camera.enabled) {
       return;
     }
-    void camera.requestScannerAccess(rationale).then((granted) => {
-      if (active) {
-        setAuthorized(granted);
-      }
-    });
+    void camera
+      .requestScannerAccess({ title: rationaleTitle, description: rationaleDescription })
+      .then((granted) => {
+        if (active) {
+          setAuthorized(granted);
+        }
+      });
     return () => {
       active = false;
       if (unlockTimerRef.current) {
         clearTimeout(unlockTimerRef.current);
       }
     };
-  }, [camera, rationale]);
+  }, [camera, rationaleTitle, rationaleDescription]);
 
   if (!camera.enabled || !authorized) {
     return null;
@@ -348,7 +354,12 @@ export function BarcodeScannerView({
   const { CameraView } = require('expo-camera') as typeof import('expo-camera');
 
   return (
-    <View style={[styles.scannerFrame, { height, borderRadius: tokens.radii.md }]}>
+    <View
+      style={[
+        styles.scannerFrame,
+        fullScreen ? styles.scannerFullScreen : { height, borderRadius: tokens.radii.md },
+      ]}
+    >
       <CameraView
         style={styles.scannerFill}
         barcodeScannerSettings={{
@@ -371,6 +382,10 @@ const styles = StyleSheet.create({
   scannerFrame: {
     width: '100%',
     overflow: 'hidden',
+  },
+  scannerFullScreen: {
+    flex: 1,
+    borderRadius: 0,
   },
   scannerFill: {
     flex: 1,

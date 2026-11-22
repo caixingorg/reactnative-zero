@@ -43,8 +43,10 @@ export function createNativeNetworkMonitor(): NetworkMonitorDriver {
         } & typeof NetInfoModule;
         const client = NetInfo.default ?? NetInfo;
         return client.addEventListener((state) => {
-          const reachable = state.isConnected !== false && state.isInternetReachable !== false;
-          listener(reachable);
+          // 原因：@react-native-community/netinfo 默认探测 clients3.google.com/generate_204，国内网络下会超时误报 isInternetReachable=false；
+          // 因此以系统原生链路连接状态 isConnected 作为离线横幅依据，真实业务接口超时由 HttpClient 独立兜底提示
+          const connected = state.isConnected !== false;
+          listener(connected);
         });
       } catch {
         return () => {};

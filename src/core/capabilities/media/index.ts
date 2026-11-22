@@ -19,8 +19,12 @@ export interface SavedMediaResult {
   uri: string;
 }
 
+export interface PickImageOptions {
+  allowsEditing?: boolean;
+}
+
 export interface MediaCapabilityDriver {
-  pickImage(): Promise<PickedImageAsset | null>;
+  pickImage(options?: PickImageOptions): Promise<PickedImageAsset | null>;
   saveToLibrary(localUri: string): Promise<SavedMediaResult>;
 }
 
@@ -33,7 +37,10 @@ declare module '../../runtime/app-runtime' {
 export interface MediaCapability {
   readonly photoLibraryEnabled: boolean;
   readonly mediaLibraryEnabled: boolean;
-  pickImageWithPermission(rationale: PermissionRationaleCopy): Promise<PickedImageAsset | null>;
+  pickImageWithPermission(
+    rationale: PermissionRationaleCopy,
+    options?: PickImageOptions,
+  ): Promise<PickedImageAsset | null>;
   saveAssetWithPermission(
     localUri: string,
     rationale: PermissionRationaleCopy,
@@ -91,22 +98,36 @@ const mediaSavePermissionProbe: CapabilityPermissionProbe = {
 };
 
 function createNativeMediaDriver(): MediaCapabilityDriver {
+  let inFlightPick: Promise<PickedImageAsset | null> | null = null;
+
   return {
-    async pickImage(): Promise<PickedImageAsset | null> {
-      const ImagePicker = require('expo-image-picker') as typeof import('expo-image-picker');
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: true,
-        quality: 0.85,
-      });
-      if (result.canceled || !result.assets[0]) {
-        return null;
+    async pickImage(pickOptions?: PickImageOptions): Promise<PickedImageAsset | null> {
+      if (inFlightPick) {
+        return inFlightPick;
       }
-      const asset = result.assets[0];
-      return {
-        uri: asset.uri,
-        width: asset.width,
-        height: asset.height,
-      };
+
+      inFlightPick = (async () => {
+        const ImagePicker = require('expo-image-picker') as typeof import('expo-image-picker');
+        // 原因：默认关闭 allowsEditing 以便 iOS 直接走原生 PHPickerViewController 极速拉起相册；头像等场景可显式传 allowsEditing: true 开启裁剪
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: pickOptions?.allowsEditing ?? false,
+          quality: 0.85,
+        });
+        if (result.canceled || !result.assets[0]) {
+          return null;
+        }
+        const asset = result.assets[0];
+        return {
+          uri: asset.uri,
+          width: asset.width,
+          height: asset.height,
+        };
+      })().finally(() => {
+        inFlightPick = null;
+      });
+
+      return inFlightPick;
     },
     // 原因：必须使用 saveToLibraryAsync（底层 resolveWithAdditionalData=false）而非 createAssetAsync，避免保存后反查 MediaStore/PHAsset 触发相册读权限异常
     async saveToLibrary(localUri: string): Promise<SavedMediaResult> {
@@ -133,7 +154,7 @@ export function createMediaCapability(options: {
     photoLibraryEnabled: options.photoLibraryEnabled,
     mediaLibraryEnabled: options.mediaLibraryEnabled,
 
-    pickImageWithPermission(rationale) {
+    pickImageWithPermission(rationale, pickOptions) {
       return options.permissionCoordinator.runIfPermitted(
         {
           enabled: options.photoLibraryEnabled,
@@ -141,7 +162,7 @@ export function createMediaCapability(options: {
           rationale,
           nativeProbe: photoPermissionProbe,
         },
-        () => activeDriver.pickImage(),
+        () => activeDriver.pickImage(pickOptions),
       );
     },
 
