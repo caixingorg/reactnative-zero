@@ -1,0 +1,7 @@
+{
+  "name": "payment-wechat",
+  "version": "1.0.0",
+  "description": "Local Expo Module wrapping official WeChat Pay OpenSDK (Android Maven & iOS XCFramework)",
+  "main": "src/index.ts",
+  "private": true
+}

@@ -1,16 +1,30 @@
 /**
  * @module features/demo/screens/PaymentDemoScreen
- * 职责：演示全场景可插拔支付能力（一次性支付、二级聚合通道切换、0 元单、未安装置灰、杀进程恢复与 IAP 订阅/恢复购买）。
+ * 职责：演示全场景可插拔支付能力——接入真实本地支付宝原生 SDK（唤起客户端/自动降级 H5）、真实系统浏览器 H5 收银台（含切回前台自动查单）、0 元单、未安装置灰与 IAP 订阅/恢复购买。
  * 边界：仅依赖 core/capabilities/payment 公开门面与 core/ui，执行 --clean-starter 时自动移除。
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { isAlipayNativeModuleAvailable, payWithAlipay } from '@root/modules/payment-alipay/src';
 import {
+  isWechatAppInstalled,
+  isWechatNativeModuleAvailable,
+  payWithWechat,
+  registerWechatApp,
+} from '@root/modules/payment-wechat/src';
+import {
+  ALIPAY_DRIVER_ID,
+  createAlipayCheckoutDriver,
   createMockBillingDriver,
   createMockCheckoutDriver,
   createPaymentService,
   createReactNativeAppStateWatcher,
+  createWebCheckoutDriver,
+  createWechatCheckoutDriver,
   createZeroAmountDriver,
+  WEB_CHECKOUT_DRIVER_ID,
+  WECHAT_DRIVER_ID,
+  ZERO_AMOUNT_DRIVER_ID,
   type PaymentOutcome,
   type RemotePaymentChannel,
   type ResolvedPaymentChannel,
@@ -18,33 +32,39 @@ import {
 } from '@/core/capabilities/payment';
 import { useAppRuntime, useAuthSession, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
-import { AppHeader, AppText, Button, HStack, Screen, VStack } from '@/core/ui';
+import { AppHeader, AppText, Button, HStack, Screen, Switch, TextField, VStack } from '@/core/ui';
 import { PaymentCashierSheet } from '../components/PaymentCashierSheet';
 
 export interface PaymentDemoScreenProps {
   onBack?: () => void;
 }
 
+const DEMO_H5_CHECKOUT_URL = 'https://opendocs.alipay.com/open/204/105297';
+
+// 原因：无真实商户签名串时仅用于真机验证能够成功拉起支付宝官方 SDK/收银台界面（支付宝会按规范提示订单参数无效）
+const SAMPLE_ALIPAY_ORDER_INFO =
+  'app_id=2021000000000000&biz_content=%7B%22out_trade_no%22%3A%22DEMO001%22%2C%22total_amount%22%3A%220.01%22%2C%22subject%22%3A%22Demo%22%7D&charset=utf-8&method=alipay.trade.app.pay&sign_type=RSA2&timestamp=2026-01-01+00%3A00%3A00&version=1.0&sign=DEMO_SIGN';
+
 const DEMO_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
   {
     channelCode: 'alipay',
-    driverId: 'alipay_sdk',
-    displayName: '支付宝',
-    subtitle: '模拟一级直连或二级聚合原厂出参',
+    driverId: ALIPAY_DRIVER_ID,
+    displayName: '支付宝（真实原生 SDK）',
+    subtitle: '已装支付宝直接唤起客户端，未装自动降级内置 H5 收银台',
     iconKey: 'alipay',
-    gatewayTag: '二级聚合',
+    gatewayTag: '原生SDK',
   },
   {
     channelCode: 'paypal_web',
-    driverId: 'web_checkout_mock',
-    displayName: 'PayPal / 二级 H5 收银台',
-    subtitle: '通用浏览器跳转 + Deep Link 回跳（0 原生依赖）',
+    driverId: WEB_CHECKOUT_DRIVER_ID,
+    displayName: 'PayPal / 二级 H5 收银台（真实外跳）',
+    subtitle: '直接打开手机浏览器，切回 App 后 1.5s 自动查单兜底',
     iconKey: 'web',
-    gatewayTag: 'H5',
+    gatewayTag: '真实H5',
   },
   {
     channelCode: 'coupon_free',
-    driverId: 'zero_amount',
+    driverId: ZERO_AMOUNT_DRIVER_ID,
     displayName: '优惠券全额抵扣（0 元单）',
     subtitle: '跳过外部支付直接走后端查单确认',
     iconKey: 'coupon',
@@ -59,31 +79,50 @@ const DEMO_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
 ];
 
 export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX.Element {
-  const { keyValueStorage, capabilityOverrides } = useAppRuntime();
+  const { identity, keyValueStorage, capabilityOverrides } = useAppRuntime();
   const user = useAuthSession((state) => state.user);
   const toast = useToast();
   const { tokens } = useAppTheme();
   const currentUserId = user?.id ?? 'demo-user';
+  const alipayNativeLinked = isAlipayNativeModuleAvailable();
+  const wechatNativeLinked = isWechatNativeModuleAvailable();
+
+  const [sandboxMode, setSandboxMode] = useState(false);
+  const [customOrderInfo, setCustomOrderInfo] = useState('');
 
   const paymentService = useMemo(() => {
     if (capabilityOverrides?.paymentService) {
       return capabilityOverrides.paymentService;
     }
 
-    const alipayMock = createMockCheckoutDriver({
-      driverId: 'alipay_sdk',
-      available: true,
-      nextResult: { status: 'completed' },
-    });
-    const webMock = createMockCheckoutDriver({
-      driverId: 'web_checkout_mock',
-      available: true,
-      nextResult: { status: 'completed' },
-    });
-    const wechatMissing = createMockCheckoutDriver({
-      driverId: 'wechat_sdk',
-      available: false,
-    });
+    const alipayDriver = alipayNativeLinked
+      ? createAlipayCheckoutDriver({
+          isLinked: isAlipayNativeModuleAvailable,
+          nativePay: (payload) =>
+            payWithAlipay(payload.orderInfo, {
+              sandbox: payload.sandbox,
+              iosScheme: payload.iosScheme,
+            }),
+        })
+      : createMockCheckoutDriver({
+          driverId: ALIPAY_DRIVER_ID,
+          available: true,
+          nextResult: { status: 'completed' },
+        });
+
+    const webDriver = createWebCheckoutDriver();
+
+    const wechatDriver = wechatNativeLinked
+      ? createWechatCheckoutDriver({
+          registerApp: registerWechatApp,
+          isInstalled: isWechatAppInstalled,
+          nativePay: payWithWechat,
+        })
+      : createMockCheckoutDriver({
+          driverId: WECHAT_DRIVER_ID,
+          available: false,
+        });
+
     const billingMock = createMockBillingDriver({
       driverId: 'mock_iap',
       products: [
@@ -102,7 +141,7 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
     return createPaymentService({
       keyValueStorage,
       appStateWatcher: createReactNativeAppStateWatcher(),
-      checkoutDrivers: [alipayMock, webMock, wechatMissing, createZeroAmountDriver()],
+      checkoutDrivers: [alipayDriver, webDriver, wechatDriver, createZeroAmountDriver()],
       billingDriver: billingMock,
       verifier: {
         verifyCheckoutOrder: async () => ({ status: 'paid', message: '后端查单已确认付款' }),
@@ -114,7 +153,12 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
         }),
       },
     });
-  }, [capabilityOverrides?.paymentService, keyValueStorage]);
+  }, [
+    alipayNativeLinked,
+    capabilityOverrides?.paymentService,
+    keyValueStorage,
+    wechatNativeLinked,
+  ]);
 
   const [channels, setChannels] = useState<ResolvedPaymentChannel[]>([]);
   const [products, setProducts] = useState<StoreProduct[]>([]);
@@ -159,24 +203,39 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
 
   const handleCheckoutConfirm = async (channel: ResolvedPaymentChannel): Promise<void> => {
     setSubmitting(true);
+    setSheetVisible(false);
     try {
       const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+      let payload: unknown = { demoChannel: channel.channelCode };
+
+      if (channel.driverId === ALIPAY_DRIVER_ID) {
+        payload = {
+          orderInfo: customOrderInfo.trim() || SAMPLE_ALIPAY_ORDER_INFO,
+          sandbox: sandboxMode,
+          iosScheme: identity.scheme,
+        };
+      } else if (channel.driverId === WEB_CHECKOUT_DRIVER_ID) {
+        payload = {
+          checkoutUrl: DEMO_H5_CHECKOUT_URL,
+          returnUrlPrefix: `${identity.scheme}://payment/return`,
+        };
+      }
+
       const outcome = await paymentService.checkout.pay(
         {
           orderId,
           channelCode: channel.channelCode,
           driverId: channel.driverId,
-          payload: { demoChannel: channel.channelCode },
+          payload,
         },
         { userId: currentUserId },
       );
       setLastOutcome(outcome);
-      setSheetVisible(false);
       toast.show({
         message:
           outcome.status === 'succeeded'
             ? `支付成功（后端已核实）：${outcome.orderId}`
-            : `支付状态：${outcome.status}`,
+            : `支付结果：${outcome.status}${outcome.rawCode ? ` (${outcome.rawCode})` : ''}`,
         tone: outcome.status === 'succeeded' ? 'success' : 'info',
       });
     } finally {
@@ -237,11 +296,26 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
           ]}
         >
           <AppText variant="titleMd" weight="700">
-            一次性支付（一级直连 / 二级聚合 / H5 / 0 元单）
+            一次性支付（支付宝原生 SDK / 真实 H5 / 0 元单）
           </AppText>
-          <AppText variant="bodySm" tone="secondary">
-            后端下发可用渠道与本地已注册驱动取交集；支付结果强制经后端查单核实，支持切回前台与冷启恢复。
+          <AppText variant="caption" tone="secondary">
+            支付宝原生桥状态：
+            {alipayNativeLinked
+              ? '已链接（可真实唤起支付宝或内置 H5）'
+              : '未链接（需重新构建原生包，当前回退 Mock）'}
           </AppText>
+          <Switch
+            label="支付宝沙箱模式（Android EnvEnum.SANDBOX）"
+            description="调试支付宝开放平台沙箱订单串时开启"
+            value={sandboxMode}
+            onValueChange={setSandboxMode}
+          />
+          <TextField
+            label="自定义支付宝 orderInfo（可选）"
+            placeholder="留空则使用示例串测试唤起支付宝 SDK"
+            value={customOrderInfo}
+            onChangeText={setCustomOrderInfo}
+          />
           <VStack
             p="md"
             gap="sm"
@@ -352,8 +426,15 @@ export function PaymentDemoScreen({ onBack }: PaymentDemoScreenProps): React.JSX
               订单：{lastOutcome.orderId} · 渠道：{lastOutcome.channelCode}
             </AppText>
             <AppText variant="caption" tone="secondary">
-              状态：{lastOutcome.status} · 后端已核实：{lastOutcome.verifiedByServer ? '是' : '否'}
+              状态：{lastOutcome.status}
+              {lastOutcome.rawCode ? ` (code: ${lastOutcome.rawCode})` : ''} · 后端已核实：
+              {lastOutcome.verifiedByServer ? '是' : '否'}
             </AppText>
+            {lastOutcome.message ? (
+              <AppText variant="caption" tone="secondary">
+                详情：{lastOutcome.message}
+              </AppText>
+            ) : null}
           </VStack>
         ) : null}
       </VStack>

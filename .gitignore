@@ -9,6 +9,8 @@ web-build/
 expo-env.d.ts
 /ios
 /android
+modules/*/android/build/
+modules/*/ios/build/
 
 # Build & test artifacts
 coverage/

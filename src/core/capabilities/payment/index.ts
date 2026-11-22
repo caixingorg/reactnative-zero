@@ -17,6 +17,14 @@ export {
   type CheckoutCoordinatorDeps,
 } from './checkout-coordinator';
 export {
+  ALIPAY_DRIVER_ID,
+  createAlipayCheckoutDriver,
+  normalizeAlipayResult,
+  type AlipayCheckoutDriverOptions,
+  type AlipayCheckoutPayload,
+  type AlipayNativeResult,
+} from './drivers/alipay-driver';
+export {
   createMockBillingDriver,
   createMockCheckoutDriver,
   type MockBillingDriverOptions,
@@ -25,11 +33,27 @@ export {
   type MockStoreBillingDriver,
 } from './drivers/mock-drivers';
 export {
+  createStripeCheckoutDriver,
+  STRIPE_DRIVER_ID,
+  type StripeCheckoutDriverOptions,
+  type StripeCheckoutPayload,
+  type StripeSdkBridge,
+  type StripeSheetError,
+} from './drivers/stripe-driver';
+export {
   createWebCheckoutDriver,
   WEB_CHECKOUT_DRIVER_ID,
   type WebCheckoutDriverOptions,
   type WebCheckoutPayload,
 } from './drivers/web-checkout-driver';
+export {
+  createWechatCheckoutDriver,
+  normalizeWechatResult,
+  WECHAT_DRIVER_ID,
+  type WechatCheckoutDriverOptions,
+  type WechatCheckoutPayload,
+  type WechatNativeResult,
+} from './drivers/wechat-driver';
 export { createZeroAmountDriver, ZERO_AMOUNT_DRIVER_ID } from './drivers/zero-amount-driver';
 export { createPaymentService, type PaymentService } from './payment-service';
 export { createPendingSessionStore, type PendingSessionStore } from './pending-session-store';

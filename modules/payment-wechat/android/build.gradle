@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.enterprise.rntemplate.modules'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.paymentwechat"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // 原因：遵循微信开放平台官方规范，从 Maven Central 引入最新 Android OpenSDK，绝不提交闭源二进制进仓库
+  implementation 'com.tencent.mm.opensdk:wechat-sdk-android:6.8.40'
+}

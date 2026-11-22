@@ -1,8 +1,11 @@
 import {
+  createAlipayCheckoutDriver,
   createMockBillingDriver,
   createMockCheckoutDriver,
   createPaymentService,
+  createStripeCheckoutDriver,
   createWebCheckoutDriver,
+  createWechatCheckoutDriver,
   createZeroAmountDriver,
   type PaymentEvent,
   type PaymentOutcome,
@@ -739,5 +742,200 @@ describe('Payment Capability Module (seam-runtime)', () => {
     expect(recovered[0]?.orderId).toBe('ORD-OK-2');
     expect(recovered[0]?.status).toBe('succeeded');
     recoveryService.dispose();
+  });
+
+  it('normalizes official Alipay SDK resultStatus codes (9000 -> verify, 6001 -> cancelled, 6002 -> network error, empty payload rejected)', async () => {
+    const kv = createMemoryKeyValueStorage();
+    let nextAlipayCode = '9000';
+    let verifyCalled = 0;
+
+    const alipayDriver = createAlipayCheckoutDriver({
+      isLinked: () => true,
+      nativePay: async () => ({
+        resultStatus: nextAlipayCode,
+        memo: `alipay-${nextAlipayCode}`,
+      }),
+    });
+
+    const payment = createPaymentService({
+      keyValueStorage: kv,
+      checkoutDrivers: [alipayDriver],
+      verifier: {
+        verifyCheckoutOrder: async () => {
+          verifyCalled += 1;
+          return { status: 'paid' };
+        },
+      },
+    });
+
+    // 9000 must still go through backend verification
+    const paid = await payment.checkout.pay(
+      {
+        orderId: 'ORD-ALI-9000',
+        channelCode: 'alipay',
+        driverId: 'alipay_sdk',
+        payload: { orderInfo: 'app_id=2021&sign=xxx', sandbox: true },
+      },
+      { userId: 'u1' },
+    );
+    expect(paid.status).toBe('succeeded');
+    expect(paid.verifiedByServer).toBe(true);
+    expect(verifyCalled).toBe(1);
+
+    // 6001 maps to CANCELLED without backend verification
+    nextAlipayCode = '6001';
+    const cancelled = await payment.checkout.pay(
+      {
+        orderId: 'ORD-ALI-6001',
+        channelCode: 'alipay',
+        driverId: 'alipay_sdk',
+        payload: { orderInfo: 'app_id=2021&sign=xxx' },
+      },
+      { userId: 'u1' },
+    );
+    expect(cancelled.status).toBe('cancelled');
+    expect(cancelled.errorCode).toBe('CANCELLED');
+    expect(cancelled.rawCode).toBe('6001');
+    expect(verifyCalled).toBe(1);
+
+    // 6002 maps to NETWORK_ERROR
+    nextAlipayCode = '6002';
+    const netErr = await payment.checkout.pay(
+      {
+        orderId: 'ORD-ALI-6002',
+        channelCode: 'alipay',
+        driverId: 'alipay_sdk',
+        payload: { orderInfo: 'app_id=2021&sign=xxx' },
+      },
+      { userId: 'u1' },
+    );
+    expect(netErr.status).toBe('failed');
+    expect(netErr.errorCode).toBe('NETWORK_ERROR');
+
+    // Empty orderInfo rejected with INVALID_PAYLOAD
+    const invalid = await payment.checkout.pay(
+      {
+        orderId: 'ORD-ALI-BAD',
+        channelCode: 'alipay',
+        driverId: 'alipay_sdk',
+        payload: { orderInfo: '   ' },
+      },
+      { userId: 'u1' },
+    );
+    expect(invalid.status).toBe('failed');
+    expect(invalid.errorCode).toBe('INVALID_PAYLOAD');
+    payment.dispose();
+  });
+
+  it('supports WeChat Pay driver (register, install check, 0/-2 normalization) and Stripe PaymentSheet driver (card/Apple Pay/Google Pay)', async () => {
+    const kv = createMemoryKeyValueStorage();
+    let registeredWechatApp = '';
+    let nextWechatCode = 0;
+    let nextStripeError: { code?: string; message?: string } | undefined;
+
+    const wechatDriver = createWechatCheckoutDriver({
+      appId: 'wx_demo_app_id',
+      universalLink: 'https://app.example.com/wechat/',
+      registerApp: async (appId) => {
+        registeredWechatApp = appId;
+        return true;
+      },
+      isInstalled: async () => true,
+      nativePay: async () => ({ errCode: nextWechatCode, errStr: '' }),
+    });
+
+    const stripeDriver = createStripeCheckoutDriver({
+      sdk: {
+        initPaymentSheet: async () => ({}),
+        presentPaymentSheet: async () => ({ error: nextStripeError }),
+      },
+    });
+
+    const payment = createPaymentService({
+      keyValueStorage: kv,
+      checkoutDrivers: [wechatDriver, stripeDriver],
+      verifier: {
+        verifyCheckoutOrder: async () => ({ status: 'paid' }),
+      },
+    });
+
+    await payment.initializeDrivers();
+    expect(registeredWechatApp).toBe('wx_demo_app_id');
+
+    // WeChat 0 -> verified paid
+    const wxPaid = await payment.checkout.pay(
+      {
+        orderId: 'ORD-WX-1',
+        channelCode: 'wechat',
+        driverId: 'wechat_sdk',
+        payload: {
+          appId: 'wx_demo_app_id',
+          partnerId: '1900000109',
+          prepayId: 'wx2026prepay',
+          nonceStr: 'abc123',
+          timeStamp: '1700000000',
+          sign: 'WX_SIGN',
+        },
+      },
+      { userId: 'u1' },
+    );
+    expect(wxPaid.status).toBe('succeeded');
+    expect(wxPaid.verifiedByServer).toBe(true);
+
+    // WeChat -2 -> CANCELLED
+    nextWechatCode = -2;
+    const wxCancelled = await payment.checkout.pay(
+      {
+        orderId: 'ORD-WX-2',
+        channelCode: 'wechat',
+        driverId: 'wechat_sdk',
+        payload: {
+          appId: 'wx_demo_app_id',
+          partnerId: '1900000109',
+          prepayId: 'wx2026prepay',
+          nonceStr: 'abc123',
+          timeStamp: '1700000000',
+          sign: 'WX_SIGN',
+        },
+      },
+      { userId: 'u1' },
+    );
+    expect(wxCancelled.status).toBe('cancelled');
+    expect(wxCancelled.errorCode).toBe('CANCELLED');
+
+    // Stripe happy path -> verified paid
+    nextStripeError = undefined;
+    const stripePaid = await payment.checkout.pay(
+      {
+        orderId: 'ORD-STRIPE-1',
+        channelCode: 'card',
+        driverId: 'stripe_sheet',
+        payload: {
+          paymentIntentClientSecret: 'pi_123_secret_456',
+          merchantDisplayName: 'Enterprise Demo',
+        },
+      },
+      { userId: 'u1' },
+    );
+    expect(stripePaid.status).toBe('succeeded');
+    expect(stripePaid.verifiedByServer).toBe(true);
+
+    // Stripe Canceled -> CANCELLED
+    nextStripeError = { code: 'Canceled', message: 'User dismissed sheet' };
+    const stripeCancelled = await payment.checkout.pay(
+      {
+        orderId: 'ORD-STRIPE-2',
+        channelCode: 'card',
+        driverId: 'stripe_sheet',
+        payload: {
+          paymentIntentClientSecret: 'pi_123_secret_456',
+          merchantDisplayName: 'Enterprise Demo',
+        },
+      },
+      { userId: 'u1' },
+    );
+    expect(stripeCancelled.status).toBe('cancelled');
+    expect(stripeCancelled.errorCode).toBe('CANCELLED');
+    payment.dispose();
   });
 });

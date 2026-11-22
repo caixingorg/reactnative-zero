@@ -1,0 +1,7 @@
+{
+  "name": "payment-alipay",
+  "version": "1.0.0",
+  "description": "Local Expo Module wrapping official Alipay App Pay SDK (Android Maven & iOS CocoaPods)",
+  "main": "src/index.ts",
+  "private": true
+}
