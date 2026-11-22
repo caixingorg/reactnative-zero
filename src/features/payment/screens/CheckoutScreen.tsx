@@ -3,8 +3,9 @@
  * 职责：演示全场景可插拔支付能力——接入真实本地支付宝原生 SDK（唤起客户端/自动降级 H5）、真实系统浏览器 H5 收银台（含切回前台自动查单）、0 元单、未安装置灰与 IAP 订阅/恢复购买。
  * 边界：仅依赖 core/capabilities/payment 公开门面与 core/ui，执行 --clean-starter 时自动移除。
  */
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { isAlipayNativeModuleAvailable, payWithAlipay } from '@root/modules/payment-alipay/src';
 import {
   isWechatAppInstalled,
@@ -81,7 +82,7 @@ const DEFAULT_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
 ];
 
 export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Element {
-  const { identity, keyValueStorage, capabilityOverrides } = useAppRuntime();
+  const { identity, env, keyValueStorage, capabilityOverrides } = useAppRuntime();
   const user = useAuthSession((state) => state.user);
   const toast = useToast();
   const { tokens } = useAppTheme();
@@ -91,6 +92,7 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
 
   const [sandboxMode, setSandboxMode] = useState(false);
   const [customOrderInfo, setCustomOrderInfo] = useState('');
+  const [debugExpanded, setDebugExpanded] = useState(false);
 
   const paymentService = useMemo(() => {
     if (capabilityOverrides?.paymentService) {
@@ -131,8 +133,8 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
         {
           productId: 'pro_monthly',
           type: 'subscription',
-          title: 'Pro 月度会员（自动续费）',
-          description: '支持商店实时本地价 + 安全核销闸门 + 换机恢复购买',
+          title: 'Pro 月度会员',
+          description: '按月自动续费 · 支持随时取消与换机恢复',
           localizedPrice: '¥30.00 / 月',
           currencyCode: 'CNY',
           subscriptionPeriod: 'P1M',
@@ -140,9 +142,9 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
         {
           productId: 'pro_lifetime',
           type: 'non_consumable',
-          title: 'Pro 永久买断版（一次购买）',
-          description: '永久解锁全部专业功能，支持换机恢复购买（Apple IAP / Google Billing）',
-          localizedPrice: '¥198.00 买断',
+          title: 'Pro 永久买断',
+          description: '一次购买永久解锁 · 含后续全量版本更新',
+          localizedPrice: '¥198.00',
           currencyCode: 'CNY',
         },
       ],
@@ -301,162 +303,305 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
 
   return (
     <Screen
-      scrollable
-      backgroundColor={tokens.colors.background}
+      edges={['top', 'bottom', 'left', 'right']}
       statusBarBackgroundColor={tokens.colors.surface}
     >
-      <AppHeader title="收银台" showBack onBack={onBack} />
-      <VStack p="lg" gap="lg">
-        {/* One-time checkout card */}
-        <VStack
-          p="lg"
-          gap="md"
-          style={[
-            styles.card,
-            {
-              backgroundColor: tokens.colors.surface,
-              borderColor: tokens.colors.border,
-              borderRadius: tokens.radii.lg,
-            },
-          ]}
-        >
-          <AppText variant="titleMd" weight="700">
-            一次性支付（支付宝原生 SDK / 真实 H5 / 0 元单）
-          </AppText>
-          <AppText variant="caption" tone="secondary">
-            支付宝原生桥：{alipayNativeLinked ? '已链接' : '未链接'} · 微信原生桥：
-            {wechatNativeLinked ? '已链接' : '未链接'}
-          </AppText>
-          <Switch
-            label="支付宝沙箱模式（Android EnvEnum.SANDBOX）"
-            description="调试支付宝开放平台沙箱订单串时开启"
-            value={sandboxMode}
-            onValueChange={setSandboxMode}
-          />
-          <TextField
-            label="自定义支付宝 orderInfo（可选）"
-            placeholder="留空则使用示例串测试唤起支付宝 SDK"
-            value={customOrderInfo}
-            onChangeText={setCustomOrderInfo}
-          />
-          <VStack
-            p="md"
-            gap="sm"
-            style={{
-              backgroundColor: tokens.colors.surfaceMuted,
-              borderRadius: tokens.radii.md,
-            }}
-          >
-            <HStack align="center" justify="space-between" gap="sm">
-              <AppText variant="bodyMd" weight="600" style={styles.flex1}>
-                企业版物理硬件套装
-              </AppText>
-              <AppText variant="bodyMd" weight="700">
-                ¥199.00
-              </AppText>
-            </HStack>
-            <Button
-              testID="open-cashier-button"
-              label="打开收银台"
-              onPress={() => setSheetVisible(true)}
-            />
-          </VStack>
-        </VStack>
-
-        {/* IAP Subscription card */}
-        <VStack
-          p="lg"
-          gap="md"
-          style={[
-            styles.card,
-            {
-              backgroundColor: tokens.colors.surface,
-              borderColor: tokens.colors.border,
-              borderRadius: tokens.radii.lg,
-            },
-          ]}
-        >
-          <AppText variant="titleMd" weight="700">
-            商店内购与订阅（Apple IAP / Google Billing）
-          </AppText>
-          {products.map((product) => (
-            <VStack
-              key={product.productId}
-              p="md"
-              gap="sm"
-              style={{
-                backgroundColor: tokens.colors.surfaceMuted,
-                borderRadius: tokens.radii.md,
-              }}
-            >
-              <HStack align="center" justify="space-between" gap="sm">
-                <AppText variant="bodyMd" weight="600" style={styles.flex1}>
-                  {product.title}
-                </AppText>
-                <AppText variant="bodyMd" weight="700">
-                  {product.localizedPrice}
+      <AppHeader title="收银台与会员" showBack onBack={onBack} />
+      <Screen scrollable edges={[]}>
+        <VStack gap="lg">
+          {/* 顶部无框权益 Hero：直接在画布上呼吸排版，消除卡片套卡片的拥挤感 */}
+          <VStack gap="md">
+            <HStack align="center" justify="space-between">
+              <HStack
+                align="center"
+                gap="xs"
+                style={[
+                  styles.proBadge,
+                  { backgroundColor: tokens.colors.primarySoft, borderRadius: tokens.radii.full },
+                ]}
+              >
+                <Ionicons name="sparkles" size={13} color={tokens.colors.primary} />
+                <AppText variant="caption" tone="brand" weight="700">
+                  PRO 专业版
                 </AppText>
               </HStack>
               <AppText variant="caption" tone="secondary">
-                {product.description}
+                App Store / Google Play
               </AppText>
-              <Button
-                testID={`iap-purchase-${product.productId}`}
-                label={product.type === 'subscription' ? '立即订阅' : '永久买断'}
-                loading={submitting}
-                onPress={() => {
-                  void handlePurchaseSubscription(product.productId);
-                }}
-              />
-            </VStack>
-          ))}
-          {products.length > 0 ? (
-            <Button
-              testID="iap-restore-button"
-              label="恢复购买（订阅与买断通用）"
-              variant="secondary"
-              disabled={submitting}
-              onPress={() => {
-                void handleRestorePurchases();
-              }}
-            />
-          ) : null}
-        </VStack>
+            </HStack>
 
-        {/* Last outcome readout */}
-        {lastOutcome ? (
+            <VStack gap="xs">
+              <AppText variant="titleLg" weight="700">
+                解锁全部专业工具能力
+              </AppText>
+              <AppText variant="bodySm" tone="secondary">
+                选择适合你的方案，支持换机恢复已购权益
+              </AppText>
+            </VStack>
+
+            <VStack
+              p="md"
+              gap="xs"
+              style={[
+                styles.card,
+                {
+                  backgroundColor: tokens.colors.surface,
+                  borderColor: tokens.colors.border,
+                  borderRadius: tokens.radii.lg,
+                },
+              ]}
+            >
+              {[
+                '全端云同步与不限次高清导出',
+                '无广告纯净工作区与极速引擎',
+                '持续功能更新与优先技术支持',
+              ].map((perk) => (
+                <HStack key={perk} align="center" gap="sm">
+                  <Ionicons name="checkmark-circle" size={16} color={tokens.colors.success} />
+                  <AppText variant="bodySm">{perk}</AppText>
+                </HStack>
+              ))}
+            </VStack>
+          </VStack>
+
+          {/* 订阅与买断方案列表（各自独立白卡，无套娃、永不重叠） */}
+          <VStack gap="sm">
+            {products.map((product) => {
+              const isLifetime = product.type === 'non_consumable';
+              return (
+                <VStack
+                  key={product.productId}
+                  p="lg"
+                  gap="md"
+                  style={[
+                    styles.planCard,
+                    {
+                      backgroundColor: tokens.colors.surface,
+                      borderColor: isLifetime ? tokens.colors.primary : tokens.colors.border,
+                      borderRadius: tokens.radii.lg,
+                    },
+                  ]}
+                >
+                  <HStack align="flex-start" justify="space-between" gap="md">
+                    <VStack flex={1} gap="xs">
+                      {isLifetime ? (
+                        <View
+                          style={[
+                            styles.recommendPill,
+                            {
+                              backgroundColor: tokens.colors.primarySoft,
+                              borderRadius: tokens.radii.full,
+                            },
+                          ]}
+                        >
+                          <AppText variant="caption" tone="brand" weight="700">
+                            超值推荐 · 永久有效
+                          </AppText>
+                        </View>
+                      ) : null}
+                      <AppText variant="titleMd" weight="700">
+                        {product.title}
+                      </AppText>
+                      <AppText variant="caption" tone="secondary">
+                        {product.description}
+                      </AppText>
+                    </VStack>
+                    <VStack align="flex-end" style={styles.priceCol}>
+                      <AppText
+                        variant="titleMd"
+                        tone={isLifetime ? 'brand' : 'primary'}
+                        weight="700"
+                      >
+                        {product.localizedPrice}
+                      </AppText>
+                      {isLifetime ? (
+                        <AppText variant="caption" tone="secondary">
+                          一次买断
+                        </AppText>
+                      ) : null}
+                    </VStack>
+                  </HStack>
+
+                  <Button
+                    testID={`iap-purchase-${product.productId}`}
+                    label={product.type === 'subscription' ? '立即订阅' : '永久买断'}
+                    variant={isLifetime ? 'primary' : 'outline'}
+                    loading={submitting}
+                    onPress={() => {
+                      void handlePurchaseSubscription(product.productId);
+                    }}
+                  />
+                </VStack>
+              );
+            })}
+
+            {products.length > 0 ? (
+              <Pressable
+                testID="iap-restore-button"
+                accessibilityRole="button"
+                disabled={submitting}
+                onPress={() => {
+                  void handleRestorePurchases();
+                }}
+                style={({ pressed }) => [styles.restoreLink, pressed && styles.pressed]}
+              >
+                <AppText variant="caption" tone="secondary" weight="600" align="center">
+                  已购买过会员？点击恢复购买
+                </AppText>
+              </Pressable>
+            ) : null}
+          </VStack>
+
+          {/* 标准订单收银台 */}
           <VStack
-            testID="payment-outcome-card"
-            p="md"
-            gap="xs"
+            p="lg"
+            gap="md"
             style={[
               styles.card,
               {
                 backgroundColor: tokens.colors.surface,
                 borderColor: tokens.colors.border,
-                borderRadius: tokens.radii.md,
+                borderRadius: tokens.radii.lg,
               },
             ]}
           >
-            <AppText variant="caption" tone="secondary">
-              最近一次支付核实结果
-            </AppText>
-            <AppText variant="bodySm" weight="600">
-              订单：{lastOutcome.orderId} · 渠道：{lastOutcome.channelCode}
-            </AppText>
-            <AppText variant="caption" tone="secondary">
-              状态：{lastOutcome.status}
-              {lastOutcome.rawCode ? ` (code: ${lastOutcome.rawCode})` : ''} · 后端已核实：
-              {lastOutcome.verifiedByServer ? '是' : '否'}
-            </AppText>
-            {lastOutcome.message ? (
-              <AppText variant="caption" tone="secondary">
-                详情：{lastOutcome.message}
+            <HStack align="center" justify="space-between">
+              <AppText variant="titleMd" weight="700">
+                订单结算
               </AppText>
+              <HStack align="center" gap="xs">
+                <Ionicons name="shield-checkmark-outline" size={14} color={tokens.colors.success} />
+                <AppText variant="caption" tone="secondary">
+                  官方安全收银台
+                </AppText>
+              </HStack>
+            </HStack>
+
+            <HStack
+              p="md"
+              gap="md"
+              align="center"
+              style={{
+                backgroundColor: tokens.colors.surfaceMuted,
+                borderRadius: tokens.radii.md,
+              }}
+            >
+              <View
+                style={[
+                  styles.orderIconBox,
+                  { backgroundColor: tokens.colors.primarySoft, borderRadius: tokens.radii.md },
+                ]}
+              >
+                <Ionicons name="cube-outline" size={22} color={tokens.colors.primary} />
+              </View>
+              <VStack flex={1} gap="xs">
+                <AppText variant="bodyMd" weight="600">
+                  企业版物理硬件套装
+                </AppText>
+                <AppText variant="caption" tone="secondary">
+                  支持支付宝、微信支付与国际收银台
+                </AppText>
+              </VStack>
+              <AppText variant="titleMd" tone="brand" weight="700">
+                ¥199.00
+              </AppText>
+            </HStack>
+
+            <Button
+              testID="open-cashier-button"
+              label="立即支付 ¥199.00"
+              onPress={() => setSheetVisible(true)}
+            />
+
+            {env.appVariant !== 'production' ? (
+              <VStack gap="sm" style={styles.debugWrap}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setDebugExpanded((prev) => !prev)}
+                  style={styles.debugToggle}
+                >
+                  <HStack align="center" justify="space-between">
+                    <AppText variant="caption" tone="secondary" weight="600">
+                      联调与沙箱参数（仅非生产环境可见）
+                    </AppText>
+                    <Ionicons
+                      name={debugExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={tokens.colors.textSecondary}
+                    />
+                  </HStack>
+                </Pressable>
+                {debugExpanded ? (
+                  <VStack gap="sm" style={{ paddingTop: tokens.spacing.xs }}>
+                    <AppText variant="caption" tone="secondary">
+                      支付宝原生桥：{alipayNativeLinked ? '已链接' : '未链接'} · 微信原生桥：
+                      {wechatNativeLinked ? '已链接' : '未链接'}
+                    </AppText>
+                    <Switch
+                      label="支付宝沙箱模式（Android EnvEnum.SANDBOX）"
+                      description="调试支付宝开放平台沙箱订单串时开启"
+                      value={sandboxMode}
+                      onValueChange={setSandboxMode}
+                    />
+                    <TextField
+                      label="自定义支付宝 orderInfo（可选）"
+                      placeholder="留空则使用示例串测试唤起支付宝 SDK"
+                      value={customOrderInfo}
+                      onChangeText={setCustomOrderInfo}
+                    />
+                  </VStack>
+                ) : null}
+              </VStack>
             ) : null}
           </VStack>
-        ) : null}
-      </VStack>
+
+          {/* 最近一次核实结果 */}
+          {lastOutcome ? (
+            <VStack
+              testID="payment-outcome-card"
+              p="md"
+              gap="xs"
+              style={[
+                styles.card,
+                {
+                  backgroundColor: tokens.colors.surface,
+                  borderColor:
+                    lastOutcome.status === 'succeeded'
+                      ? tokens.colors.success
+                      : tokens.colors.border,
+                  borderRadius: tokens.radii.md,
+                },
+              ]}
+            >
+              <HStack align="center" justify="space-between">
+                <AppText variant="caption" tone="secondary" weight="600">
+                  最近一次支付核实结果
+                </AppText>
+                <AppText
+                  variant="caption"
+                  tone={lastOutcome.status === 'succeeded' ? 'brand' : 'secondary'}
+                  weight="700"
+                >
+                  {lastOutcome.status.toUpperCase()}
+                </AppText>
+              </HStack>
+              <AppText variant="bodySm" weight="600">
+                订单：{lastOutcome.orderId} · 渠道：{lastOutcome.channelCode}
+              </AppText>
+              <AppText variant="caption" tone="secondary">
+                状态：{lastOutcome.status}
+                {lastOutcome.rawCode ? ` (code: ${lastOutcome.rawCode})` : ''} · 后端已核实：
+                {lastOutcome.verifiedByServer ? '是' : '否'}
+              </AppText>
+              {lastOutcome.message ? (
+                <AppText variant="caption" tone="secondary">
+                  详情：{lastOutcome.message}
+                </AppText>
+              ) : null}
+            </VStack>
+          ) : null}
+        </VStack>
+      </Screen>
 
       <PaymentCashierSheet
         visible={sheetVisible}
@@ -476,6 +621,40 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
 const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  proBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  planCard: {
+    borderWidth: 1.5,
+  },
+  recommendPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 2,
+  },
+  priceCol: {
+    flexShrink: 0,
+  },
+  restoreLink: {
+    paddingVertical: 6,
+  },
+  orderIconBox: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  debugWrap: {
+    marginTop: 4,
+  },
+  debugToggle: {
+    paddingVertical: 6,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   flex1: {
     flex: 1,
