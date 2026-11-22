@@ -2,7 +2,7 @@
 
 基于 **Expo Continuous Native Generation (CNG)** 构建的企业级可克隆 iOS / Android 移动应用底座（零付费云构建绑定、全量开启 React Native 新架构 Fabric / TurboModules，原生适配**中国大陆应用市场合规与海外双市场发布**）。
 
-> **快速导航**：查看分层拓扑图、冷启动与刷新锁时序图、构建期裁剪流水线及全模块职责速查表，请先阅读 [**技术架构全景手册 (`docs/ARCHITECTURE.md`)**](./docs/ARCHITECTURE.md)；发版流程见 [`docs/RELEASE.md`](./docs/RELEASE.md)；领域术语见 [`CONTEXT.md`](./CONTEXT.md)，架构决策见 [`docs/adr/`](./docs/adr/)。
+> **快速导航**：查看分层拓扑图、冷启动与刷新锁时序图、构建期裁剪流水线及全模块职责速查表，请先阅读 [**技术架构全景手册 (`docs/ARCHITECTURE.md`)**](./docs/ARCHITECTURE.md)；发版流程见 [`docs/RELEASE.md`](./docs/RELEASE.md)；支付接入见 [`docs/PAYMENT_INTEGRATION.md`](./docs/PAYMENT_INTEGRATION.md)。
 
 ---
 
@@ -349,7 +349,7 @@ const runtime = createAppRuntime({
 
 ### 5.4 使用内置 UI 原语与亮暗主题 Token (`src/core/ui`)
 
-为避免 NativeWind 等第三方 Babel/Metro 样式编译插件在升级 React Native 大版本时崩溃，本底座采用零编译插件的语义化主题引擎（[ADR-0003](./docs/adr/0003-zero-dependency-themed-stylesheet.md)）：
+为避免 NativeWind 等第三方 Babel/Metro 样式编译插件在升级 React Native 大版本时崩溃，本底座采用零编译插件的语义化主题引擎：
 
 - **直接使用的布局与交互原语**（从 `@/core/ui` 导入）：
   - 布局与导航壳：`Screen`（自带安全区、状态栏底色与软键盘避让）、`VStack`、`HStack`、`Box`、`AppHeader`、`TopTabs`、`TabPager`、`DrawerHost`、`KeyboardStickyFooter`
@@ -371,7 +371,7 @@ const runtime = createAppRuntime({
 
 ## 6. 场景五：9 大预置原生能力 (`Capability Module`) 与权限合规裁剪
 
-底座遵循“全家桶预置、按需做减法”设计（[ADR-0005](./docs/adr/0005-batteries-included-capabilities-with-manifest-gating.md)）。
+底座遵循“全家桶预置、按需做减法”设计。
 
 ### 6.1 敏感权限同步用途告知 (`Permission Rationale`)
 
@@ -453,7 +453,7 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 pnpm android --device
 
 国内机审最严红线：**在用户点击《隐私政策》“同意”按钮前，绝不允许任何 SDK 读取 OAID、AndroidID、MAC、IMEI、位置或发起埋点请求**。
 
-本底座将启动拆分为两个严格阶段（[ADR-0004](./docs/adr/0004-two-phase-privacy-gate-bootstrap.md)）：
+本底座将启动拆分为两个严格阶段：
 
 1. **第一阶段（未同意隐私前）**：首次冷启动先展示纯静态欢迎引导页（不初始化三方 SDK），随后进入登录页由用户勾选同意《用户协议》与《隐私政策》后登录；若已登录老用户遇到隐私协议升版，则由 `Stack.Protected` 自动拦截至隐私协议重签页。在用户明确同意前保持零设备标识读取（连默认语言都只读静态配置 `defaultLanguage` 而不调系统 Locale 原生接口），同时在 `AndroidManifest.xml` 中自动通过 `tools:node="remove"` 剥离 Firebase、极光、友盟、Sentry 等常见 AAR 的 `ContentProvider` 抢跑自启动。
 2. **第二阶段（用户点击“同意”后）**：自动按序触发 `deferredInitializers` 钩子。

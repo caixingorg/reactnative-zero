@@ -1,3 +1,0 @@
-# Use Expo CNG (Prebuild) with Local Native Builds Instead of Bare React Native CLI
-
-We use Expo Prebuild / Continuous Native Generation (CNG) with Custom Dev Client and local Xcode/Gradle builds—without requiring paid EAS Cloud services—rather than maintaining a traditional Bare React Native CLI project. Because this repository is cloned repeatedly to spawn independent App Instances, manually renaming Bundle IDs, Android package paths, URL schemes, icons, and native permissions across `.xcodeproj` and Gradle files is brittle and makes React Native version upgrades expensive; driving native project generation from a single typed `app.config.ts` keeps full support for arbitrary custom native modules while making new-app initialization deterministic.

@@ -1,4 +1,0 @@
-# Isolate Template Core via a Four-Layer Boundary Instead of Private npm Packages
-
-We enforce a strict unidirectional four-layer directory structure (`Route Shell` → `Feature Slice` → `Shared Layer` → `Template Core`) via ESLint import restrictions, with per-app branding and capability switches isolated in a single root `App Identity` file outside `Template Core` and rewritten by an initialization script. Publishing internal mobile npm packages introduces registry, native-linking, and version-matrix overhead that does not pay off for a small-to-medium app portfolio, whereas introducing an app-local `Shared Layer` and externalized `App Identity` lets derived App Instances share product code and rebrand freely while keeping `Template Core` untouched for low-conflict upstream cherry-picking.
-

@@ -40,4 +40,6 @@ pnpm-debug.log*
 /.scratch/
 /docs/superpowers/
 /docs/agents/
+/docs/adr/
 /AGENTS.md
+/CONTEXT.md

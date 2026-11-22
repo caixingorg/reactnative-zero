@@ -5,18 +5,17 @@
 > 2. **业务开发者**：快速定位“每个模块做什么、入口在哪、改什么不会破坏底座升级”；
 > 3. **AI 编程助手**：作为精确的目录索引、依赖边界与模块不变量上下文。
 >
-> - 领域术语表见 [`CONTEXT.md`](../CONTEXT.md)
-> - 关键技术选型理由见 [`docs/adr/`](./adr/)（ADR-0001 ~ ADR-0008，其中 0006、0007 仍为 Proposed）
 > - 支付渠道接入规范见 [`docs/PAYMENT_INTEGRATION.md`](./PAYMENT_INTEGRATION.md)
+> - 发版与归档流程见 [`docs/RELEASE.md`](./RELEASE.md)
 > - 日常上手与场景操作手册见 [`README.md`](../README.md)
 
 ---
 
 ## 1. 四条不可妥协的架构红线
 
-1. **单向四层隔离（ESLint 强制拦截）**：`src/app` → `src/features` → `src/shared` → `src/core`。严禁任何反向依赖，严禁跨 Feature Slice 深层引用，严禁 `src/core` 直接导入根目录 `app.identity.ts`（见 [`eslint.config.js`](../eslint.config.js) 与 [ADR-0002](./adr/0002-directory-isolated-template-sync.md)）。
-2. **两阶段隐私门禁（合规红线）**：`requirePrivacyConsent = true` 时，用户点击同意前**严禁**初始化任何读取设备标识/上报遥测的第三方 SDK；Android 端额外在构建期通过 `tools:node="remove"` 阻断第三方 `ContentProvider` 抢跑（见 [ADR-0004](./adr/0004-two-phase-privacy-gate-bootstrap.md)）。
-3. **能力可物理删除 + 声明与实现同源**：`src/core/runtime` 与 `src/core/permissions` 严禁静态导入任何 `src/core/capabilities/*` 子模块；关闭某个能力布尔值即在构建期剔除其 `Info.plist` / `AndroidManifest.xml` 权限声明（见 [ADR-0005](./adr/0005-batteries-included-capabilities-with-manifest-gating.md)）。
+1. **单向四层隔离（ESLint 强制拦截）**：`src/app` → `src/features` → `src/shared` → `src/core`。严禁任何反向依赖，严禁跨 Feature Slice 深层引用，严禁 `src/core` 直接导入根目录 `app.identity.ts`（见 [`eslint.config.js`](../eslint.config.js)）。
+2. **两阶段隐私门禁（合规红线）**：`requirePrivacyConsent = true` 时，用户点击同意前**严禁**初始化任何读取设备标识/上报遥测的第三方 SDK；Android 端额外在构建期通过 `tools:node="remove"` 阻断第三方 `ContentProvider` 抢跑。
+3. **能力可物理删除 + 声明与实现同源**：`src/core/runtime` 与 `src/core/permissions` 严禁静态导入任何 `src/core/capabilities/*` 子模块；关闭某个能力布尔值即在构建期剔除其 `Info.plist` / `AndroidManifest.xml` 权限声明。
 4. **严禁嗅探 `process.env.NODE_ENV` 分支**：`src/` 下禁止读取 `process.env.NODE_ENV`；测试替身通过 `AppRuntimeOverrides` 显式注入，生产调试代码剥离由 `metro.config.js` 按 `APP_VARIANT=production` 物理替换空桩。
 
 ---
@@ -190,7 +189,7 @@ flowchart LR
 | `src/core/network/` | Axios 封装 + 单飞 Token 刷新互斥锁、可插拔 `BackendAdapter` 协议适配、终端失效判定策略、TanStack Query 客户端、按需离线快照持久化、断网横幅 | [`http-client.ts`](../src/core/network/http-client.ts)<br/>[`types.ts`](../src/core/network/types.ts)<br/>[`refresh-failure-policy.ts`](../src/core/network/refresh-failure-policy.ts)<br/>[`query-persistence.ts`](../src/core/network/query-persistence.ts) | `BackendAdapter` 只适配协议信封与刷新逻辑，不放具体业务 API；离线持久化仅限 `meta.persistOffline: true` 的非敏感公开数据 |
 | `src/core/storage/` | 双层本地存储抽象与实现：敏感凭证走 `expo-secure-store`（绑定 `THIS_DEVICE_ONLY` 防 iCloud 备份外泄），常规 KV 走 `react-native-mmkv`；附测试用内存驱动 | [`native-storage.ts`](../src/core/storage/native-storage.ts)<br/>[`types.ts`](../src/core/storage/types.ts)<br/>[`memory-storage.ts`](../src/core/storage/memory-storage.ts) | 生产路径 MMKV 初始化失败必须直接抛错，严禁静默降级内存存储导致隐私同意记录丢失 |
 | `src/core/observability/` | 固定容量环形日志缓冲（100 条）、React 渲染错误边界、全局 JS 异常与未捕获 Promise 拒绝捕获、可插拔崩溃上报与埋点契约 | [`observability.ts`](../src/core/observability/observability.ts)<br/>[`AppErrorBoundary.tsx`](../src/core/observability/AppErrorBoundary.tsx)<br/>[`performance-marks.ts`](../src/core/observability/performance-marks.ts)（启动与路由耗时标记，仅内存，开发抽屉可见） | `errorReporter` 与 `analytics` 仅在 Privacy Gate 进入 `ready` 后由二阶段钩子激活 |
-| `src/core/theme/` & `src/core/ui/` | 基于品牌种子推导亮/暗双模式语义 Design Token，提供零第三方样式库依赖的 `StyleSheet` 原语与页面模板（`Screen` / `AppHeader` / `TopTabs` / `TabPager` / `DrawerHost` / `KeyboardStickyFooter` / `PageTemplate` / `ListTemplate` / `FormTemplate` / `DetailTemplate` / `SettingsList` / `DatePickerField` / `RegionPickerField` / `SearchBar` 等），并集成 `react-native-keyboard-controller` 处理双端软键盘动画 | [`theme-context.tsx`](../src/core/theme/theme-context.tsx)<br/>[`tokens.ts`](../src/core/theme/tokens.ts)<br/>[`ui/index.ts`](../src/core/ui/index.ts) | 遵循 [ADR-0003](./adr/0003-zero-dependency-themed-stylesheet.md)，业务 UI 禁止硬编码色值，统一消费语义 Token |
+| `src/core/theme/` & `src/core/ui/` | 基于品牌种子推导亮/暗双模式语义 Design Token，提供零第三方样式库依赖的 `StyleSheet` 原语与页面模板（`Screen` / `AppHeader` / `TopTabs` / `TabPager` / `DrawerHost` / `KeyboardStickyFooter` / `PageTemplate` / `ListTemplate` / `FormTemplate` / `DetailTemplate` / `SettingsList` / `DatePickerField` / `RegionPickerField` / `SearchBar` 等），并集成 `react-native-keyboard-controller` 处理双端软键盘动画 | [`theme-context.tsx`](../src/core/theme/theme-context.tsx)<br/>[`tokens.ts`](../src/core/theme/tokens.ts)<br/>[`ui/index.ts`](../src/core/ui/index.ts) | 业务 UI 禁止硬编码色值，统一消费语义 Token |
 | `src/core/i18n/` & `src/core/preferences/` | `i18next` 实例创建、内核基础词条、设备语言探测（隐私未同意前不读取系统 Locale）；持久化用户主题模式与语言偏好 | [`i18n.ts`](../src/core/i18n/i18n.ts)<br/>[`preferences-store.ts`](../src/core/preferences/preferences-store.ts) | 业务自定义词条放 `src/shared/i18n/` 并通过 `createAppRuntime({ translations })` 合并，不直接改内核词条 |
 
 ### B. Template Core — 可插拔外设与 9 大原生能力（`src/core/`）
@@ -238,16 +237,6 @@ flowchart LR
 
 ## 5. 相关文档索引
 
-- **领域统一语言**：[`CONTEXT.md`](../CONTEXT.md)
-- **架构决策记录（ADR）**：
-  - [ADR-0001：Expo CNG 本地构建替代 Bare RN 与 EAS 锁定](./adr/0001-expo-cng-without-eas-lockin.md)
-  - [ADR-0002：四层目录隔离替代私有 npm 包](./adr/0002-directory-isolated-template-sync.md)
-  - [ADR-0003：零依赖主题化 StyleSheet 原语](./adr/0003-zero-dependency-themed-stylesheet.md)
-  - [ADR-0004：两阶段隐私门禁启动模型](./adr/0004-two-phase-privacy-gate-bootstrap.md)
-  - [ADR-0005：预置免密钥原生能力与构建期清单裁剪](./adr/0005-batteries-included-capabilities-with-manifest-gating.md)
-  - [ADR-0006：自托管 Sentry 协议崩溃上报（Proposed）](./adr/0006-sentry-protocol-crash-reporting-self-hosted.md)
-  - [ADR-0007：OTA 热更新延迟接入策略（Proposed）](./adr/0007-ota-updates-deferred.md)
-  - [ADR-0008：可插拔无头支付能力架构](./adr/0008-pluggable-payment-capability-architecture.md)
 - **支付渠道接入指南**：[`docs/PAYMENT_INTEGRATION.md`](./PAYMENT_INTEGRATION.md)
 - **发版与归档流程**：[`docs/RELEASE.md`](./RELEASE.md)
 - **场景化实操手册**：[`README.md`](../README.md)
