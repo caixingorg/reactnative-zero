@@ -31,10 +31,10 @@ src/app/_layout.tsx (或 App 装配层)       # 唯一接线处：按当前项�
 1. **银行卡 + Apple Pay + Google Pay + PayPal（出海）**：
    - 安装 `@stripe/stripe-react-native`（或 `@adyen/react-native`），在 `app.config.ts` 的 `plugins` 中添加官方 Config Plugin（配置 Apple Pay Merchant ID 等）。
    - 写一个薄 `CheckoutDriver` 适配器，在 `isAvailable()` 中检测设备是否支持 Apple Pay / Google Pay，在 `execute()` 中拉起 PaymentSheet 并返回 `DriverExecutionResult`。
-2. **Apple IAP / Google Play Billing（虚拟商品与自动续费订阅）**：
-   - **自建后端路线**：安装 `expo-iap`（或 `react-native-iap`），实现 `StoreBillingDriver` 接口并配置 `ServerOrderVerifier.verifyStoreTransaction`。
-   - **托管订阅路线**：安装 `react-native-purchases`（RevenueCat），实现同一个 `StoreBillingDriver` 接口。
-   - **硬性约束**：`StoreBillingCoordinator` 仅在后端明确返回 `shouldFinishTransaction: true` 时调用 `finishTransaction`，严禁在客户端跳过验单直接核销。
+2. **Apple IAP / Google Play Billing（订阅 + 一次性买断）**：
+   - **自建后端路线（零 SaaS 抽成）**：安装 `expo-iap`，使用内置适配器 [`createExpoIapBillingDriver`](../src/core/capabilities/payment/drivers/expo-iap-driver.ts) 并配置 `ServerOrderVerifier.verifyStoreTransaction`。
+   - **托管订阅路线（免自建收据服务器）**：安装 `react-native-purchases`（RevenueCat），使用内置适配器 [`createRevenueCatBillingDriver`](../src/core/capabilities/payment/drivers/revenuecat-driver.ts)。
+   - **硬性约束**：`StoreBillingCoordinator` 仅在后端明确返回 `shouldFinishTransaction: true` 时调用 `finishTransaction`，严禁在客户端跳过验单直接核销；Apple 审核强制要求买断/订阅页面保留「恢复购买」按钮。
 
 ### C. 官方仅提供原生 SDK 的渠道（微信支付 / 支付宝 / 云闪付）
 1. 使用 `npx create-expo-module --local` 在 `modules/payment-<vendor>/` 下建本地模块（纳入 git，不被 `expo prebuild --clean` 清除）。

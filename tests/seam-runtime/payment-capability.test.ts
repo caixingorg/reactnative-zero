@@ -1,8 +1,10 @@
 import {
   createAlipayCheckoutDriver,
+  createExpoIapBillingDriver,
   createMockBillingDriver,
   createMockCheckoutDriver,
   createPaymentService,
+  createRevenueCatBillingDriver,
   createStripeCheckoutDriver,
   createWebCheckoutDriver,
   createWechatCheckoutDriver,
@@ -936,6 +938,167 @@ describe('Payment Capability Module (seam-runtime)', () => {
     );
     expect(stripeCancelled.status).toBe('cancelled');
     expect(stripeCancelled.errorCode).toBe('CANCELLED');
+    payment.dispose();
+  });
+
+  it('expo-iap billing driver supports subscription, lifetime non-consumable purchase, cancellation, restore, and finishTransaction', async () => {
+    const storage = createMemoryKeyValueStorage();
+    const appState = createFakeAppState();
+    const finishedTransactions: string[] = [];
+    let shouldCancelNext = false;
+
+    const expoIapDriver = createExpoIapBillingDriver({
+      platform: 'ios',
+      sdk: {
+        initConnection: async () => true,
+        fetchProducts: async ({ skus, type }) =>
+          skus.map((sku) => ({
+            id: sku,
+            title: type === 'subs' ? 'Pro 月度订阅' : 'Pro 永久买断',
+            description: 'Tool Pro',
+            displayPrice: type === 'subs' ? '¥30.00' : '¥198.00',
+            currency: 'CNY',
+          })),
+        requestPurchase: async ({ request }) => {
+          if (shouldCancelNext) {
+            throw { code: 'E_USER_CANCELLED', message: 'User cancelled IAP' };
+          }
+          const sku = request.apple?.sku ?? 'unknown';
+          return {
+            transactionId: `tx-${sku}`,
+            productId: sku,
+            jwsRepresentationIOS: `jws-${sku}`,
+          };
+        },
+        getAvailablePurchases: async () => [
+          {
+            transactionId: 'tx-pro_lifetime-restored',
+            productId: 'pro_lifetime',
+            jwsRepresentationIOS: 'jws-lifetime-restored',
+          },
+        ],
+        finishTransaction: async ({ purchase }) => {
+          finishedTransactions.push(purchase.transactionId ?? purchase.productId);
+        },
+      },
+    });
+
+    const payment = createPaymentService({
+      keyValueStorage: storage,
+      appStateWatcher: appState,
+      billingDriver: expoIapDriver,
+      verifier: {
+        verifyCheckoutOrder: async () => ({ status: 'paid' }),
+        verifyStoreTransaction: async (tx) => ({
+          verified: true,
+          shouldFinishTransaction: true,
+          orderId: `ORD-${tx.transactionId}`,
+        }),
+      },
+    });
+
+    await payment.initializeDrivers();
+    const subs = await payment.billing.fetchProducts(['pro_monthly'], 'subscription');
+    const lifetime = await payment.billing.fetchProducts(['pro_lifetime'], 'non_consumable');
+    expect(subs[0]?.type).toBe('subscription');
+    expect(lifetime[0]?.type).toBe('non_consumable');
+
+    // Subscription + lifetime purchase both verify and call finishTransaction
+    const subOutcome = await payment.billing.purchase('pro_monthly');
+    const lifetimeOutcome = await payment.billing.purchase('pro_lifetime');
+    expect(subOutcome.status).toBe('succeeded');
+    expect(lifetimeOutcome.status).toBe('succeeded');
+    expect(finishedTransactions).toEqual(['tx-pro_monthly', 'tx-pro_lifetime']);
+
+    // User cancellation maps cleanly to CANCELLED
+    shouldCancelNext = true;
+    const cancelOutcome = await payment.billing.purchase('pro_lifetime');
+    expect(cancelOutcome.status).toBe('cancelled');
+    expect(cancelOutcome.errorCode).toBe('CANCELLED');
+
+    // Restore purchases verifies & unlocks lifetime entitlement
+    const restored = await payment.billing.restorePurchases();
+    expect(restored).toHaveLength(1);
+    expect(restored[0]?.status).toBe('succeeded');
+    payment.dispose();
+  });
+
+  it('RevenueCat billing driver supports subscription, lifetime purchase, logIn binding, cancellation, and restorePurchases', async () => {
+    const storage = createMemoryKeyValueStorage();
+    const appState = createFakeAppState();
+    const loggedInUsers: string[] = [];
+    let shouldCancelNext = false;
+
+    const rcDriver = createRevenueCatBillingDriver({
+      platform: 'android',
+      apiKey: 'goog_test_api_key',
+      sdk: {
+        configure: () => {},
+        logIn: async (appUserId) => {
+          loggedInUsers.push(appUserId);
+          return { customerInfo: { originalAppUserId: appUserId } };
+        },
+        getProducts: async (productIds) =>
+          productIds.map((id) => ({
+            identifier: id,
+            title: id === 'pro_monthly' ? 'Pro Monthly' : 'Pro Lifetime',
+            description: 'RevenueCat product',
+            priceString: id === 'pro_monthly' ? '$4.99' : '$29.99',
+            currencyCode: 'USD',
+          })),
+        purchaseStoreProduct: async (product) => {
+          if (shouldCancelNext) {
+            throw { code: '1', userCancelled: true, message: 'Purchase was cancelled.' };
+          }
+          return {
+            productIdentifier: product.identifier,
+            customerInfo: { originalAppUserId: 'user-99' },
+            transaction: {
+              transactionIdentifier: `rc-tx-${product.identifier}`,
+              productIdentifier: product.identifier,
+            },
+          };
+        },
+        restorePurchases: async () => ({
+          originalAppUserId: 'user-99',
+          activeSubscriptions: ['pro_monthly'],
+          allPurchasedProductIdentifiers: ['pro_lifetime'],
+        }),
+      },
+    });
+
+    const payment = createPaymentService({
+      keyValueStorage: storage,
+      appStateWatcher: appState,
+      billingDriver: rcDriver,
+      verifier: {
+        verifyCheckoutOrder: async () => ({ status: 'paid' }),
+        verifyStoreTransaction: async (tx) => ({
+          verified: true,
+          shouldFinishTransaction: true,
+          orderId: `RC-${tx.transactionId}`,
+        }),
+      },
+    });
+
+    await payment.initializeDrivers();
+    const products = await payment.billing.fetchProducts(['pro_monthly'], 'subscription');
+    expect(products[0]?.localizedPrice).toBe('$4.99');
+
+    const purchased = await payment.billing.purchase('pro_lifetime', {
+      appAccountToken: 'user-99',
+    });
+    expect(loggedInUsers).toEqual(['user-99']);
+    expect(purchased.status).toBe('succeeded');
+    expect(purchased.verifiedByServer).toBe(true);
+
+    shouldCancelNext = true;
+    const cancelled = await payment.billing.purchase('pro_monthly');
+    expect(cancelled.status).toBe('cancelled');
+    expect(cancelled.errorCode).toBe('CANCELLED');
+
+    const restored = await payment.billing.restorePurchases();
+    expect(restored.map((item) => item.status)).toEqual(['succeeded', 'succeeded']);
     payment.dispose();
   });
 });

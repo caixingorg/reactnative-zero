@@ -137,6 +137,14 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
           currencyCode: 'CNY',
           subscriptionPeriod: 'P1M',
         },
+        {
+          productId: 'pro_lifetime',
+          type: 'non_consumable',
+          title: 'Pro 永久买断版（一次购买）',
+          description: '永久解锁全部专业功能，支持换机恢复购买（Apple IAP / Google Billing）',
+          localizedPrice: '¥198.00 买断',
+          currencyCode: 'CNY',
+        },
       ],
     });
 
@@ -183,15 +191,16 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
 
     void (async () => {
       await paymentService.initializeDrivers();
-      const [resolvedChannels, storeProducts] = await Promise.all([
+      const [resolvedChannels, subProducts, lifetimeProducts] = await Promise.all([
         paymentService.resolveChannels(DEFAULT_REMOTE_CHANNELS),
         paymentService.billing.fetchProducts(['pro_monthly'], 'subscription'),
+        paymentService.billing.fetchProducts(['pro_lifetime'], 'non_consumable'),
       ]);
       if (!active) {
         return;
       }
       setChannels(resolvedChannels);
-      setProducts(storeProducts);
+      setProducts([...subProducts, ...lifetimeProducts]);
     })();
 
     return () => {
@@ -391,31 +400,27 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
               <AppText variant="caption" tone="secondary">
                 {product.description}
               </AppText>
-              <HStack gap="sm">
-                <View style={styles.flex1}>
-                  <Button
-                    testID={`iap-purchase-${product.productId}`}
-                    label="立即订阅"
-                    loading={submitting}
-                    onPress={() => {
-                      void handlePurchaseSubscription(product.productId);
-                    }}
-                  />
-                </View>
-                <View style={styles.flex1}>
-                  <Button
-                    testID="iap-restore-button"
-                    label="恢复购买"
-                    variant="secondary"
-                    disabled={submitting}
-                    onPress={() => {
-                      void handleRestorePurchases();
-                    }}
-                  />
-                </View>
-              </HStack>
+              <Button
+                testID={`iap-purchase-${product.productId}`}
+                label={product.type === 'subscription' ? '立即订阅' : '永久买断'}
+                loading={submitting}
+                onPress={() => {
+                  void handlePurchaseSubscription(product.productId);
+                }}
+              />
             </VStack>
           ))}
+          {products.length > 0 ? (
+            <Button
+              testID="iap-restore-button"
+              label="恢复购买（订阅与买断通用）"
+              variant="secondary"
+              disabled={submitting}
+              onPress={() => {
+                void handleRestorePurchases();
+              }}
+            />
+          ) : null}
         </VStack>
 
         {/* Last outcome readout */}

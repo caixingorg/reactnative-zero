@@ -41,6 +41,26 @@ export {
   type StripeSheetError,
 } from './drivers/stripe-driver';
 export {
+  createExpoIapBillingDriver,
+  EXPO_IAP_DRIVER_ID,
+  type ExpoIapBillingDriverOptions,
+  type ExpoIapBridge,
+  type ExpoIapPurchaseError,
+  type ExpoIapRawProduct,
+  type ExpoIapRawPurchase,
+} from './drivers/expo-iap-driver';
+export {
+  createRevenueCatBillingDriver,
+  REVENUECAT_DRIVER_ID,
+  type RevenueCatBillingDriverOptions,
+  type RevenueCatBridge,
+  type RevenueCatCustomerInfo,
+  type RevenueCatEntitlementInfo,
+  type RevenueCatError,
+  type RevenueCatPurchaseResult,
+  type RevenueCatStoreProduct,
+} from './drivers/revenuecat-driver';
+export {
   createWebCheckoutDriver,
   WEB_CHECKOUT_DRIVER_ID,
   type WebCheckoutDriverOptions,
