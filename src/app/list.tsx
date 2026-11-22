@@ -11,7 +11,12 @@ export default function GenericListStackRoute(): React.JSX.Element {
     <GenericListScreen
       title={title}
       onBack={() => router.back()}
-      onSelectItem={() => router.push('/detail')}
+      onSelectItem={(_id, item) =>
+        router.push({
+          pathname: '/detail',
+          params: { title: item.title, summary: item.subtitle, tag: title },
+        })
+      }
     />
   );
 }

@@ -206,7 +206,7 @@ export function ProfileScreen({
   const scrollProgress = useSharedValue(0);
 
   return (
-    <Screen>
+    <Screen statusBarBackgroundColor={tokens.colors.surface}>
       <TopTabs
         tabs={PROFILE_TABS}
         activeIndex={activeIndex}

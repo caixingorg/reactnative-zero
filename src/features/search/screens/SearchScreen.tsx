@@ -1,31 +1,58 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useAppRuntime } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import { AppText, EmptyState, HStack, Screen, SearchBar, VStack } from '@/core/ui';
 
-export interface SearchScreenProps {
-  onBack?: () => void;
-  onSelectResult?: (id: string) => void;
+export interface SearchResultItem {
+  id: string;
+  title: string;
+  category: string;
 }
 
+export interface SearchScreenProps {
+  onBack?: () => void;
+  onSelectResult?: (id: string, item: SearchResultItem) => void;
+}
+
+const SEARCH_HISTORY_STORAGE_KEY = 'search.history.v1';
+const DEFAULT_SEARCH_HISTORY: readonly string[] = ['四层架构', '离线缓存'];
 const HOT_KEYWORDS = ['四层架构', '抽屉手势', '离线缓存', '包体积守卫', 'Design Token'] as const;
 
-const SEARCH_CORPUS = [
+const SEARCH_CORPUS: readonly SearchResultItem[] = [
   { id: 's-1', title: '企业级移动底座四层架构规范', category: '架构' },
   { id: 's-2', title: 'Reanimated 抽屉手势与边缘冲突隔离', category: '交互' },
   { id: 's-3', title: '弱网离线缓存与单飞刷新方案', category: '网络' },
   { id: 's-4', title: 'Android 包体积守卫与基线管理', category: '性能' },
   { id: 's-5', title: '零依赖 Design Token 亮暗主题切换', category: '样式' },
-] as const;
+];
+
+function readPersistedHistory(raw: string | undefined): string[] {
+  if (raw === undefined) {
+    return [...DEFAULT_SEARCH_HISTORY];
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((entry) => typeof entry === 'string')) {
+      return parsed.slice(0, 8);
+    }
+  } catch {
+    // 忽略损坏缓存，回退默认搜索建议
+  }
+  return [...DEFAULT_SEARCH_HISTORY];
+}
 
 export function SearchScreen({
   onBack,
   onSelectResult,
 }: SearchScreenProps = {}): React.JSX.Element {
+  const { keyValueStorage } = useAppRuntime();
   const { tokens } = useAppTheme();
   const [query, setQuery] = useState('');
-  const [history, setHistory] = useState<string[]>(['四层架构', '离线缓存']);
+  const [history, setHistory] = useState<string[]>(() =>
+    readPersistedHistory(keyValueStorage.getString(SEARCH_HISTORY_STORAGE_KEY)),
+  );
 
   const trimmed = query.trim();
 
@@ -40,17 +67,25 @@ export function SearchScreen({
     );
   }, [trimmed]);
 
+  const updateHistory = (next: string[]): void => {
+    setHistory(next);
+    keyValueStorage.setString(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(next));
+  };
+
   const recordSearch = (keyword: string): void => {
     const clean = keyword.trim();
     if (!clean) {
       return;
     }
     setQuery(clean);
-    setHistory((prev) => [clean, ...prev.filter((entry) => entry !== clean)].slice(0, 8));
+    updateHistory([clean, ...history.filter((entry) => entry !== clean)].slice(0, 8));
   };
 
   return (
-    <Screen edges={['top', 'bottom', 'left', 'right']}>
+    <Screen
+      edges={['top', 'bottom', 'left', 'right']}
+      statusBarBackgroundColor={tokens.colors.surface}
+    >
       <HStack
         px="md"
         py="sm"
@@ -92,7 +127,7 @@ export function SearchScreen({
                   <Pressable
                     testID="search-clear-history"
                     accessibilityRole="button"
-                    onPress={() => setHistory([])}
+                    onPress={() => updateHistory([])}
                   >
                     <AppText variant="caption" tone="secondary">
                       清空
@@ -157,7 +192,7 @@ export function SearchScreen({
               <Pressable
                 key={item.id}
                 accessibilityRole="button"
-                onPress={() => onSelectResult?.(item.id)}
+                onPress={() => onSelectResult?.(item.id, item)}
               >
                 <VStack p="md" gap="xs" bg="surface" radius="lg" bordered>
                   <AppText variant="caption" tone="brand" weight="600">

@@ -17,10 +17,13 @@ import type { ThemePreference } from '@/core/theme/tokens';
 import {
   AppHeader,
   AppText,
+  BottomSheetModal,
+  Button,
   ConfirmDialog,
   HStack,
   Screen,
   SettingsList,
+  TextField,
   VStack,
   type SettingsListItem,
   type SettingsSection,
@@ -42,7 +45,7 @@ export function SettingsScreen({
   onReplayWelcome,
 }: SettingsScreenProps = {}): React.JSX.Element {
   const { t } = useTranslation();
-  const { identity, env, authSessionStore, devToolsStore } = useAppRuntime();
+  const { identity, env, httpClient, authSessionStore, devToolsStore } = useAppRuntime();
   const { tokens, themePreference, setThemePreference } = useAppTheme();
   const authStatus = useAuthSession((state) => state.status);
   const user = useAuthSession((state) => state.user);
@@ -53,6 +56,56 @@ export function SettingsScreen({
   const toast = useToast();
   const [biometricLockEnabled, setBiometricLockEnabled] = useState(false);
   const [signOutDialogVisible, setSignOutDialogVisible] = useState(false);
+  const [deleteAccountDialogVisible, setDeleteAccountDialogVisible] = useState(false);
+  const [changePwdVisible, setChangePwdVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [changePwdError, setChangePwdError] = useState<string | null>(null);
+  const [changePwdSubmitting, setChangePwdSubmitting] = useState(false);
+
+  const handleChangePassword = async (): Promise<void> => {
+    if (!currentPassword.trim()) {
+      setChangePwdError('请输入当前密码');
+      return;
+    }
+    if (newPassword.trim().length < 6) {
+      setChangePwdError('新密码长度至少为 6 位');
+      return;
+    }
+    setChangePwdError(null);
+    setChangePwdSubmitting(true);
+    try {
+      await httpClient.post('/auth/change-password', {
+        username: user?.username,
+        currentPassword,
+        newPassword: newPassword.trim(),
+      });
+      setChangePwdVisible(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      toast.show({ message: '密码修改成功', tone: 'success' });
+    } catch (err) {
+      setChangePwdError(err instanceof Error ? err.message : '修改密码失败，请稍后重试');
+    } finally {
+      setChangePwdSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async (): Promise<void> => {
+    setDeleteAccountDialogVisible(false);
+    try {
+      await httpClient.delete('/auth/account', {
+        params: user?.username ? { username: user.username } : undefined,
+      });
+      await authSessionStore.getState().clearSession();
+      toast.show({ message: '账号已注销并清理本地凭证', tone: 'success' });
+    } catch (err) {
+      toast.show({
+        message: err instanceof Error ? err.message : '注销失败，请稍后重试',
+        tone: 'danger',
+      });
+    }
+  };
 
   const openDevToolsHandler =
     env.appVariant !== 'production' && devToolsStore.getState().enabled
@@ -145,6 +198,33 @@ export function SettingsScreen({
       testID: 'settings-replay-welcome-btn',
     });
   }
+  if (authStatus === 'authenticated') {
+    securityItems.push(
+      {
+        key: 'change-password',
+        kind: 'link',
+        label: '修改密码',
+        icon: 'key-outline',
+        iconColor: '#0284C7',
+        iconBg: tokens.isDark ? 'rgba(14,165,233,0.18)' : '#E0F2FE',
+        onPress: () => {
+          setChangePwdError(null);
+          setChangePwdVisible(true);
+        },
+        testID: 'settings-change-password-btn',
+      },
+      {
+        key: 'delete-account',
+        kind: 'link',
+        label: '注销账号',
+        icon: 'trash-outline',
+        iconColor: tokens.colors.danger,
+        iconBg: tokens.colors.primarySoft,
+        onPress: () => setDeleteAccountDialogVisible(true),
+        testID: 'settings-delete-account-btn',
+      },
+    );
+  }
 
   const developerItems: SettingsListItem[] = [];
   if (onOpenDeveloperLab) {
@@ -211,7 +291,10 @@ export function SettingsScreen({
   sections.push({ key: 'app-info', title: t('settings.appInfoTitle'), items: appInfoItems });
 
   return (
-    <Screen edges={['top', 'bottom', 'left', 'right']}>
+    <Screen
+      edges={['top', 'bottom', 'left', 'right']}
+      statusBarBackgroundColor={tokens.colors.surface}
+    >
       {onBack ? (
         <AppHeader title={t('settings.title')} showBack onBack={onBack} />
       ) : (
@@ -399,6 +482,56 @@ export function SettingsScreen({
             void authSessionStore.getState().clearSession();
           }}
         />
+
+        <ConfirmDialog
+          visible={deleteAccountDialogVisible}
+          title="确认注销账号？"
+          description="注销后将删除当前账号并清理本机全部登录凭证，该操作不可恢复。"
+          confirmLabel="确认注销"
+          destructive
+          onCancel={() => setDeleteAccountDialogVisible(false)}
+          onConfirm={() => {
+            void handleDeleteAccount();
+          }}
+        />
+
+        <BottomSheetModal
+          visible={changePwdVisible}
+          title="修改登录密码"
+          onClose={() => setChangePwdVisible(false)}
+        >
+          <VStack gap="md">
+            {changePwdError ? (
+              <AppText variant="caption" tone="danger">
+                {changePwdError}
+              </AppText>
+            ) : null}
+            <TextField
+              testID="settings-current-password-input"
+              label="当前密码"
+              placeholder="请输入当前密码"
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+            />
+            <TextField
+              testID="settings-new-password-input"
+              label="新密码"
+              placeholder="请输入 6 位以上新密码"
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            <Button
+              testID="settings-change-password-submit"
+              label="保存新密码"
+              loading={changePwdSubmitting}
+              onPress={() => {
+                void handleChangePassword();
+              }}
+            />
+          </VStack>
+        </BottomSheetModal>
       </Screen>
     </Screen>
   );

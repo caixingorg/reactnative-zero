@@ -302,6 +302,9 @@ describe('Seam: SearchScreen and StatusPageScreen stack templates', () => {
 
     await fireEvent.changeText(screen.getByTestId('search-bar-input'), '不存在的关键词xyz');
     expect(screen.getByText('未找到相关结果')).toBeTruthy();
+
+    // Verify search history persisted in keyValueStorage across remount
+    expect(runtime.keyValueStorage.getString('search.history.v1')).toContain('抽屉手势');
   });
 
   it('renders 404 not-found status page with back action', async () => {

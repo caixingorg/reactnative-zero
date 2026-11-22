@@ -10,7 +10,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 import { useMediaCapability } from '@/core/capabilities/media';
-import { useToast } from '@/core/runtime';
+import { useAppRuntime, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppImage,
@@ -39,6 +39,10 @@ const registerSchema = z.object({
     .string()
     .trim()
     .regex(/^1\d{10}$/, '请输入有效的 11 位手机号'),
+  password: z
+    .string()
+    .optional()
+    .refine((val) => !val || val.trim().length >= 6, '登录密码至少 6 位'),
   gender: z.enum(['male', 'female', 'secret']),
   birthday: z.string().min(1, '请选择出生日期'),
   region: z.string().min(1, '请选择所在地区'),
@@ -58,6 +62,7 @@ export function RegisterScreen({
   onSubmitted,
 }: RegisterScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
+  const { httpClient } = useAppRuntime();
   const media = useMediaCapability();
   const toast = useToast();
   const [submittedValues, setSubmittedValues] = useState<RegisterFormValues | null>(null);
@@ -74,6 +79,7 @@ export function RegisterScreen({
       avatarUri: '',
       nickname: '',
       phone: '',
+      password: '',
       gender: 'secret',
       birthday: '',
       region: '',
@@ -96,10 +102,26 @@ export function RegisterScreen({
     toast.show({ message: '头像已选取', tone: 'success' });
   };
 
-  const submitForm = handleSubmit((values) => {
-    setSubmittedValues(values);
-    onSubmitted?.(values);
-    toast.show({ message: `资料提交成功：${values.nickname}`, tone: 'success' });
+  const submitForm = handleSubmit(async (values) => {
+    try {
+      await httpClient.post(
+        '/auth/register',
+        {
+          username: values.phone,
+          password: values.password?.trim() || 'password123',
+          displayName: values.nickname,
+        },
+        { skipAuth: true },
+      );
+      setSubmittedValues(values);
+      onSubmitted?.(values);
+      toast.show({ message: `注册成功，可使用手机号 ${values.phone} 登录`, tone: 'success' });
+    } catch (err) {
+      toast.show({
+        message: err instanceof Error ? err.message : '注册失败，请稍后重试',
+        tone: 'danger',
+      });
+    }
   });
 
   return (
@@ -196,6 +218,23 @@ export function RegisterScreen({
               onBlur={onBlur}
               onChangeText={onChange}
               errorMessage={errors.phone?.message}
+            />
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="password"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextField
+              testID="register-password-input"
+              label="登录密码（选填，默认 password123）"
+              placeholder="设置 6 位以上登录密码"
+              secureTextEntry
+              value={value ?? ''}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              errorMessage={errors.password?.message}
             />
           )}
         />

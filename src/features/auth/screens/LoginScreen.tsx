@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { z } from 'zod';
 import type { LoginResult } from '@/core/network/types';
-import { useAppRuntime, usePrivacyGate } from '@/core/runtime';
+import { useAppRuntime, usePrivacyGate, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
-import { AppText, Button, HStack, Screen, VStack } from '@/core/ui';
+import { AppText, BottomSheetModal, Button, HStack, Screen, TextField, VStack } from '@/core/ui';
 
 interface LoginFormValues {
   username: string;
@@ -29,12 +29,18 @@ export function LoginScreen({
   const { t } = useTranslation();
   const { identity, env, httpClient, authSessionStore, privacyGateStore } = useAppRuntime();
   const isPrivacyAccepted = usePrivacyGate((state) => state.phase === 'ready');
+  const toast = useToast();
   const { tokens } = useAppTheme();
   const passwordInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [focusedField, setFocusedField] = useState<'username' | 'password' | null>(null);
   const [consentChecked, setConsentChecked] = useState(isPrivacyAccepted);
+  const [resetVisible, setResetVisible] = useState(false);
+  const [resetUsername, setResetUsername] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   const loginSchema = useMemo(
     () =>
@@ -96,6 +102,36 @@ export function LoginScreen({
   const handleFillTestAccount = (): void => {
     setValue('username', 'admin', { shouldValidate: true });
     setValue('password', 'password123', { shouldValidate: true });
+  };
+
+  const handleResetPassword = async (): Promise<void> => {
+    const cleanUser = resetUsername.trim();
+    const cleanPass = resetNewPassword.trim();
+    if (cleanUser.length < 3) {
+      setResetError('请输入至少 3 位账号');
+      return;
+    }
+    if (cleanPass.length < 6) {
+      setResetError('新密码长度至少为 6 位');
+      return;
+    }
+    setResetError(null);
+    setResetSubmitting(true);
+    try {
+      await httpClient.post(
+        '/auth/reset-password',
+        { username: cleanUser, newPassword: cleanPass },
+        { skipAuth: true },
+      );
+      setResetVisible(false);
+      setResetNewPassword('');
+      setValue('username', cleanUser, { shouldValidate: true });
+      toast.show({ message: '密码已重置，请使用新密码登录', tone: 'success' });
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : '重置失败，请稍后重试');
+    } finally {
+      setResetSubmitting(false);
+    }
   };
 
   return (
@@ -273,21 +309,35 @@ export function LoginScreen({
 
             {/* 轻量级辅助操作行：去除厚重灰底胶囊，左右自然对齐 */}
             <HStack justify="space-between" align="center" style={styles.auxRow}>
-              {env.appVariant !== 'production' ? (
+              <HStack gap="md" align="center">
+                {env.appVariant !== 'production' ? (
+                  <Pressable
+                    testID="login-test-autofill"
+                    accessibilityRole="button"
+                    onPress={handleFillTestAccount}
+                    hitSlop={8}
+                    style={({ pressed }) => [pressed && styles.pressed]}
+                  >
+                    <AppText variant="caption" tone="secondary" weight="600">
+                      填入测试账号
+                    </AppText>
+                  </Pressable>
+                ) : null}
                 <Pressable
-                  testID="login-test-autofill"
+                  testID="login-forgot-password"
                   accessibilityRole="button"
-                  onPress={handleFillTestAccount}
+                  onPress={() => {
+                    setResetError(null);
+                    setResetVisible(true);
+                  }}
                   hitSlop={8}
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
                   <AppText variant="caption" tone="secondary" weight="600">
-                    填入测试账号
+                    忘记密码？
                   </AppText>
                 </Pressable>
-              ) : (
-                <View />
-              )}
+              </HStack>
 
               {onOpenRegister ? (
                 <Pressable
@@ -339,6 +389,44 @@ export function LoginScreen({
           </AppText>
         </HStack>
       </VStack>
+
+      <BottomSheetModal
+        visible={resetVisible}
+        title="找回 / 重置密码"
+        onClose={() => setResetVisible(false)}
+      >
+        <VStack gap="md">
+          {resetError ? (
+            <AppText variant="caption" tone="danger">
+              {resetError}
+            </AppText>
+          ) : null}
+          <TextField
+            testID="reset-username-input"
+            label="账号"
+            placeholder="请输入已注册的账号或手机号"
+            autoCapitalize="none"
+            value={resetUsername}
+            onChangeText={setResetUsername}
+          />
+          <TextField
+            testID="reset-password-input"
+            label="新密码"
+            placeholder="请输入 6 位以上新密码"
+            secureTextEntry
+            value={resetNewPassword}
+            onChangeText={setResetNewPassword}
+          />
+          <Button
+            testID="reset-password-submit"
+            label="确认重置密码"
+            loading={resetSubmitting}
+            onPress={() => {
+              void handleResetPassword();
+            }}
+          />
+        </VStack>
+      </BottomSheetModal>
     </Screen>
   );
 }

@@ -43,7 +43,10 @@ export function DetailTemplate({
   const { tokens } = useAppTheme();
 
   return (
-    <Screen edges={['top', 'bottom', 'left', 'right']}>
+    <Screen
+      edges={['top', 'bottom', 'left', 'right']}
+      statusBarBackgroundColor={tokens.colors.surface}
+    >
       <AppHeader title={headerTitle} showBack={Boolean(onBack)} onBack={onBack} />
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>

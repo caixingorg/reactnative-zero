@@ -4,7 +4,7 @@ import { appIdentity } from '@root/app.identity';
 import { AppRuntimeProvider } from '@/core/runtime';
 import { pageActionsRegistry } from '@/core/ui';
 import { DiscoverScreen } from '@/features/discover';
-import { MessagesScreen } from '@/features/messages';
+import { MessagesScreen, useMessagesUnreadStore } from '@/features/messages';
 import { ProfileScreen } from '@/features/profile';
 import { SettingsScreen } from '@/features/settings';
 import { createMockHttpTransport } from '@/shared';
@@ -73,6 +73,19 @@ describe('Seam: Discover, Messages, and Profile 3-tab skeletons', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: '私信' }));
     await waitFor(() => expect(screen.getByTestId('messages-tab-direct')).toBeTruthy());
+
+    // Mark all read clears unread badge counts cleanly
+    expect(useMessagesUnreadStore.getState().unreadCounts.notifications).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByTestId('messages-mark-all-read'));
+    expect(useMessagesUnreadStore.getState().unreadCounts).toEqual({
+      notifications: 0,
+      interactions: 0,
+      direct: 0,
+    });
+  });
+
+  afterEach(() => {
+    useMessagesUnreadStore.getState().resetUnread();
   });
 
   it('renders ProfileScreen without drawer button, with settings trigger and 收藏/历史/动态 lazy tabs', async () => {

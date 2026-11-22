@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useFilesCapability } from '@/core/capabilities/files';
 import { AppApiError } from '@/core/network/types';
 import { useAppRuntime, useToast } from '@/core/runtime';
+import { useAppTheme } from '@/core/theme/theme-context';
 import {
   AppHeader,
   AppText,
@@ -27,6 +28,7 @@ export function FeedDetailScreen({ itemId, onBack }: FeedDetailScreenProps): Rea
   const { httpClient } = useAppRuntime();
   const files = useFilesCapability();
   const toast = useToast();
+  const { tokens } = useAppTheme();
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
 
@@ -37,7 +39,10 @@ export function FeedDetailScreen({ itemId, onBack }: FeedDetailScreenProps): Rea
 
   if (isLoading || error || !data) {
     return (
-      <Screen edges={['top', 'bottom', 'left', 'right']}>
+      <Screen
+        edges={['top', 'bottom', 'left', 'right']}
+        statusBarBackgroundColor={tokens.colors.surface}
+      >
         <PageTemplate
           status={isLoading ? 'loading' : 'error'}
           header={

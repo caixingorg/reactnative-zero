@@ -50,12 +50,32 @@ const MOCK_PAGE_2: MockFeedRecord[] = [
   },
 ];
 
+interface MockAccount {
+  id: string;
+  username: string;
+  password: string;
+  displayName: string;
+}
+
 // 原因：将本地开发 Mock 数据源收敛为标准边缘传输驱动，使业务切片保持 100% 纯净真实接口调用而无需散落环境判断分支
 export function createMockHttpTransport(): HttpTransportDriver {
+  const accounts = new Map<string, MockAccount>([
+    [
+      'admin',
+      {
+        id: 'mock-u1',
+        username: 'admin',
+        password: 'password123',
+        displayName: '测试管理员',
+      },
+    ],
+  ]);
+
   return async (req: RawHttpRequest): Promise<RawHttpResponse> => {
     if (req.url.endsWith('/auth/login') && req.method === 'POST') {
       const body = (req.data ?? {}) as { username?: string; password?: string };
-      if (body.username === 'admin' && body.password === 'password123') {
+      const account = body.username ? accounts.get(body.username) : undefined;
+      if (account && body.password === account.password) {
         return {
           status: 200,
           headers: {},
@@ -68,9 +88,9 @@ export function createMockHttpTransport(): HttpTransportDriver {
                 refreshToken: 'mock-refresh-token',
               },
               user: {
-                id: 'mock-u1',
-                username: 'admin',
-                displayName: '测试管理员',
+                id: account.id,
+                username: account.username,
+                displayName: account.displayName,
               },
             },
           },
@@ -80,6 +100,117 @@ export function createMockHttpTransport(): HttpTransportDriver {
         status: 200,
         headers: {},
         data: { code: 10002, message: '测试账号为 admin，密码为 password123', data: null },
+      };
+    }
+
+    if (req.url.endsWith('/auth/register') && req.method === 'POST') {
+      const body = (req.data ?? {}) as {
+        username?: string;
+        password?: string;
+        displayName?: string;
+      };
+      const username = (body.username ?? '').trim();
+      const password = (body.password ?? '').trim();
+      const displayName = (body.displayName ?? username).trim();
+      if (username.length < 3 || password.length < 6) {
+        return {
+          status: 200,
+          headers: {},
+          data: { code: 10003, message: '账号至少 3 位且密码至少 6 位', data: null },
+        };
+      }
+      if (accounts.has(username)) {
+        return {
+          status: 200,
+          headers: {},
+          data: { code: 10004, message: '该账号已注册，请直接登录或找回密码', data: null },
+        };
+      }
+      const created: MockAccount = {
+        id: `mock-u-${accounts.size + 1}`,
+        username,
+        password,
+        displayName,
+      };
+      accounts.set(username, created);
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          code: 0,
+          message: 'ok',
+          data: { id: created.id, username: created.username, displayName: created.displayName },
+        },
+      };
+    }
+
+    if (req.url.endsWith('/auth/reset-password') && req.method === 'POST') {
+      const body = (req.data ?? {}) as { username?: string; newPassword?: string };
+      const username = (body.username ?? '').trim();
+      const newPassword = (body.newPassword ?? '').trim();
+      const account = accounts.get(username);
+      if (!account) {
+        return {
+          status: 200,
+          headers: {},
+          data: { code: 10005, message: '未找到该账号，请先注册', data: null },
+        };
+      }
+      if (newPassword.length < 6) {
+        return {
+          status: 200,
+          headers: {},
+          data: { code: 10006, message: '新密码长度至少为 6 位', data: null },
+        };
+      }
+      account.password = newPassword;
+      return {
+        status: 200,
+        headers: {},
+        data: { code: 0, message: 'ok', data: { reset: true } },
+      };
+    }
+
+    if (req.url.endsWith('/auth/change-password') && req.method === 'POST') {
+      const body = (req.data ?? {}) as {
+        username?: string;
+        currentPassword?: string;
+        newPassword?: string;
+      };
+      const account = body.username ? accounts.get(body.username) : undefined;
+      if (!account || account.password !== body.currentPassword) {
+        return {
+          status: 200,
+          headers: {},
+          data: { code: 10007, message: '当前密码不正确', data: null },
+        };
+      }
+      if (!body.newPassword || body.newPassword.length < 6) {
+        return {
+          status: 200,
+          headers: {},
+          data: { code: 10006, message: '新密码长度至少为 6 位', data: null },
+        };
+      }
+      account.password = body.newPassword;
+      return {
+        status: 200,
+        headers: {},
+        data: { code: 0, message: 'ok', data: { updated: true } },
+      };
+    }
+
+    if (req.url.endsWith('/auth/account') && req.method === 'DELETE') {
+      const username =
+        (typeof req.params?.username === 'string' ? req.params.username : undefined) ??
+        ((req.data ?? {}) as { username?: string }).username;
+      if (username) {
+        accounts.delete(username);
+      }
+      return {
+        status: 200,
+        headers: {},
+        data: { code: 0, message: 'ok', data: { deleted: true } },
       };
     }
 

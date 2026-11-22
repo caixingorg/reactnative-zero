@@ -4,6 +4,7 @@ import { appIdentity } from '@root/app.identity';
 import { AppRuntimeProvider } from '@/core/runtime';
 import { formatDateYmd, getDaysInMonth } from '@/core/ui';
 import { RegisterScreen, type RegisterFormValues } from '@/features/auth';
+import { createMockHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -17,6 +18,9 @@ function createRuntime() {
       },
     },
     env: TEST_RUNTIME_ENV,
+    overrides: {
+      httpTransport: createMockHttpTransport(),
+    },
   });
 }
 

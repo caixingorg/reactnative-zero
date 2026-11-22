@@ -52,7 +52,7 @@ export function FormTemplate({
   return (
     <SafeAreaView
       edges={['top', 'left', 'right']}
-      style={[styles.root, { backgroundColor: tokens.colors.background }]}
+      style={[styles.root, { backgroundColor: tokens.colors.surface }]}
     >
       <AppHeader title={title} showBack={Boolean(onBack)} onBack={onBack} />
       <Screen scrollable edges={[]}>

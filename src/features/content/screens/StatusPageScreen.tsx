@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppTheme } from '@/core/theme/theme-context';
 import { AppHeader, PageTemplate, Screen, type PageStatus } from '@/core/ui';
 
 export type StatusPageKind = 'empty' | 'error' | 'offline' | 'not-found';
@@ -16,10 +17,14 @@ export function StatusPageScreen({
   onBack,
   onRetry,
 }: StatusPageScreenProps = {}): React.JSX.Element {
+  const { tokens } = useAppTheme();
   const status: PageStatus = kind === 'not-found' ? 'empty' : kind;
 
   return (
-    <Screen edges={['top', 'bottom', 'left', 'right']}>
+    <Screen
+      edges={['top', 'bottom', 'left', 'right']}
+      statusBarBackgroundColor={tokens.colors.surface}
+    >
       <PageTemplate
         status={status}
         header={<AppHeader title={title} showBack={Boolean(onBack)} onBack={onBack} />}

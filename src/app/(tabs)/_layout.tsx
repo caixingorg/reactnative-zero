@@ -4,11 +4,13 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/core/theme/theme-context';
 import { pageActionsRegistry } from '@/core/ui';
+import { useMessagesTotalUnread } from '@/features/messages';
 
 // 原因：Route Shell 底部标签壳仅负责声明式路由、图标角标映射与重复点击当前标签回顶/刷新转发
 export default function MainTabsLayout(): React.JSX.Element {
   const { t } = useTranslation();
   const { tokens } = useAppTheme();
+  const totalUnread = useMessagesTotalUnread();
 
   const createReselectListeners = ({
     navigation,
@@ -68,7 +70,7 @@ export default function MainTabsLayout(): React.JSX.Element {
         listeners={createReselectListeners}
         options={{
           title: t('tabs.messages'),
-          tabBarBadge: 4,
+          tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
           tabBarIcon: ({ color, size }) => (
             <Ionicons
               name="chatbubble-ellipses-outline"

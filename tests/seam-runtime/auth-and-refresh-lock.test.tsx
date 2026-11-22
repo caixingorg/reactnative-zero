@@ -612,4 +612,62 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
     expect(runtime.privacyGateStore.getState().phase).toBe('ready');
     expect(runtime.authSessionStore.getState().status).toBe('authenticated');
   });
+
+  it('supports end-to-end account lifecycle: register, forgot-password reset, change password, and account deletion', async () => {
+    const user = userEvent.setup();
+    const secretStorage = createMemorySecretStorage();
+    const keyValueStorage = createMemoryKeyValueStorage();
+    const runtime = createTestRuntime({
+      identity: noPrivacyGateIdentity,
+      env: TEST_RUNTIME_ENV,
+      translations: appTranslationResources,
+      overrides: {
+        secretStorage,
+        keyValueStorage,
+        initialDeviceLocale: 'zh-CN',
+        httpTransport: createMockHttpTransport(),
+      },
+    });
+    await runtime.authSessionStore.getState().hydrateSession();
+
+    // 1. Register new account via mock gateway
+    await runtime.httpClient.post(
+      '/auth/register',
+      { username: '13900139000', password: 'initPassword1', displayName: '新成员' },
+      { skipAuth: true },
+    );
+
+    // 2. Forgot password reset on LoginScreen and login with the new password
+    const loginMount = await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <LoginScreen />
+      </AppRuntimeProvider>,
+    );
+    await user.press(screen.getByTestId('login-forgot-password'));
+    await user.type(screen.getByTestId('reset-username-input'), '13900139000');
+    await user.type(screen.getByTestId('reset-password-input'), 'resetPass2');
+    await user.press(screen.getByTestId('reset-password-submit'));
+
+    await user.type(screen.getByPlaceholderText('请输入密码'), 'resetPass2');
+    await user.press(screen.getByRole('button', { name: '登录' }));
+    expect(runtime.authSessionStore.getState().status).toBe('authenticated');
+    expect(runtime.authSessionStore.getState().user?.username).toBe('13900139000');
+    await loginMount.unmount();
+
+    // 3. Change password and delete account in SettingsScreen
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <SettingsScreen />
+      </AppRuntimeProvider>,
+    );
+    await user.press(screen.getByTestId('settings-change-password-btn'));
+    await user.type(screen.getByTestId('settings-current-password-input'), 'resetPass2');
+    await user.type(screen.getByTestId('settings-new-password-input'), 'finalPass3');
+    await user.press(screen.getByTestId('settings-change-password-submit'));
+
+    await user.press(screen.getByTestId('settings-delete-account-btn'));
+    await user.press(screen.getByText('确认注销'));
+    expect(runtime.authSessionStore.getState().status).toBe('unauthenticated');
+    expect(await secretStorage.getSecret('auth.access_token')).toBeNull();
+  });
 });

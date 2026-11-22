@@ -18,23 +18,22 @@ import {
   type TopTabItem,
 } from '@/core/ui';
 import { useMockPaginatedFeed, type MockListRecord } from '@/shared';
+import {
+  useMessagesTotalUnread,
+  useMessagesUnreadStore,
+  type MessageChannelKey,
+} from '../messages-unread-store';
 
 export interface MessagesScreenProps {
   onSelectRecord?: (record: MockListRecord) => void;
 }
-
-const MESSAGES_TABS: readonly TopTabItem[] = [
-  { key: 'notifications', label: '通知', badgeCount: 3 },
-  { key: 'interactions', label: '互动', showDot: true },
-  { key: 'direct', label: '私信', badgeCount: 1 },
-];
 
 function MessagesSubTab({
   tabKey,
   isActive,
   onSelectRecord,
 }: {
-  tabKey: string;
+  tabKey: MessageChannelKey;
   isActive: boolean;
   onSelectRecord?: (record: MockListRecord) => void;
 }): React.JSX.Element {
@@ -43,6 +42,9 @@ function MessagesSubTab({
   const files = useFilesCapability();
   const toast = useToast();
   const feed = useMockPaginatedFeed(tabKey);
+  const allRead = useMessagesUnreadStore((state) => state.allRead);
+  const readItemIds = useMessagesUnreadStore((state) => state.readItemIds);
+  const markItemRead = useMessagesUnreadStore((state) => state.markItemRead);
 
   const status: PageStatus =
     feed.isLoading && feed.items.length === 0
@@ -162,38 +164,44 @@ function MessagesSubTab({
         onLoadMore={() => {
           void feed.fetchNextPage();
         }}
-        renderItem={(entry) => (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onSelectRecord?.(entry)}
-            style={({ pressed }) => [pressed && styles.pressed]}
-          >
-            <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
-              <View
-                style={[
-                  styles.unreadDot,
-                  {
-                    backgroundColor: entry.unread ? tokens.colors.danger : 'transparent',
-                    borderRadius: tokens.radii.full,
-                  },
-                ]}
-              />
-              <VStack flex={1} gap="xs">
-                <HStack justify="space-between" align="center" gap="sm">
-                  <AppText variant="bodyMd" weight="600" numberOfLines={1} style={styles.flex}>
-                    {entry.title}
+        renderItem={(entry) => {
+          const isUnread = Boolean(entry.unread) && !allRead && !readItemIds[entry.id];
+          return (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                markItemRead(tabKey, entry.id, isUnread);
+                onSelectRecord?.(entry);
+              }}
+              style={({ pressed }) => [pressed && styles.pressed]}
+            >
+              <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
+                <View
+                  style={[
+                    styles.unreadDot,
+                    {
+                      backgroundColor: isUnread ? tokens.colors.danger : 'transparent',
+                      borderRadius: tokens.radii.full,
+                    },
+                  ]}
+                />
+                <VStack flex={1} gap="xs">
+                  <HStack justify="space-between" align="center" gap="sm">
+                    <AppText variant="bodyMd" weight="600" numberOfLines={1} style={styles.flex}>
+                      {entry.title}
+                    </AppText>
+                    <AppText variant="caption" tone="secondary">
+                      {entry.meta}
+                    </AppText>
+                  </HStack>
+                  <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
+                    {entry.summary}
                   </AppText>
-                  <AppText variant="caption" tone="secondary">
-                    {entry.meta}
-                  </AppText>
-                </HStack>
-                <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
-                  {entry.summary}
-                </AppText>
-              </VStack>
-            </HStack>
-          </Pressable>
-        )}
+                </VStack>
+              </HStack>
+            </Pressable>
+          );
+        }}
       />
     </View>
   );
@@ -201,25 +209,55 @@ function MessagesSubTab({
 
 export function MessagesScreen({ onSelectRecord }: MessagesScreenProps = {}): React.JSX.Element {
   const { tokens } = useAppTheme();
+  const toast = useToast();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
+  const unreadCounts = useMessagesUnreadStore((state) => state.unreadCounts);
+  const allRead = useMessagesUnreadStore((state) => state.allRead);
+  const markAllRead = useMessagesUnreadStore((state) => state.markAllRead);
+  const totalUnread = useMessagesTotalUnread();
+
+  const tabs: readonly TopTabItem[] = [
+    { key: 'notifications', label: '通知', badgeCount: unreadCounts.notifications },
+    { key: 'interactions', label: '互动', showDot: !allRead },
+    { key: 'direct', label: '私信', badgeCount: unreadCounts.direct },
+  ];
+
+  const handleMarkAllRead = (): void => {
+    markAllRead();
+    toast.show({ message: '已全部标为已读', tone: 'success' });
+  };
 
   return (
     <Screen statusBarBackgroundColor={tokens.colors.surface}>
       <TopTabs
-        tabs={MESSAGES_TABS}
+        tabs={tabs}
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
+        rightSlot={
+          totalUnread > 0 || !allRead ? (
+            <Pressable
+              testID="messages-mark-all-read"
+              accessibilityRole="button"
+              accessibilityLabel="全部已读"
+              onPress={handleMarkAllRead}
+              hitSlop={8}
+              style={({ pressed }) => [styles.markReadBtn, pressed && styles.pressed]}
+            >
+              <Ionicons name="checkmark-done-outline" size={20} color={tokens.colors.textPrimary} />
+            </Pressable>
+          ) : undefined
+        }
       />
       <TabPager
-        pageCount={MESSAGES_TABS.length}
+        pageCount={tabs.length}
         activeIndex={activeIndex}
         onIndexChange={setActiveIndex}
         scrollProgress={scrollProgress}
         renderPage={(index, isActive) => (
           <MessagesSubTab
-            tabKey={MESSAGES_TABS[index]?.key ?? 'notifications'}
+            tabKey={(tabs[index]?.key ?? 'notifications') as MessageChannelKey}
             isActive={isActive}
             onSelectRecord={onSelectRecord}
           />
@@ -243,6 +281,12 @@ const styles = StyleSheet.create({
   unreadDot: {
     width: 8,
     height: 8,
+  },
+  markReadBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.72,
