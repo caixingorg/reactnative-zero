@@ -1,16 +1,36 @@
 /**
  * @module core/ui/TabPager
- * 职责：基于 react-native-pager-view 的横向分页容器，支持左右滑动切换、连续进度驱动 TopTabs 指示条、子页首次访问懒挂载且窗口化保活。
+ * 职责：基于 react-native-pager-view 的横向分页容器，支持左右滑动切换、连续进度驱动 TopTabs 指示条、子页首次访问懒挂载且窗口化保活；
+ * 当旧版开发客户端尚未重编入 RNCViewPager 原生视图时，自动平滑回退至 Reanimated Animated.ScrollView 分页容器，杜绝 UnimplementedView 红屏。
  * 边界：不持有具体页面内容，纯下标/挂载决策委托给 page-shell-logic。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import {
+  StyleSheet,
+  UIManager,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import PagerView, {
   type PagerViewOnPageScrollEvent,
   type PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view';
-import type { SharedValue } from 'react-native-reanimated';
-import { markPageVisited, shouldMountPage } from './page-shell-logic';
+import Animated, { useAnimatedScrollHandler, type SharedValue } from 'react-native-reanimated';
+import { markPageVisited, resolveActiveIndex, shouldMountPage } from './page-shell-logic';
+
+function isNativePagerViewRegistered(): boolean {
+  if ((PagerView as unknown as { __isJestMock?: boolean })?.__isJestMock === true) {
+    return true;
+  }
+  try {
+    return Boolean(UIManager.getViewManagerConfig?.('RNCViewPager'));
+  } catch {
+    return false;
+  }
+}
 
 export interface TabPagerProps {
   pageCount: number;
@@ -77,6 +97,11 @@ export function TabPager({
     : 1;
 
   const pagerRef = useRef<PagerView>(null);
+  const fallbackScrollRef = useRef<React.ComponentRef<typeof Animated.ScrollView>>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const pageWidth = measuredWidth > 0 ? measuredWidth : windowWidth;
+  const useNativePager = isNativePagerViewRegistered();
   // 原因：记录原生 PagerView 当前已知页码，区分“外部 activeIndex 变化”与“onPageSelected 回传”，避免 setPage 反馈循环
   const nativePageRef = useRef<number | null>(null);
 
@@ -111,6 +136,16 @@ export function TabPager({
         scrollProgress.set(Math.min(maxIndex, Math.max(0, currentProgress)));
       }
     }
+    if (!useNativePager) {
+      if (pageWidth > 0) {
+        fallbackScrollRef.current?.scrollTo({
+          x: resolvedActiveIndex * pageWidth,
+          animated: true,
+        });
+      }
+      scrollProgress?.set(resolvedActiveIndex);
+      return;
+    }
     if (nativePageRef.current === null) {
       nativePageRef.current = resolvedActiveIndex;
       return;
@@ -119,7 +154,40 @@ export function TabPager({
       nativePageRef.current = resolvedActiveIndex;
       pagerRef.current?.setPage(resolvedActiveIndex);
     }
-  }, [resolvedActiveIndex, safePageCount, scrollProgress]);
+  }, [pageWidth, resolvedActiveIndex, safePageCount, scrollProgress, useNativePager]);
+
+  const handleFallbackScroll = useAnimatedScrollHandler(
+    {
+      onScroll: (event) => {
+        if (pageWidth <= 0 || safePageCount <= 0) {
+          return;
+        }
+        const raw = event.contentOffset.x / pageWidth;
+        const clamped = Math.min(Math.max(0, safePageCount - 1), Math.max(0, raw));
+        scrollProgress?.set(clamped);
+      },
+    },
+    [pageWidth, safePageCount, scrollProgress],
+  );
+
+  const handleFallbackLayout = (event: LayoutChangeEvent): void => {
+    const nextWidth = event.nativeEvent.layout.width;
+    if (nextWidth > 0 && nextWidth !== measuredWidth) {
+      setMeasuredWidth(nextWidth);
+    }
+  };
+
+  const handleFallbackScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+    const nextIndex = resolveActiveIndex(
+      event.nativeEvent.contentOffset.x,
+      pageWidth,
+      safePageCount,
+    );
+    setVisited((prev) => markPageVisited(prev, nextIndex));
+    if (nextIndex !== resolvedActiveIndex) {
+      onIndexChange(nextIndex);
+    }
+  };
 
   const handlePageScroll = (event: PagerViewOnPageScrollEvent): void => {
     if (!scrollProgress || safePageCount <= 0) {
@@ -163,6 +231,40 @@ export function TabPager({
     safeKeepAliveRadius < 0
       ? maxOffscreenLimit
       : Math.min(maxOffscreenLimit, Math.max(1, safeKeepAliveRadius));
+
+  if (!useNativePager) {
+    return (
+      <View testID={testID} style={styles.container}>
+        <Animated.ScrollView
+          ref={fallbackScrollRef}
+          testID="tab-pager-scroll"
+          horizontal
+          pagingEnabled
+          scrollEnabled={scrollEnabled}
+          nestedScrollEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onLayout={handleFallbackLayout}
+          onScroll={handleFallbackScroll}
+          onMomentumScrollEnd={handleFallbackScrollEnd}
+          style={styles.flex}
+        >
+          {pageIndices.map((index) => (
+            <View
+              key={index}
+              testID={`tab-pager-page-${index}`}
+              style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.flex]}
+            >
+              {shouldMountPage(effectiveVisited, index, resolvedActiveIndex, safeKeepAliveRadius)
+                ? renderPage(index, index === resolvedActiveIndex)
+                : null}
+            </View>
+          ))}
+        </Animated.ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View testID={testID} style={styles.container}>

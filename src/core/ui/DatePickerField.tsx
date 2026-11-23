@@ -9,7 +9,9 @@ import React, { useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
+  UIManager,
   View,
   type StyleProp,
   type ViewStyle,
@@ -18,7 +20,21 @@ import { useAppTheme } from '../theme/theme-context';
 import { AppText } from './AppText';
 import { BottomSheetModal } from './BottomSheetModal';
 import { Button } from './Button';
-import { VStack } from './Stack';
+import { HStack, VStack } from './Stack';
+
+function isNativeDateTimePickerRegistered(): boolean {
+  if ((DateTimePicker as unknown as { __isJestMock?: boolean })?.__isJestMock === true) {
+    return true;
+  }
+  try {
+    return Boolean(
+      UIManager.getViewManagerConfig?.('RNDateTimePicker') ||
+      UIManager.getViewManagerConfig?.('RNCDatePicker'),
+    );
+  } catch {
+    return false;
+  }
+}
 
 export interface DatePickerFieldProps {
   label?: string;
@@ -98,6 +114,13 @@ export function DatePickerField({
 
   const maxDay = getDaysInMonth(draftYear, draftMonth);
   const safeDraftDay = Math.min(draftDay, maxDay);
+  const useNativePicker = isNativeDateTimePickerRegistered();
+  const years = useMemo(
+    () => Array.from({ length: Math.max(1, maxYear - minYear + 1) }, (_, idx) => maxYear - idx),
+    [maxYear, minYear],
+  );
+  const months = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
+  const days = useMemo(() => Array.from({ length: maxDay }, (_, idx) => idx + 1), [maxDay]);
 
   const draftDate = useMemo(
     () => toLocalNoonDate(draftYear, draftMonth, safeDraftDay),
@@ -184,15 +207,101 @@ export function DatePickerField({
             {formatDateYmd(draftYear, draftMonth, safeDraftDay)}
           </AppText>
 
-          <DateTimePicker
-            testID={testID ? `${testID}-native` : 'date-picker-native'}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            value={draftDate}
-            minimumDate={minimumDate}
-            maximumDate={maximumDate}
-            onChange={handleNativeChange}
-          />
+          {useNativePicker ? (
+            <DateTimePicker
+              testID={testID ? `${testID}-native` : 'date-picker-native'}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              value={draftDate}
+              minimumDate={minimumDate}
+              maximumDate={maximumDate}
+              onChange={handleNativeChange}
+            />
+          ) : (
+            <HStack gap="sm" style={styles.columns}>
+              <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
+                {years.map((y) => {
+                  const selected = y === draftYear;
+                  return (
+                    <Pressable
+                      key={y}
+                      testID={testID ? `${testID}-year-${y}` : undefined}
+                      onPress={() => setDraftYear(y)}
+                      style={[
+                        styles.option,
+                        {
+                          backgroundColor: selected ? tokens.colors.primarySoft : 'transparent',
+                          borderRadius: tokens.radii.sm,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        variant="bodySm"
+                        tone={selected ? 'brand' : 'primary'}
+                        weight={selected ? '700' : '400'}
+                      >
+                        {y}年
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
+                {months.map((m) => {
+                  const selected = m === draftMonth;
+                  return (
+                    <Pressable
+                      key={m}
+                      testID={testID ? `${testID}-month-${m}` : undefined}
+                      onPress={() => setDraftMonth(m)}
+                      style={[
+                        styles.option,
+                        {
+                          backgroundColor: selected ? tokens.colors.primarySoft : 'transparent',
+                          borderRadius: tokens.radii.sm,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        variant="bodySm"
+                        tone={selected ? 'brand' : 'primary'}
+                        weight={selected ? '700' : '400'}
+                      >
+                        {String(m).padStart(2, '0')}月
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
+                {days.map((d) => {
+                  const selected = d === safeDraftDay;
+                  return (
+                    <Pressable
+                      key={d}
+                      testID={testID ? `${testID}-day-${d}` : undefined}
+                      onPress={() => setDraftDay(d)}
+                      style={[
+                        styles.option,
+                        {
+                          backgroundColor: selected ? tokens.colors.primarySoft : 'transparent',
+                          borderRadius: tokens.radii.sm,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        variant="bodySm"
+                        tone={selected ? 'brand' : 'primary'}
+                        weight={selected ? '700' : '400'}
+                      >
+                        {String(d).padStart(2, '0')}日
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </HStack>
+          )}
 
           <Button
             label="确定"
@@ -219,5 +328,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  columns: {
+    height: 220,
+  },
+  column: {
+    flex: 1,
+  },
+  option: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

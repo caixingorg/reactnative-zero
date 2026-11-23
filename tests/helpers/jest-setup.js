@@ -69,6 +69,8 @@ jest.mock('react-native-pager-view', () => {
     }
   }
 
+  MockPagerView.__isJestMock = true;
+
   return {
     __esModule: true,
     default: MockPagerView,
@@ -177,6 +179,8 @@ jest.mock('@react-native-community/datetimepicker', () => {
         : null,
     );
   }
+
+  MockDateTimePicker.__isJestMock = true;
 
   return {
     __esModule: true,
