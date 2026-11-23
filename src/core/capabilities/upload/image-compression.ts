@@ -65,7 +65,13 @@ export async function compressImageForUpload(
   return { ...result, mimeType: 'image/jpeg' };
 }
 
-export function cleanupTemporaryUploadFile(uri: string): void {
+export function cleanupTemporaryUploadFile(uri: string, sourceUri?: string): void {
+  if (!uri || (sourceUri !== undefined && uri === sourceUri)) {
+    return;
+  }
+  if (/^(https?:|data:)/i.test(uri)) {
+    return;
+  }
   try {
     const FileSystem = require('expo-file-system') as typeof import('expo-file-system');
     const file = new FileSystem.File(uri);

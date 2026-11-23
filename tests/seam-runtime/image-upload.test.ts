@@ -1,23 +1,39 @@
+import React from 'react';
+import { renderHook } from '@testing-library/react-native';
 import type { HttpRequest, HttpResponse, HttpStack } from 'tus-js-client';
 import { appIdentity } from '@root/app.identity';
 import {
   compressImageForUpload,
   computeResize,
+  createMediaCompressionCapability,
   createTusResumableUploader,
   createUploadQueueStore,
   createUploadService,
+  runUploadWithMediaCleanup,
   TUS_URL_STORAGE_KEY,
   UploadError,
+  useUploadCapability,
+  type MediaCompressionDriver,
   type TusFileReader,
   type UploadDriver,
   type UploadDriverRequest,
 } from '@/core/capabilities/upload';
+import { AppRuntimeProvider, type AppRuntime } from '@/core/runtime';
 import {
   createMemoryKeyValueStorage,
   createMemorySecretStorage,
 } from '@/core/storage/memory-storage';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
+
+function createRuntimeWrapper(runtime: AppRuntime) {
+  const providerProps = {
+    runtime,
+  } as unknown as React.ComponentProps<typeof AppRuntimeProvider>;
+  return function RuntimeWrapper({ children }: { children: React.ReactNode }): React.ReactElement {
+    return React.createElement(AppRuntimeProvider, providerProps, children);
+  };
+}
 
 const noPrivacyGateIdentity = {
   ...appIdentity,
@@ -566,6 +582,335 @@ describe('Seam: image compression and single-file upload', () => {
 
       store.getState().clearFinished();
       expect(store.getState().tasks).toHaveLength(0);
+    });
+
+    it('cleans up temporary files on done, cancelled, and clearFinished without deleting paused, failed, or sourceUri files', async () => {
+      const cleaned: { uri: string; sourceUri?: string }[] = [];
+      const resolvers = new Map<
+        string,
+        { resolve: (v: { resultUrl?: string }) => void; reject: (e: unknown) => void }
+      >();
+
+      const store = createUploadQueueStore({
+        concurrency: 2,
+        cleanupTemporaryFile: (uri, sourceUri) => {
+          cleaned.push({ uri, sourceUri });
+        },
+        executeTask: ({ task, signal }) =>
+          new Promise<{ resultUrl?: string }>((resolve, reject) => {
+            signal.addEventListener('abort', () => {
+              reject(new UploadError('cancelled', 'cancelled'));
+            });
+            resolvers.set(task.id, { resolve, reject });
+          }),
+      });
+
+      const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      const doneId = store.getState().enqueue({
+        fileUri: 'file:///cache/done-compressed.mp4',
+        sourceUri: 'file:///dcim/done-original.mp4',
+        isTemporaryFile: true,
+        fileName: 'done.mp4',
+        mimeType: 'video/mp4',
+      });
+      const failPauseId = store.getState().enqueue({
+        fileUri: 'file:///cache/retry-compressed.mp4',
+        sourceUri: 'file:///dcim/retry-original.mp4',
+        isTemporaryFile: true,
+        fileName: 'retry.mp4',
+        mimeType: 'video/mp4',
+      });
+      const queuedCancelId = store.getState().enqueue({
+        fileUri: 'file:///cache/queued-compressed.mp4',
+        sourceUri: 'file:///dcim/queued-original.mp4',
+        isTemporaryFile: true,
+        fileName: 'queued.mp4',
+        mimeType: 'video/mp4',
+      });
+      const sourcePassthroughId = store.getState().enqueue({
+        fileUri: 'file:///dcim/passthrough-original.mp4',
+        sourceUri: 'file:///dcim/passthrough-original.mp4',
+        isTemporaryFile: false,
+        fileName: 'passthrough.mp4',
+        mimeType: 'video/mp4',
+      });
+
+      // Active task 1 succeeds -> cleans up its temp file
+      resolvers.get(doneId)?.resolve({ resultUrl: 'https://cdn.example.com/done.mp4' });
+      await flush();
+      expect(cleaned).toEqual([
+        { uri: 'file:///cache/done-compressed.mp4', sourceUri: 'file:///dcim/done-original.mp4' },
+      ]);
+
+      // Active task 2 pauses -> temp file MUST be preserved for resume
+      store.getState().pause(failPauseId);
+      await flush();
+      expect(store.getState().tasks.find((t) => t.id === failPauseId)?.status).toBe('paused');
+      expect(cleaned).toHaveLength(1);
+
+      // Cancel active task 3 -> cleans up temp file and frees concurrency slot
+      store.getState().cancel(queuedCancelId);
+      await flush();
+      expect(cleaned).toEqual([
+        { uri: 'file:///cache/done-compressed.mp4', sourceUri: 'file:///dcim/done-original.mp4' },
+        {
+          uri: 'file:///cache/queued-compressed.mp4',
+          sourceUri: 'file:///dcim/queued-original.mp4',
+        },
+      ]);
+
+      // Enqueue a queued task while 1 slot is taken by sourcePassthroughId, then resume failPauseId (takes 2nd slot),
+      // and cancel the queued task directly without ever starting it
+      store.getState().resume(failPauseId);
+      const neverStartedQueuedId = store.getState().enqueue({
+        fileUri: 'file:///cache/never-started.mp4',
+        sourceUri: 'file:///dcim/never-started.mp4',
+        isTemporaryFile: true,
+        fileName: 'never-started.mp4',
+        mimeType: 'video/mp4',
+      });
+      expect(store.getState().tasks.find((t) => t.id === neverStartedQueuedId)?.status).toBe(
+        'queued',
+      );
+      store.getState().cancel(neverStartedQueuedId);
+      expect(cleaned).toHaveLength(3);
+      expect(cleaned[2]).toEqual({
+        uri: 'file:///cache/never-started.mp4',
+        sourceUri: 'file:///dcim/never-started.mp4',
+      });
+
+      // Fail task 2 -> temp file MUST be preserved for retry
+      resolvers.get(failPauseId)?.reject(new UploadError('network', 'network drop'));
+      await flush();
+      expect(store.getState().tasks.find((t) => t.id === failPauseId)?.status).toBe('failed');
+      expect(cleaned).toHaveLength(3);
+
+      // Source passthrough task finishes -> cleanupTemporaryFile is NOT invoked
+      resolvers.get(sourcePassthroughId)?.resolve({ resultUrl: 'https://cdn.example.com/p.mp4' });
+      await flush();
+      expect(cleaned).toHaveLength(3);
+
+      // clearFinished sweeps only remaining finished/cancelled tasks, never failed/paused tasks
+      store.getState().clearFinished();
+      expect(store.getState().tasks.map((t) => t.id)).toEqual([failPauseId]);
+    });
+  });
+
+  describe('mediaCompression capability switch, driver override, and cleanup lifecycle', () => {
+    it('returns passthrough without touching the native or override driver when mediaCompression is false or omitted', async () => {
+      const driver: MediaCompressionDriver = {
+        compressVideo: jest.fn(async () => 'file:///cache/compressed.mp4'),
+        compressImage: jest.fn(async () => 'file:///cache/compressed.jpg'),
+        getFileSize: jest.fn(async () => 1234),
+      };
+
+      const omittedCapabilities = { ...noPrivacyGateIdentity.capabilities };
+      delete omittedCapabilities.mediaCompression;
+
+      for (const capabilities of [
+        omittedCapabilities,
+        { ...noPrivacyGateIdentity.capabilities, mediaCompression: false },
+      ]) {
+        const runtime = createTestRuntime({
+          identity: { ...noPrivacyGateIdentity, capabilities },
+          env: TEST_RUNTIME_ENV,
+          overrides: {
+            capabilities: {
+              mediaCompressionDriver: driver,
+            },
+          },
+        });
+
+        const wrapper = createRuntimeWrapper(runtime);
+        const { result, unmount } = await renderHook(() => useUploadCapability(), { wrapper });
+
+        expect(result.current.mediaCompressionEnabled).toBe(false);
+        expect(result.current.uploadService).toBeDefined();
+        expect(result.current.tusUploader).toBeDefined();
+        expect(result.current.compressionDriver).toBeDefined();
+
+        const videoResult = await result.current.mediaCompressor.compressVideo('file:///raw.mp4');
+        const imageResult = await result.current.mediaCompressor.compressImage('file:///raw.jpg');
+        const size = await result.current.mediaCompressor.getFileSize('file:///raw.mp4');
+
+        expect(videoResult).toEqual({
+          uri: 'file:///raw.mp4',
+          sourceUri: 'file:///raw.mp4',
+          isTemporary: false,
+          skipped: true,
+        });
+        expect(imageResult).toEqual({
+          uri: 'file:///raw.jpg',
+          sourceUri: 'file:///raw.jpg',
+          isTemporary: false,
+          skipped: true,
+        });
+        expect(size).toBeUndefined();
+        await unmount();
+      }
+
+      expect(driver.compressVideo).not.toHaveBeenCalled();
+      expect(driver.compressImage).not.toHaveBeenCalled();
+      expect(driver.getFileSize).not.toHaveBeenCalled();
+    });
+
+    it('resolves mediaCompressionDriver override via AppRuntime when mediaCompression is enabled and forwards video/image options & progress', async () => {
+      const driver: MediaCompressionDriver = {
+        compressVideo: jest.fn(async (_uri, options) => {
+          options?.onProgress?.(0.5);
+          options?.onProgress?.(1);
+          return 'file:///cache/video-compressed.mp4';
+        }),
+        compressImage: jest.fn(async (_uri, options) =>
+          options?.returnableOutputType === 'base64'
+            ? 'ZmFrZQ=='
+            : 'file:///cache/img-compressed.jpg',
+        ),
+        getFileSize: jest.fn(async (targetUri) => (targetUri.endsWith('.mp4') ? 2048000 : 102400)),
+      };
+
+      const runtime = createTestRuntime({
+        identity: {
+          ...noPrivacyGateIdentity,
+          capabilities: { ...noPrivacyGateIdentity.capabilities, mediaCompression: true },
+        },
+        env: TEST_RUNTIME_ENV,
+        overrides: {
+          capabilities: {
+            mediaCompressionDriver: driver,
+          },
+        },
+      });
+
+      const wrapper = createRuntimeWrapper(runtime);
+      const { result, unmount } = await renderHook(() => useUploadCapability(), { wrapper });
+
+      expect(result.current.mediaCompressionEnabled).toBe(true);
+      const progressValues: number[] = [];
+
+      const videoResult = await result.current.mediaCompressor.compressVideo(
+        'file:///dcim/raw.mp4',
+        {
+          compressionMethod: 'manual',
+          maxSize: 1280,
+          bitrate: 1_500_000,
+          onProgress: (p) => progressValues.push(p),
+        },
+      );
+
+      expect(videoResult).toEqual({
+        uri: 'file:///cache/video-compressed.mp4',
+        sourceUri: 'file:///dcim/raw.mp4',
+        isTemporary: true,
+        skipped: false,
+        sizeBytes: 2048000,
+      });
+      expect(progressValues).toEqual([0.5, 1]);
+
+      const base64Result = await result.current.mediaCompressor.compressImage(
+        'file:///dcim/raw.jpg',
+        { returnableOutputType: 'base64' },
+      );
+      expect(base64Result).toEqual({
+        uri: 'ZmFrZQ==',
+        sourceUri: 'file:///dcim/raw.jpg',
+        isTemporary: false,
+        skipped: false,
+      });
+
+      const imageUriResult = await result.current.mediaCompressor.compressImage(
+        'file:///dcim/raw.jpg',
+        { maxWidth: 1200, quality: 0.8 },
+      );
+      expect(imageUriResult).toEqual({
+        uri: 'file:///cache/img-compressed.jpg',
+        sourceUri: 'file:///dcim/raw.jpg',
+        isTemporary: true,
+        skipped: false,
+        sizeBytes: 102400,
+      });
+      await unmount();
+    });
+
+    it('marks skipped when driver returns original sourceUri and runUploadWithMediaCleanup protects sourceUri while cleaning temp files on success, cancel, and error', async () => {
+      const cleaned: { uri: string; sourceUri?: string }[] = [];
+      const cap = createMediaCompressionCapability({
+        enabled: true,
+        driver: {
+          compressVideo: async (uri) =>
+            uri.includes('small') ? uri : 'file:///cache/compressed-video.mp4',
+          compressImage: async (uri) => uri,
+        },
+      });
+
+      const skipped = await cap.compressVideo('file:///dcim/small.mp4');
+      expect(skipped).toEqual({
+        uri: 'file:///dcim/small.mp4',
+        sourceUri: 'file:///dcim/small.mp4',
+        isTemporary: false,
+        skipped: true,
+      });
+
+      // 1) Passthrough upload: cleanup must NOT be invoked on sourceUri
+      const passthroughRes = await runUploadWithMediaCleanup({
+        sourceUri: 'file:///dcim/small.mp4',
+        prepare: () => cap.compressVideo('file:///dcim/small.mp4'),
+        upload: async (prepared) => prepared.uri,
+        cleanupTemporaryFile: (uri, sourceUri) => {
+          cleaned.push({ uri, sourceUri });
+        },
+      });
+      expect(passthroughRes).toBe('file:///dcim/small.mp4');
+      expect(cleaned).toHaveLength(0);
+
+      // 2) Success upload: temp file cleaned up
+      await runUploadWithMediaCleanup({
+        sourceUri: 'file:///dcim/large.mp4',
+        prepare: () => cap.compressVideo('file:///dcim/large.mp4'),
+        upload: async () => 'ok',
+        cleanupTemporaryFile: (uri, sourceUri) => {
+          cleaned.push({ uri, sourceUri });
+        },
+      });
+      expect(cleaned).toEqual([
+        { uri: 'file:///cache/compressed-video.mp4', sourceUri: 'file:///dcim/large.mp4' },
+      ]);
+
+      // 3) Cancelled upload after prepare: temp file cleaned up and UploadError('cancelled') propagated
+      const controller = new AbortController();
+      await expect(
+        runUploadWithMediaCleanup({
+          sourceUri: 'file:///dcim/large.mp4',
+          signal: controller.signal,
+          prepare: async () => {
+            const prepared = await cap.compressVideo('file:///dcim/large.mp4');
+            controller.abort();
+            return prepared;
+          },
+          upload: async () => 'never',
+          cleanupTemporaryFile: (uri, sourceUri) => {
+            cleaned.push({ uri, sourceUri });
+            throw new Error('cleanup error should be swallowed');
+          },
+        }),
+      ).rejects.toMatchObject({ kind: 'cancelled' });
+      expect(cleaned).toHaveLength(2);
+
+      // 4) Failed upload: temp file cleaned up and original error preserved
+      await expect(
+        runUploadWithMediaCleanup({
+          sourceUri: 'file:///dcim/large.mp4',
+          prepare: () => cap.compressVideo('file:///dcim/large.mp4'),
+          upload: async () => {
+            throw new UploadError('server', '500');
+          },
+          cleanupTemporaryFile: (uri, sourceUri) => {
+            cleaned.push({ uri, sourceUri });
+          },
+        }),
+      ).rejects.toMatchObject({ kind: 'server' });
+      expect(cleaned).toHaveLength(3);
     });
   });
 });

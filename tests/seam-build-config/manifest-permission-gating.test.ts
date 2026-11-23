@@ -463,4 +463,38 @@ describe('Seam 2: Compiled prebuild Info.plist & AndroidManifest permission gati
       }
     }
   });
+
+  it('adds zero extra Info.plist keys or Android permissions when mediaCompression is enabled vs disabled', async () => {
+    const baseFlags: CapabilityFlags = {
+      camera: false,
+      photoLibrary: false,
+      mediaLibrary: false,
+      filesAndSharing: false,
+      webview: false,
+      biometrics: false,
+      location: false,
+      notifications: false,
+      audioVideo: false,
+      backgroundAudio: false,
+    };
+
+    const disabledCompiled = await compilePrebuildManifests(
+      { ...baseFlags, mediaCompression: false },
+      'production',
+    );
+    const enabledCompiled = await compilePrebuildManifests(
+      { ...baseFlags, mediaCompression: true },
+      'production',
+    );
+
+    expect(Object.keys(enabledCompiled.infoPlist).sort()).toEqual(
+      Object.keys(disabledCompiled.infoPlist).sort(),
+    );
+    expect(getActiveAndroidPermissions(enabledCompiled).sort()).toEqual(
+      getActiveAndroidPermissions(disabledCompiled).sort(),
+    );
+    expect(getRemovedAndroidPermissions(enabledCompiled).sort()).toEqual(
+      getRemovedAndroidPermissions(disabledCompiled).sort(),
+    );
+  });
 });

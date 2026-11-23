@@ -29,13 +29,18 @@ export function ImageUploadCard(): React.JSX.Element {
   const [state, setState] = useState<UploadState>({ phase: 'idle' });
   const controllerRef = useRef<AbortController | null>(null);
   const pendingTempUriRef = useRef<string | null>(null);
+  const sourceUriRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (pendingTempUriRef.current) {
-        cleanupTemporaryUploadFile(pendingTempUriRef.current);
+        cleanupTemporaryUploadFile(pendingTempUriRef.current, sourceUriRef.current ?? undefined);
         pendingTempUriRef.current = null;
       }
+      sourceUriRef.current = null;
     };
   }, []);
 
@@ -43,14 +48,21 @@ export function ImageUploadCard(): React.JSX.Element {
     async (image: CompressedImage): Promise<void> => {
       const controller = new AbortController();
       controllerRef.current = controller;
-      pendingTempUriRef.current = image.uri;
-      setState({ phase: 'uploading', percent: 0 });
+      const sourceUri = sourceUriRef.current ?? undefined;
+      pendingTempUriRef.current =
+        sourceUri !== undefined && image.uri === sourceUri ? null : image.uri;
+      if (isMountedRef.current) {
+        setState({ phase: 'uploading', percent: 0 });
+      }
       try {
         await uploadService.upload({
           fileUri: image.uri,
           mimeType: image.mimeType,
           signal: controller.signal,
           onProgress: ({ bytesSent, totalBytes }) => {
+            if (!isMountedRef.current) {
+              return;
+            }
             const percent = totalBytes > 0 ? Math.round((bytesSent / totalBytes) * 100) : 0;
             setState((prev) =>
               prev.phase === 'uploading' && prev.percent === Math.min(100, percent)
@@ -59,21 +71,29 @@ export function ImageUploadCard(): React.JSX.Element {
             );
           },
         });
-        cleanupTemporaryUploadFile(image.uri);
+        cleanupTemporaryUploadFile(image.uri, sourceUriRef.current ?? undefined);
         pendingTempUriRef.current = null;
-        setState({ phase: 'done', width: image.width, height: image.height });
+        sourceUriRef.current = null;
+        if (isMountedRef.current) {
+          setState({ phase: 'done', width: image.width, height: image.height });
+        }
       } catch (error) {
         if (error instanceof UploadError && error.kind === 'cancelled') {
-          cleanupTemporaryUploadFile(image.uri);
+          cleanupTemporaryUploadFile(image.uri, sourceUriRef.current ?? undefined);
           pendingTempUriRef.current = null;
-          setState({ phase: 'cancelled' });
+          sourceUriRef.current = null;
+          if (isMountedRef.current) {
+            setState({ phase: 'cancelled' });
+          }
           return;
         }
-        setState({
-          phase: 'failed',
-          reason: error instanceof Error ? error.message : String(error),
-          image,
-        });
+        if (isMountedRef.current) {
+          setState({
+            phase: 'failed',
+            reason: error instanceof Error ? error.message : String(error),
+            image,
+          });
+        }
       } finally {
         controllerRef.current = null;
       }
@@ -86,18 +106,32 @@ export function ImageUploadCard(): React.JSX.Element {
       title: t('lab.photoRationaleTitle'),
       description: t('lab.photoRationaleDesc'),
     });
-    if (!asset) {
+    if (!asset || !isMountedRef.current) {
       return;
     }
+    sourceUriRef.current = asset.uri;
     setState({ phase: 'compressing' });
     try {
       const compressed = await compressImageForUpload(asset, compressionDriver);
+      if (!isMountedRef.current) {
+        if (compressed.uri !== asset.uri) {
+          cleanupTemporaryUploadFile(compressed.uri, asset.uri);
+        }
+        sourceUriRef.current = null;
+        return;
+      }
+      if (compressed.uri !== asset.uri) {
+        pendingTempUriRef.current = compressed.uri;
+      }
       await runUpload(compressed);
     } catch (error) {
-      setState({
-        phase: 'failed',
-        reason: error instanceof Error ? error.message : String(error),
-      });
+      sourceUriRef.current = null;
+      if (isMountedRef.current) {
+        setState({
+          phase: 'failed',
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   };
 

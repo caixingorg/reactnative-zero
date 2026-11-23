@@ -5,6 +5,11 @@ import {
   type ImageCompressionDriver,
 } from './image-compression';
 import {
+  createCompressorMediaDriver,
+  createMediaCompressionCapability,
+  type MediaCompressionDriver,
+} from './media-compression';
+import {
   createTusResumableUploader,
   type TusFileReader,
   type TusResumableUploader,
@@ -19,6 +24,18 @@ export {
   type ImageCompressionDriver,
   type ImageCompressionOptions,
 } from './image-compression';
+export {
+  createCompressorMediaDriver,
+  createMediaCompressionCapability,
+  runUploadWithMediaCleanup,
+  type CompressedMediaResult,
+  type HardwareImageCompressionOptions,
+  type MediaCompressionCapability,
+  type MediaCompressionDriver,
+  type MediaCompressionMethod,
+  type RunUploadWithMediaCleanupOptions,
+  type VideoCompressionOptions,
+} from './media-compression';
 export {
   createExpoTusFileReader,
   createMmkvTusUrlStorage,
@@ -63,6 +80,7 @@ declare module '../../runtime/app-runtime' {
   interface CapabilityOverrideMap {
     uploadDriver?: UploadDriver;
     imageCompressionDriver?: ImageCompressionDriver;
+    mediaCompressionDriver?: MediaCompressionDriver;
     tusFileReader?: TusFileReader;
     tusUploader?: TusResumableUploader;
   }
@@ -70,14 +88,17 @@ declare module '../../runtime/app-runtime' {
 
 // 原因：上传只用到已有的选图/文件权限，不新增清单权限；驱动可被覆写，便于测试与替换为对象存储直传或 TUS 断点续传
 export function useUploadCapability() {
-  const { httpClient, keyValueStorage, capabilityOverrides } = useAppRuntime();
+  const { identity, httpClient, keyValueStorage, capabilityOverrides } = useAppRuntime();
   const uploadOverride = capabilityOverrides?.uploadDriver;
   const compressionOverride = capabilityOverrides?.imageCompressionDriver;
+  const mediaCompressionDriverOverride = capabilityOverrides?.mediaCompressionDriver;
   const tusFileReaderOverride = capabilityOverrides?.tusFileReader;
   const tusUploaderOverride = capabilityOverrides?.tusUploader;
+  const mediaCompressionEnabled = identity.capabilities.mediaCompression === true;
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const mediaCompressionDriver = mediaCompressionDriverOverride ?? createCompressorMediaDriver();
+    return {
       uploadService: createUploadService({
         httpClient,
         driver: uploadOverride ?? createNativeUploadDriver(),
@@ -90,14 +111,21 @@ export function useUploadCapability() {
           fileReader: tusFileReaderOverride,
         }),
       compressionDriver: compressionOverride ?? createNativeImageCompressionDriver(),
-    }),
-    [
-      httpClient,
-      keyValueStorage,
-      uploadOverride,
-      compressionOverride,
-      tusFileReaderOverride,
-      tusUploaderOverride,
-    ],
-  );
+      mediaCompressionEnabled,
+      mediaCompressionDriver,
+      mediaCompressor: createMediaCompressionCapability({
+        enabled: mediaCompressionEnabled,
+        driver: mediaCompressionDriver,
+      }),
+    };
+  }, [
+    httpClient,
+    keyValueStorage,
+    uploadOverride,
+    compressionOverride,
+    mediaCompressionDriverOverride,
+    mediaCompressionEnabled,
+    tusFileReaderOverride,
+    tusUploaderOverride,
+  ]);
 }

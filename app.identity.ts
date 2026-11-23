@@ -30,5 +30,6 @@ export const appIdentity: AppIdentity = {
     notifications: true,
     audioVideo: true,
     backgroundAudio: false,
+    mediaCompression: true,
   },
 };

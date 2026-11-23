@@ -4,6 +4,7 @@
  * 边界：通过注入 `executeTask` 适配任意上传执行器（普通单文件 UploadService 或 TUS 断点续传上传器），严禁在模块顶层创建全局单例。
  */
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import { cleanupTemporaryUploadFile } from './image-compression';
 import { UploadError, type UploadProgressEvent } from './upload-service';
 
 export type UploadTaskStatus = 'queued' | 'uploading' | 'paused' | 'done' | 'cancelled' | 'failed';
@@ -11,6 +12,8 @@ export type UploadTaskStatus = 'queued' | 'uploading' | 'paused' | 'done' | 'can
 export interface UploadQueueItemInput {
   id?: string;
   fileUri: string;
+  sourceUri?: string;
+  isTemporaryFile?: boolean;
   fileName: string;
   mimeType: string;
   sizeBytes?: number;
@@ -19,6 +22,8 @@ export interface UploadQueueItemInput {
 export interface UploadQueueTask {
   id: string;
   fileUri: string;
+  sourceUri?: string;
+  isTemporaryFile?: boolean;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -39,6 +44,7 @@ export interface UploadQueueStoreOptions {
   /** 同时处于 uploading 状态的最大并发数，默认 2 */
   concurrency?: number;
   executeTask: (ctx: UploadQueueTaskExecutionContext) => Promise<{ resultUrl?: string } | void>;
+  cleanupTemporaryFile?: (uri: string, sourceUri?: string) => void;
 }
 
 export interface UploadQueueState {
@@ -55,9 +61,24 @@ export type UploadQueueStore = StoreApi<UploadQueueState>;
 
 export function createUploadQueueStore(options: UploadQueueStoreOptions): UploadQueueStore {
   const maxConcurrency = Math.max(1, options.concurrency ?? 2);
+  const cleanup = options.cleanupTemporaryFile ?? cleanupTemporaryUploadFile;
   const controllers = new Map<string, AbortController>();
   const pauseRequested = new Set<string>();
   let sequence = 0;
+
+  const cleanupTaskTempFile = (task: UploadQueueTask): void => {
+    const isTemp =
+      task.isTemporaryFile === true ||
+      (task.sourceUri !== undefined && task.fileUri !== task.sourceUri);
+    if (!isTemp) {
+      return;
+    }
+    try {
+      cleanup(task.fileUri, task.sourceUri);
+    } catch {
+      // 临时缓存清理失败不阻断队列调度
+    }
+  };
 
   const store = createStore<UploadQueueState>((set, get) => {
     const updateTask = (taskId: string, patch: Partial<UploadQueueTask>): void => {
@@ -94,6 +115,7 @@ export function createUploadQueueStore(options: UploadQueueStoreOptions): Upload
             percent: 100,
             resultUrl: res?.resultUrl,
           });
+          cleanupTaskTempFile(task);
         })
         .catch((error: unknown) => {
           if (pauseRequested.has(task.id)) {
@@ -106,6 +128,7 @@ export function createUploadQueueStore(options: UploadQueueStoreOptions): Upload
             (error instanceof UploadError && error.kind === 'cancelled')
           ) {
             updateTask(task.id, { status: 'cancelled' });
+            cleanupTaskTempFile(task);
             return;
           }
           updateTask(task.id, {
@@ -140,6 +163,10 @@ export function createUploadQueueStore(options: UploadQueueStoreOptions): Upload
         const task: UploadQueueTask = {
           id,
           fileUri: input.fileUri,
+          ...(input.sourceUri !== undefined ? { sourceUri: input.sourceUri } : {}),
+          ...(input.isTemporaryFile !== undefined
+            ? { isTemporaryFile: input.isTemporaryFile }
+            : {}),
           fileName: input.fileName,
           mimeType: input.mimeType,
           sizeBytes: input.sizeBytes ?? 0,
@@ -187,10 +214,17 @@ export function createUploadQueueStore(options: UploadQueueStoreOptions): Upload
           controller.abort();
         } else {
           updateTask(taskId, { status: 'cancelled' });
+          cleanupTaskTempFile(current);
         }
       },
 
       clearFinished: () => {
+        const finished = get().tasks.filter(
+          (item) => item.status === 'done' || item.status === 'cancelled',
+        );
+        for (const item of finished) {
+          cleanupTaskTempFile(item);
+        }
         set((state) => ({
           tasks: state.tasks.filter(
             (item) => item.status !== 'done' && item.status !== 'cancelled',

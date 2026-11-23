@@ -49,6 +49,11 @@ export interface CapabilityFlags {
    * 可选字段，缺省视为 `false`，以便派生应用同步上游 `src/core` 与 `config` 时无需修改既有 `app.identity.ts`。
    */
   backgroundAudio?: boolean;
+  /**
+   * 大媒体/视频硬件压缩（基于 `react-native-compressor`）。
+   * 可选字段，缺省视为 `false`，以便派生应用同步上游 `src/core` 时无需修改既有 `app.identity.ts`。
+   */
+  mediaCompression?: boolean;
 }
 
 export interface BrandThemeSeed {
