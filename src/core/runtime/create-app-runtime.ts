@@ -4,6 +4,7 @@
  * 边界：严禁静态导入 `src/core/capabilities/*`；严禁直接导入 `app.identity.ts`（须由上层注入）；装配顺序是行为的一部分，调整前先读注释。
  */
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { createAuthSessionStore, hasPreExistingSandboxState } from '../auth/auth-session-store';
 import {
   createPrivacyGateStore,
@@ -29,6 +30,7 @@ import {
   createDeferredOtaInitializer,
   createOtaUpdateCoordinator,
 } from '../updates/ota-coordinator';
+import { createVersionPolicyStore } from '../version-policy';
 import type { AppRuntime, AppRuntimeOptions } from './runtime-types';
 
 // 原因：启动期严格执行强模式环境变量校验，拒绝用硬编码默认值静默掩盖缺失或错误的环境配置
@@ -55,6 +57,7 @@ interface CoreServicesStage {
   readonly queryClient: AppRuntime['queryClient'];
   readonly authSessionStore: AppRuntime['authSessionStore'];
   readonly otaCoordinator: AppRuntime['otaCoordinator'];
+  readonly versionPolicyStore: AppRuntime['versionPolicyStore'];
   readonly privacyGateStore: AppRuntime['privacyGateStore'];
   readonly devToolsStore: AppRuntime['devToolsStore'];
 }
@@ -125,12 +128,28 @@ function bootCoreServices(
     driver: options.ota?.driver,
   });
 
+  const versionPolicyStore = createVersionPolicyStore({
+    adapter: options.versionPolicy?.adapter,
+    currentVersion:
+      options.versionPolicy?.currentVersion ?? Constants.expoConfig?.version ?? '1.0.0',
+    platform: options.versionPolicy?.platform ?? (Platform.OS === 'ios' ? 'ios' : 'android'),
+    isConsentGranted: () => hasGrantedCurrentPrivacyConsent(options.identity, boot.keyValueStorage),
+    getIdentifiers: options.versionPolicy?.getIdentifiers,
+    timeoutMs: options.versionPolicy?.timeoutMs,
+    allowBeforeConsent: options.versionPolicy?.allowBeforeConsent,
+    fallbackUpdateUrl: options.versionPolicy?.fallbackUpdateUrl,
+  });
+
   const privacyGateStore = createPrivacyGateStore({
     identity: options.identity,
     keyValueStorage: boot.keyValueStorage,
     observability: boot.observability,
     deferredInitializers: [
       createDeferredOtaInitializer(otaCoordinator),
+      {
+        id: 'core:version-policy',
+        init: () => versionPolicyStore.getState().check(),
+      },
       ...(options.deferredInitializers ?? []),
     ],
   });
@@ -150,6 +169,7 @@ function bootCoreServices(
     queryClient,
     authSessionStore,
     otaCoordinator,
+    versionPolicyStore,
     privacyGateStore,
     devToolsStore,
   };
@@ -208,6 +228,7 @@ function bootNetworkAndUiStores(
     toastStore,
     drawerStore,
     otaCoordinator: core.otaCoordinator,
+    versionPolicyStore: core.versionPolicyStore,
     logger: boot.observability.logger,
     errorReporter: boot.observability.errorReporter,
     analytics: boot.observability.analytics,

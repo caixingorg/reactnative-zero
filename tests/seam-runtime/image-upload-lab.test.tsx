@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, userEvent } from '@testing-library/react-native';
+import { render, screen, userEvent } from '@testing-library/react-native';
 import { appIdentity } from '@root/app.identity';
 import type { UploadDriver } from '@/core/capabilities/upload';
 import type { PermissionOsDriver } from '@/core/permissions/types';
@@ -121,9 +121,7 @@ describe('Seam: image upload card in the Capabilities Lab', () => {
     await user.press(screen.getByTestId('upload-pick'));
     expect(await screen.findByText(/上传失败：上传被拒绝 413/)).toBeTruthy();
 
-    await act(async () => {
-      await user.press(screen.getByTestId('upload-retry'));
-    });
+    await user.press(screen.getByTestId('upload-retry'));
 
     expect(await screen.findByText('上传成功（1600×1200，JPEG）')).toBeTruthy();
     expect(seenUris).toEqual(['file:///out.jpg', 'file:///out.jpg']);

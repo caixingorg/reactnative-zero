@@ -12,23 +12,22 @@ export interface AuthHydrationGateProps {
   children: React.ReactNode;
 }
 
-// 原因：将会话冷启动恢复生命周期与加载占位收敛在内核边界，保持 Route Shell 零状态编排与零 UI 细节
+// 原因：本地会话水合仅读取本机 Keychain/Keystore 与 createAppRuntime 启动瞬间已采样的沙盒标记，不触发任何第三方 SDK 或设备标识采集；
+// 必须在路由守卫重定向前完成水合，确保老用户覆盖升级且隐私协议升版时能被准确识别为 authenticated 并路由至 /privacy-consent 重签页
 export function AuthHydrationGate({
-  privacyGateStore,
   authSessionStore,
   children,
 }: AuthHydrationGateProps): React.JSX.Element {
   const { tokens } = useAppTheme();
-  const isPrivacyReady = useStore(privacyGateStore, (state) => state.phase === 'ready');
   const authStatus = useStore(authSessionStore, (state) => state.status);
 
   useEffect(() => {
-    if (isPrivacyReady && authStatus === 'hydrating') {
+    if (authStatus === 'hydrating') {
       void authSessionStore.getState().hydrateSession();
     }
-  }, [authSessionStore, authStatus, isPrivacyReady]);
+  }, [authSessionStore, authStatus]);
 
-  if (isPrivacyReady && authStatus === 'hydrating') {
+  if (authStatus === 'hydrating') {
     return (
       <Screen>
         <VStack flex={1} align="center" justify="center">

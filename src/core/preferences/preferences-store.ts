@@ -13,13 +13,16 @@ import type { ThemePreference } from '../theme/tokens';
 export const THEME_STORAGE_KEY = 'preferences.theme_mode';
 export const LANGUAGE_STORAGE_KEY = 'preferences.language';
 export const WELCOME_COMPLETED_STORAGE_KEY = 'preferences.welcome_completed';
+export const BIOMETRIC_LOCK_STORAGE_KEY = 'preferences.biometric_lock_enabled';
 
 export interface PreferencesState {
   themePreference: ThemePreference;
   language: SupportedLanguage;
   hasCompletedWelcome: boolean;
+  biometricLockEnabled: boolean;
   setThemePreference: (preference: ThemePreference) => void;
   setLanguage: (language: SupportedLanguage) => void;
+  setBiometricLockEnabled: (enabled: boolean) => void;
   completeWelcome: () => void;
   resetWelcome: () => void;
   resetPreferences: () => void;
@@ -61,11 +64,14 @@ export function createPreferencesStore({
   const initialLanguage = readInitialLanguage(keyValueStorage, fallbackLanguage);
   const initialWelcomeCompleted =
     keyValueStorage.getString(WELCOME_COMPLETED_STORAGE_KEY) === 'true';
+  const initialBiometricLockEnabled =
+    keyValueStorage.getBoolean(BIOMETRIC_LOCK_STORAGE_KEY) === true;
 
   return createStore<PreferencesState>((set) => ({
     themePreference: initialTheme,
     language: initialLanguage,
     hasCompletedWelcome: initialWelcomeCompleted,
+    biometricLockEnabled: initialBiometricLockEnabled,
     setThemePreference: (preference: ThemePreference) => {
       keyValueStorage.setString(THEME_STORAGE_KEY, preference);
       set({ themePreference: preference });
@@ -74,6 +80,10 @@ export function createPreferencesStore({
       keyValueStorage.setString(LANGUAGE_STORAGE_KEY, language);
       void i18n.changeLanguage(language);
       set({ language });
+    },
+    setBiometricLockEnabled: (enabled: boolean) => {
+      keyValueStorage.setBoolean(BIOMETRIC_LOCK_STORAGE_KEY, enabled);
+      set({ biometricLockEnabled: enabled });
     },
     completeWelcome: () => {
       keyValueStorage.setString(WELCOME_COMPLETED_STORAGE_KEY, 'true');
@@ -85,10 +95,12 @@ export function createPreferencesStore({
     },
     resetPreferences: () => {
       const normalizedFallback = normalizeSupportedLanguage(fallbackLanguage);
+      keyValueStorage.deleteKey(BIOMETRIC_LOCK_STORAGE_KEY);
       void i18n.changeLanguage(normalizedFallback);
       set({
         themePreference: 'system',
         language: normalizedFallback,
+        biometricLockEnabled: false,
       });
     },
   }));

@@ -110,6 +110,7 @@ export function createTestRuntime(options: Partial<AppRuntimeOptions> = {}): App
     },
     deferredInitializers: options.deferredInitializers,
     ota: options.ota,
+    versionPolicy: options.versionPolicy,
     overrides: {
       ...callerOverrides,
       secretStorage: callerOverrides.secretStorage ?? createMemorySecretStorage(),

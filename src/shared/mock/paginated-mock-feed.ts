@@ -23,7 +23,7 @@ interface ChannelSeed {
   titles: readonly string[];
   summaryPrefix: string;
   metaPool: readonly string[];
-  hasUnread?: boolean;
+  unreadCount?: number;
   hasRank?: boolean;
 }
 
@@ -121,7 +121,7 @@ const CHANNEL_SEEDS: Record<string, ChannelSeed> = {
     ],
     summaryPrefix: '系统状态与重要安全变更提醒，点击查看完整说明',
     metaPool: ['刚刚', '10 分钟前', '1 小时前', '昨天', '3 天前'],
-    hasUnread: true,
+    unreadCount: 3,
   },
   interactions: {
     tag: '互动消息',
@@ -137,7 +137,7 @@ const CHANNEL_SEEDS: Record<string, ChannelSeed> = {
     ],
     summaryPrefix: '来自协作伙伴的最新点赞、评论与关注互动',
     metaPool: ['5 分钟前', '30 分钟前', '2 小时前', '昨天'],
-    hasUnread: true,
+    unreadCount: 1,
   },
   direct: {
     tag: '私信',
@@ -153,7 +153,7 @@ const CHANNEL_SEEDS: Record<string, ChannelSeed> = {
     ],
     summaryPrefix: '请查收最新迭代排期、真机验收反馈或发布确认事项',
     metaPool: ['刚刚', '20 分钟前', '今天 10:20', '昨天'],
-    hasUnread: true,
+    unreadCount: 1,
   },
   favorites: {
     tag: '我的收藏',
@@ -236,7 +236,7 @@ export function buildMockChannelPage(
       tag: seed.tag,
       summary: `${seed.summaryPrefix}（#${rank}）。`,
       meta: seed.metaPool[(idx + pageParam) % seed.metaPool.length] ?? '刚刚',
-      unread: seed.hasUnread ? pageParam === 1 && idx < 3 : false,
+      unread: seed.unreadCount ? pageParam === 1 && idx < seed.unreadCount : false,
       rank: seed.hasRank ? rank : undefined,
     };
   });

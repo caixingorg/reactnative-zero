@@ -30,6 +30,10 @@ export interface PaymentCheckoutResult {
   transactionId: string;
 }
 
+/**
+ * @deprecated 新业务收银台与订阅内购请优先使用 `@/core/capabilities/payment` 的 `PaymentService`（见 ADR-0008）；
+ * 本接口仅作为轻量商业 SDK 适配器演示保留。
+ */
 export interface PaymentAdapter {
   checkoutOrder(request: PaymentCheckoutRequest): Promise<PaymentCheckoutResult>;
 }

@@ -12,7 +12,7 @@ import {
   useAuthSession,
   usePrivacyGate,
 } from '@/core/runtime';
-import { AppDrawerShell, WelcomeOverlayGate } from '@/features/shell';
+import { AppDrawerShell, BiometricLockOverlayGate, WelcomeOverlayGate } from '@/features/shell';
 import { appTranslationResources, createMockHttpTransport } from '@/shared';
 
 // 原因：Route Shell 仅声明路由树与守卫布尔条件，零状态副作用编排且零具体界面元素
@@ -107,6 +107,7 @@ export default function RootLayout(): React.JSX.Element {
         <PerformanceMarkers />
         <GuardedRootStack />
         <RootDrawerBridge />
+        <BiometricLockOverlayGate />
         <WelcomeOverlayGate />
       </AppRuntimeProvider>
     </GestureHandlerRootView>

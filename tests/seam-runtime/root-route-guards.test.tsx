@@ -3,8 +3,16 @@ import { Text } from 'react-native';
 import { userEvent } from '@testing-library/react-native';
 import { Stack } from 'expo-router';
 import { act, renderRouter, screen } from 'expo-router/testing-library';
+import { appIdentity } from '@root/app.identity';
 import { GuardedRootStack } from '@/app/_layout';
 import WebViewRoute from '@/app/webview';
+import {
+  ACCESS_TOKEN_SECRET_KEY,
+  INSTALL_SESSION_MARKER_KEY,
+  REFRESH_TOKEN_SECRET_KEY,
+  USER_PROFILE_SECRET_KEY,
+} from '@/core/auth/auth-session-store';
+import { ACCEPTED_PRIVACY_VERSION_KEY } from '@/core/bootstrap/privacy-gate-store';
 import { AppRuntimeProvider, type AppRuntime } from '@/core/runtime';
 import {
   createMemoryKeyValueStorage,
@@ -38,10 +46,19 @@ function createRouteTree(
     index: () => <Text>home-index-screen</Text>,
     'privacy-consent': () => <Text>privacy-consent-screen</Text>,
     webview: webviewRoute,
+    register: () => <Text>register-screen</Text>,
     '(auth)/login': () => <Text>login-screen</Text>,
     '(tabs)/_layout': () => <Stack screenOptions={{ headerShown: false }} />,
     '(tabs)/index': () => <Text>tabs-home-screen</Text>,
     'feed/[id]': () => <Text>feed-detail-screen</Text>,
+    settings: () => <Text>settings-screen</Text>,
+    'developer-lab': () => <Text>developer-lab-screen</Text>,
+    list: () => <Text>list-screen</Text>,
+    detail: () => <Text>detail-screen</Text>,
+    search: () => <Text>search-screen</Text>,
+    form: () => <Text>form-screen</Text>,
+    checkout: () => <Text>checkout-screen</Text>,
+    status: () => <Text>status-screen</Text>,
   };
 }
 
@@ -56,19 +73,41 @@ describe('Seam: root route guards on real cold start', () => {
     expect(router.getPathname()).toBe('/login');
   });
 
-  it('redirects an authenticated user with unaccepted privacy policy to privacy-consent before entering tabs', async () => {
-    const runtime = createFreshInstallRuntime();
-    await runtime.authSessionStore.getState().establishSession({
-      tokens: { accessToken: 'tok', refreshToken: 'ref' },
-      user: { id: 'u1', username: 'admin', displayName: 'Admin' },
+  it('hydrates stored session on cold start when privacyPolicyVersion bumps and redirects upgraded logged-in user to /privacy-consent instead of /login', async () => {
+    const kv = createMemoryKeyValueStorage();
+    kv.setBoolean(INSTALL_SESSION_MARKER_KEY, true);
+    kv.setString(ACCEPTED_PRIVACY_VERSION_KEY, '1.0.0');
+
+    const secrets = createMemorySecretStorage();
+    await secrets.setSecret(ACCESS_TOKEN_SECRET_KEY, 'persisted-access-token');
+    await secrets.setSecret(REFRESH_TOKEN_SECRET_KEY, 'persisted-refresh-token');
+    await secrets.setSecret(
+      USER_PROFILE_SECRET_KEY,
+      JSON.stringify({ id: 'u1', username: 'admin', displayName: 'Admin' }),
+    );
+
+    const upgradedRuntime = createTestRuntime({
+      identity: {
+        ...appIdentity,
+        privacyPolicyVersion: '2.0.0',
+      },
+      overrides: {
+        keyValueStorage: kv,
+        secretStorage: secrets,
+        reconcileFreshInstall: true,
+        initialDeviceLocale: 'zh-CN',
+      },
     });
 
-    const router = await renderRouter(createRouteTree(runtime), { initialUrl: '/' });
+    expect(upgradedRuntime.authSessionStore.getState().status).toBe('hydrating');
+    expect(upgradedRuntime.privacyGateStore.getState().phase).toBe('awaiting-consent');
+
+    const router = await renderRouter(createRouteTree(upgradedRuntime), { initialUrl: '/' });
     expect(await screen.findByText('privacy-consent-screen')).toBeTruthy();
     expect(router.getPathname()).toBe('/privacy-consent');
 
     await act(async () => {
-      runtime.privacyGateStore.getState().acceptPrivacyPolicy();
+      upgradedRuntime.privacyGateStore.getState().acceptPrivacyPolicy();
     });
 
     expect(await screen.findByText('home-index-screen')).toBeTruthy();

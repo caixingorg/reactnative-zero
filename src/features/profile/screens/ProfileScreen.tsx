@@ -46,14 +46,19 @@ function ProfileSubTab({
   const media = useMediaCapability();
   const toast = useToast();
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [publishedItems, setPublishedItems] = useState<readonly MockListRecord[]>([]);
   const feed = useMockPaginatedFeed(tabKey);
+  const combinedItems = React.useMemo(
+    () => (publishedItems.length > 0 ? [...publishedItems, ...feed.items] : feed.items),
+    [feed.items, publishedItems],
+  );
 
   const status: PageStatus =
-    feed.isLoading && feed.items.length === 0
+    feed.isLoading && combinedItems.length === 0
       ? 'loading'
-      : feed.error && feed.items.length === 0
+      : feed.error && combinedItems.length === 0
         ? 'error'
-        : feed.items.length === 0
+        : combinedItems.length === 0
           ? 'empty'
           : 'ready';
 
@@ -147,14 +152,27 @@ function ProfileSubTab({
             </AppText>
           </VStack>
         </HStack>
-        <QuickComposerCard />
+        <QuickComposerCard
+          onPublished={(note) => {
+            setPublishedItems((prev) => [
+              {
+                id: `activity-pub-${prev.length + 1}`,
+                title: `我的最新动态 · ${note}`,
+                tag: '个人动态',
+                summary: `由 ${user?.displayName ?? '当前用户'} 通过快捷发布条发布（${note}）。`,
+                meta: '刚刚',
+              },
+              ...prev,
+            ]);
+          }}
+        />
       </VStack>
     ) : null;
 
   return (
     <View testID={`profile-tab-${tabKey}`} style={styles.flex}>
       <ListTemplate
-        data={feed.items}
+        data={combinedItems}
         keyExtractor={(item) => item.id}
         status={status}
         isActive={isActive}

@@ -423,18 +423,21 @@ export default function HomeTabRoute(): React.JSX.Element {
   writeRel('src/features/home/index.ts', cleanHomeIndex);
   writeRel('src/app/(tabs)/index.tsx', cleanHomeTabRoute);
 
-  // Surgical removal of feed/[id], developer-lab, and checkout route registrations from src/app/_layout.tsx
+  // Surgical removal of deleted route registrations from src/app/_layout.tsx
   const rootLayoutPath = path.join(projectRoot, 'src/app/_layout.tsx');
   if (fs.existsSync(rootLayoutPath)) {
     const updatedRootLayout = fs
       .readFileSync(rootLayoutPath, 'utf8')
       .replace(/^\s*<Stack\.Screen name="feed\/\[id\]" \/>\r?\n/m, '')
       .replace(/^\s*<Stack\.Screen name="developer-lab" \/>\r?\n/m, '')
-      .replace(/^\s*<Stack\.Screen name="checkout" \/>\r?\n/m, '');
+      .replace(/^\s*<Stack\.Screen name="list" \/>\r?\n/m, '')
+      .replace(/^\s*<Stack\.Screen name="detail" \/>\r?\n/m, '')
+      .replace(/^\s*<Stack\.Screen name="checkout" \/>\r?\n/m, '')
+      .replace(/^\s*<Stack\.Screen name="status" \/>\r?\n/m, '');
     writeRel('src/app/_layout.tsx', updatedRootLayout);
   }
 
-  // Surgical removal of checkout drawer entry from DrawerMenu.tsx & AppShellOverlays.tsx
+  // Surgical removal of checkout drawer entry from DrawerMenu.tsx & rewiring AppShellOverlays.tsx away from deleted /list, /status, /checkout routes
   const drawerMenuPath = path.join(projectRoot, 'src/features/shell/DrawerMenu.tsx');
   if (fs.existsSync(drawerMenuPath)) {
     const updatedDrawerMenu = fs
@@ -448,9 +451,80 @@ export default function HomeTabRoute(): React.JSX.Element {
     const updatedOverlays = fs
       .readFileSync(overlaysPath, 'utf8')
       .replace(/^\s*\| '\/checkout'\r?\n/m, '')
-      .replace(/^\s*checkout: '\/checkout',\r?\n/m, '');
+      .replace(/^\s*\| \{ pathname: '\/list'; params: \{ title: string \} \}\r?\n/m, '')
+      .replace(/^\s*\| \{ pathname: '\/status'; params: \{ kind: 'empty'; title: string \} \}/m, '')
+      .replace(/^\s*favorites: .*?,\r?\n/m, "  favorites: '/(tabs)/profile',\n")
+      .replace(/^\s*history: .*?,\r?\n/m, "  history: '/(tabs)/profile',\n")
+      .replace(/^\s*checkout: '\/checkout',\r?\n/m, '')
+      .replace(/^\s*about: .*?,\r?\n/m, "  about: '/settings',\n");
     writeRel('src/features/shell/AppShellOverlays.tsx', updatedOverlays);
   }
+
+  // Rewrite preserved tab/search routes so they don't push to deleted '/detail'
+  writeRel(
+    'src/app/(tabs)/discover.tsx',
+    `import { useRouter } from 'expo-router';
+import React from 'react';
+import { useAppRuntime } from '@/core/runtime';
+import { DiscoverScreen } from '@/features/discover';
+import { useLegalDocumentOpener } from '@/shared';
+
+export default function DiscoverTabRoute(): React.JSX.Element {
+  const router = useRouter();
+  const { env } = useAppRuntime();
+  const openLegalDocument = useLegalDocumentOpener();
+
+  return (
+    <DiscoverScreen
+      onOpenSearch={() => router.push('/search')}
+      onOpenWebView={() =>
+        openLegalDocument({
+          url: env.userAgreementUrl,
+          title: 'H5 轻应用容器',
+        })
+      }
+    />
+  );
+}
+`,
+  );
+
+  writeRel(
+    'src/app/(tabs)/messages.tsx',
+    `import React from 'react';
+import { MessagesScreen } from '@/features/messages';
+
+export default function MessagesTabRoute(): React.JSX.Element {
+  return <MessagesScreen />;
+}
+`,
+  );
+
+  writeRel(
+    'src/app/(tabs)/profile.tsx',
+    `import { useRouter } from 'expo-router';
+import React from 'react';
+import { ProfileScreen } from '@/features/profile';
+
+export default function ProfileTabRoute(): React.JSX.Element {
+  const router = useRouter();
+  return <ProfileScreen onOpenSettings={() => router.push('/settings')} />;
+}
+`,
+  );
+
+  writeRel(
+    'src/app/search.tsx',
+    `import { useRouter } from 'expo-router';
+import React from 'react';
+import { SearchScreen } from '@/features/search';
+
+export default function SearchStackRoute(): React.JSX.Element {
+  const router = useRouter();
+  return <SearchScreen onBack={() => router.back()} />;
+}
+`,
+  );
 
   // Surgical removal of developer-lab prop from src/app/settings.tsx
   const settingsRoutePath = path.join(projectRoot, 'src/app/settings.tsx');
@@ -459,15 +533,6 @@ export default function HomeTabRoute(): React.JSX.Element {
       .readFileSync(settingsRoutePath, 'utf8')
       .replace(/^\s*onOpenDeveloperLab=\{.*?\}\r?\n/m, '');
     writeRel('src/app/settings.tsx', updatedSettingsRoute);
-  }
-
-  // Surgical removal of lab tab screen from src/app/(tabs)/_layout.tsx
-  const tabsLayoutPath = path.join(projectRoot, 'src/app/(tabs)/_layout.tsx');
-  if (fs.existsSync(tabsLayoutPath)) {
-    const updatedTabsLayout = fs
-      .readFileSync(tabsLayoutPath, 'utf8')
-      .replace(/\r?\n      <Tabs\.Screen\s+name="lab"[\s\S]*?\r?\n      \/>/, '');
-    writeRel('src/app/(tabs)/_layout.tsx', updatedTabsLayout);
   }
 
   // Surgical removal of FeedStatusBadge barrel export from src/shared/index.ts
@@ -479,10 +544,11 @@ export default function HomeTabRoute(): React.JSX.Element {
     writeRel('src/shared/index.ts', updatedSharedIndex);
   }
 
-  // Surgical strip of mock feed records from src/shared/mock/mock-http-transport.ts while preserving auth gateway
+  // Surgical strip of home feed records from src/shared/mock/mock-http-transport.ts while preserving auth gateway and channel pagination for remaining tabs
   const mockTransportPath = path.join(projectRoot, 'src/shared/mock/mock-http-transport.ts');
   if (fs.existsSync(mockTransportPath)) {
     const cleanAuthTransport = `import type { HttpTransportDriver, RawHttpRequest, RawHttpResponse } from '@/core/network/types';
+import { buildMockChannelPage, getMockFeedDelayMs } from './paginated-mock-feed';
 
 interface MockAccount {
   id: string;
@@ -491,7 +557,7 @@ interface MockAccount {
   displayName: string;
 }
 
-// 原因：保留最小认证网关 Mock 驱动，使新派生项目在尚未联调真实后端时仍可跑通首日登录、注册、改密、注销与单飞刷新
+// 原因：保留最小认证网关与通用频道分页 Mock 驱动，使新派生项目在尚未联调真实后端时仍可跑通首日登录、注册、改密、注销、单飞刷新与 4 栏底导切换
 export function createMockHttpTransport(): HttpTransportDriver {
   const accounts = new Map<string, MockAccount>([
     [
@@ -668,6 +734,50 @@ export function createMockHttpTransport(): HttpTransportDriver {
       };
     }
 
+    const channelMatch = /\\/channels\\/([^/]+)\\/items$/.exec(req.url);
+    if (channelMatch && req.method === 'GET') {
+      const delayMs = getMockFeedDelayMs();
+      if (delayMs > 0) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+      const channelKey = decodeURIComponent(channelMatch[1] ?? 'following');
+      const page = Number(req.params?.page ?? 1);
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          code: 0,
+          data: buildMockChannelPage(channelKey, page),
+        },
+      };
+    }
+
+    if (req.url.endsWith('/search') && req.method === 'GET') {
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          code: 0,
+          message: 'ok',
+          data: { items: [] },
+        },
+      };
+    }
+
+    if (req.url.endsWith('/feedback') && req.method === 'POST') {
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          code: 0,
+          message: 'ok',
+          data: { ticketId: 'FB-2026-001', received: true },
+        },
+      };
+    }
+
     return {
       status: 404,
       headers: {},
@@ -790,8 +900,8 @@ name: Enterprise RN Clean Starter Smoke Flow
 - launchApp:
     clearState: true
 
-- assertVisible: '个人信息保护指引'
-- tapOn: '同意并继续'
+- assertVisible: '清晰的三层应用骨架'
+- tapOn: '跳过'
 
 - assertVisible: '账号登录'
 - tapOn: '请输入账号'
@@ -799,9 +909,13 @@ name: Enterprise RN Clean Starter Smoke Flow
 - tapOn: '请输入密码'
 - inputText: 'password123'
 - hideKeyboard
+- tapOn:
+    id: 'login-privacy-checkbox'
 - tapOn: '登录'
 
-- tapOn: '个人设置'
+- tapOn: '我的'
+- tapOn:
+    id: 'profile-settings-button'
 - assertVisible: '个人设置'
 
 - scrollUntilVisible:

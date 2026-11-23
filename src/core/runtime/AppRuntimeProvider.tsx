@@ -20,6 +20,7 @@ import { installGlobalErrorHandlers } from '../observability/observability';
 import { PermissionPromptHost } from '../permissions/PermissionPromptHost';
 import { AppThemeProvider } from '../theme/theme-context';
 import { ToastHost } from '../ui/ToastHost';
+import { ForceUpdateGate } from '../version-policy';
 import type { AppRuntime } from './runtime-types';
 
 const FALLBACK_SAFE_AREA_METRICS: Metrics = {
@@ -70,7 +71,7 @@ export function AppRuntimeProvider({
                     connectivityStore={runtime.connectivityStore}
                     privacyGateStore={runtime.privacyGateStore}
                   />
-                  {children}
+                  <ForceUpdateGate store={runtime.versionPolicyStore}>{children}</ForceUpdateGate>
                   <PermissionPromptHost promptStore={runtime.permissionPromptStore} />
                   {isDevToolsEnabled(runtime.env) ? (
                     <NonProdDevToolsBoundary

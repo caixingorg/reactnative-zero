@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAppTheme } from '@/core/theme/theme-context';
 import { AppText, HStack, ListTemplate, VStack, type PageStatus } from '@/core/ui';
@@ -70,22 +70,40 @@ export function HomeFeedSubTab({
   onOpenWebView,
 }: HomeFeedSubTabProps): React.JSX.Element {
   const { tokens } = useAppTheme();
+  const [publishedItems, setPublishedItems] = useState<readonly MockListRecord[]>([]);
   const feed = useMockPaginatedFeed(channelKey);
   const { refetch, fetchNextPage } = feed;
+  const combinedItems = useMemo(
+    () => (publishedItems.length > 0 ? [...publishedItems, ...feed.items] : feed.items),
+    [feed.items, publishedItems],
+  );
 
   const status: PageStatus =
-    feed.isLoading && feed.items.length === 0
+    feed.isLoading && combinedItems.length === 0
       ? 'loading'
-      : feed.error && feed.items.length === 0
+      : feed.error && combinedItems.length === 0
         ? 'error'
-        : feed.items.length === 0
+        : combinedItems.length === 0
           ? 'empty'
           : 'ready';
 
   const listHeader = useMemo(
     () =>
       channelKey === 'following' ? (
-        <QuickComposerCard />
+        <QuickComposerCard
+          onPublished={(note) => {
+            setPublishedItems((prev) => [
+              {
+                id: `following-pub-${prev.length + 1}`,
+                title: `新发布的现场动态 · ${note}`,
+                tag: '关注动态',
+                summary: `刚刚通过快捷发布条完成打卡与附件上传（${note}）。`,
+                meta: '刚刚',
+              },
+              ...prev,
+            ]);
+          }}
+        />
       ) : (
         <Pressable
           testID="home-trending-banner"
@@ -131,7 +149,7 @@ export function HomeFeedSubTab({
       style={[styles.flex, { backgroundColor: tokens.colors.surface }]}
     >
       <ListTemplate
-        data={feed.items}
+        data={combinedItems}
         keyExtractor={extractRecordKey}
         status={status}
         isActive={isActive}

@@ -47,16 +47,17 @@ export function SearchScreen({
   onBack,
   onSelectResult,
 }: SearchScreenProps = {}): React.JSX.Element {
-  const { keyValueStorage } = useAppRuntime();
+  const { keyValueStorage, httpClient } = useAppRuntime();
   const { tokens } = useAppTheme();
   const [query, setQuery] = useState('');
+  const [remoteResults, setRemoteResults] = useState<readonly SearchResultItem[] | null>(null);
   const [history, setHistory] = useState<string[]>(() =>
     readPersistedHistory(keyValueStorage.getString(SEARCH_HISTORY_STORAGE_KEY)),
   );
 
   const trimmed = query.trim();
 
-  const results = useMemo(() => {
+  const localResults = useMemo(() => {
     if (!trimmed) {
       return [];
     }
@@ -66,6 +67,13 @@ export function SearchScreen({
         item.title.toLowerCase().includes(lower) || item.category.toLowerCase().includes(lower),
     );
   }, [trimmed]);
+
+  const results = remoteResults ?? localResults;
+
+  const handleQueryChange = (nextText: string): void => {
+    setRemoteResults(null);
+    setQuery(nextText);
+  };
 
   const updateHistory = (next: string[]): void => {
     setHistory(next);
@@ -77,8 +85,19 @@ export function SearchScreen({
     if (!clean) {
       return;
     }
+    setRemoteResults(null);
     setQuery(clean);
     updateHistory([clean, ...history.filter((entry) => entry !== clean)].slice(0, 8));
+    void httpClient
+      .get<{ items?: SearchResultItem[] }>('/search', { params: { q: clean } })
+      .then((res) => {
+        if (Array.isArray(res?.items) && res.items.length > 0) {
+          setRemoteResults(res.items);
+        }
+      })
+      .catch(() => {
+        // 请求失败或无远端搜索接口时平滑回退本地预置语料库
+      });
   };
 
   return (
@@ -111,7 +130,7 @@ export function SearchScreen({
         <SearchBar
           mode="input"
           value={query}
-          onChangeText={setQuery}
+          onChangeText={handleQueryChange}
           onSubmit={recordSearch}
           placeholder="搜索文章、专题或能力"
         />

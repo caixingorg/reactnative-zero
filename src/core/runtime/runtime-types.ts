@@ -23,6 +23,11 @@ import type { DrawerStore } from '../ui/drawer-store';
 import type { ToastStore } from '../ui/toast-store';
 import type { OtaUpdateCoordinator, OtaUpdateDriver } from '../updates/ota-coordinator';
 import type { CommercialVendorAdapters } from '../vendors';
+import type {
+  VersionPolicyAdapter,
+  VersionPolicyPlatform,
+  VersionPolicyStore,
+} from '../version-policy';
 
 // 原因：允许各 Capability 模块通过 TypeScript Declaration Merging 自行注册强类型覆写契约，既消除 `as` 强转，又不违反 ESLint 禁止 core/runtime 静态导入 capabilities/* 的红线
 export interface CapabilityOverrideMap {
@@ -39,6 +44,16 @@ export interface AppObservabilityOptions {
 export interface AppOtaOptions {
   enabled?: boolean;
   driver?: OtaUpdateDriver;
+}
+
+export interface AppVersionPolicyOptions {
+  adapter?: VersionPolicyAdapter;
+  currentVersion?: string;
+  platform?: VersionPolicyPlatform;
+  fallbackUpdateUrl?: string;
+  allowBeforeConsent?: boolean;
+  timeoutMs?: number;
+  getIdentifiers?: () => Record<string, string>;
 }
 
 // 底层与测试覆写插槽（常规业务接入无需关注）
@@ -65,6 +80,7 @@ export interface AppRuntimeOptions {
   observability?: AppObservabilityOptions;
   deferredInitializers?: DeferredSdkInitializer[];
   ota?: AppOtaOptions;
+  versionPolicy?: AppVersionPolicyOptions;
   overrides?: AppRuntimeOverrides;
 }
 
@@ -89,6 +105,7 @@ export interface AppRuntime {
   toastStore: ToastStore;
   drawerStore: DrawerStore;
   otaCoordinator: OtaUpdateCoordinator;
+  versionPolicyStore: VersionPolicyStore;
   logger: Logger;
   errorReporter: ErrorReporter;
   analytics: AnalyticsTracker;

@@ -3,10 +3,11 @@
  * 职责：承接全局抽屉壳与首次欢迎引导门禁浮层，以及抽屉目标到路由参数的纯映射，保持 Route Shell (_layout.tsx) 精简纯粹。
  * 边界：不直接依赖 expo-router，所有跳转由 Route Shell 通过 onNavigate 回调注入。
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useAppRuntime, usePreferences } from '@/core/runtime';
-import { DrawerHost } from '@/core/ui';
+import { useBiometricsCapability } from '@/core/capabilities/biometrics';
+import { useAppRuntime, useAuthSession, usePreferences, useToast } from '@/core/runtime';
+import { AppText, Button, DrawerHost, Screen, VStack } from '@/core/ui';
 import { DrawerMenu, type DrawerNavTarget } from './DrawerMenu';
 import { WelcomeScreen } from './WelcomeScreen';
 
@@ -76,8 +77,79 @@ export function WelcomeOverlayGate(): React.JSX.Element | null {
   );
 }
 
+export function BiometricLockOverlayGate(): React.JSX.Element | null {
+  const { authSessionStore, preferencesStore } = useAppRuntime();
+  const authStatus = useAuthSession((state) => state.status);
+  const biometricLockEnabled = usePreferences((state) => state.biometricLockEnabled);
+  const biometrics = useBiometricsCapability();
+  const toast = useToast();
+  const [unlockedForSession, setUnlockedForSession] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  if (
+    !biometrics.enabled ||
+    !biometricLockEnabled ||
+    authStatus !== 'authenticated' ||
+    unlockedForSession
+  ) {
+    return null;
+  }
+
+  const handleUnlock = async (): Promise<void> => {
+    setVerifying(true);
+    try {
+      const res = await biometrics.authenticate('请验证面容或指纹以解锁应用');
+      if (res?.authenticated) {
+        setUnlockedForSession(true);
+      } else {
+        toast.show({ message: '生物识别未通过，请重试', tone: 'warning' });
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  return (
+    <View testID="biometric-lock-overlay" style={[StyleSheet.absoluteFill, styles.welcomeOverlay]}>
+      <Screen>
+        <VStack flex={1} justify="center" align="center" p="xl" gap="lg">
+          <VStack align="center" gap="xs">
+            <AppText variant="titleLg">应用已开启生物识别保护</AppText>
+            <AppText variant="bodySm" tone="secondary" align="center">
+              请验证您的面容或指纹以继续访问受保护内容
+            </AppText>
+          </VStack>
+          <VStack gap="sm" style={styles.lockActions}>
+            <Button
+              testID="biometric-lock-unlock-btn"
+              label="验证生物识别解锁"
+              loading={verifying}
+              onPress={() => {
+                void handleUnlock();
+              }}
+            />
+            <Button
+              testID="biometric-lock-signout-btn"
+              label="退出当前账号"
+              variant="ghost"
+              onPress={() => {
+                preferencesStore.getState().setBiometricLockEnabled(false);
+                void authSessionStore.getState().clearSession();
+              }}
+            />
+          </VStack>
+        </VStack>
+      </Screen>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   welcomeOverlay: {
     zIndex: 100,
+  },
+  lockActions: {
+    width: '100%',
+    maxWidth: 280,
   },
 });

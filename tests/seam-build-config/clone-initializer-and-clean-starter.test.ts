@@ -284,13 +284,44 @@ describe('Seam 2: Clone initializer (init-app) & --clean-starter verification', 
         fs.existsSync(path.join(sandboxDir, 'src/features/home/screens/FeedDetailScreen.tsx')),
       ).toBe(false);
 
-      // Drawer shell has no dangling checkout route
+      // Root layout and Drawer shell have zero dangling registrations to deleted routes (/list, /detail, /status, /checkout, /developer-lab, /feed/[id])
+      const cleanedRootLayout = fs.readFileSync(
+        path.join(sandboxDir, 'src/app/_layout.tsx'),
+        'utf8',
+      );
+      expect(cleanedRootLayout).not.toContain('name="list"');
+      expect(cleanedRootLayout).not.toContain('name="detail"');
+      expect(cleanedRootLayout).not.toContain('name="status"');
+      expect(cleanedRootLayout).not.toContain('name="checkout"');
+      expect(cleanedRootLayout).not.toContain('name="developer-lab"');
+
       expect(
         fs.readFileSync(path.join(sandboxDir, 'src/features/shell/DrawerMenu.tsx'), 'utf8'),
       ).not.toContain('checkout');
-      expect(
-        fs.readFileSync(path.join(sandboxDir, 'src/features/shell/AppShellOverlays.tsx'), 'utf8'),
-      ).not.toContain('/checkout');
+      const cleanedOverlays = fs.readFileSync(
+        path.join(sandboxDir, 'src/features/shell/AppShellOverlays.tsx'),
+        'utf8',
+      );
+      expect(cleanedOverlays).not.toContain('/checkout');
+      expect(cleanedOverlays).not.toContain('/list');
+      expect(cleanedOverlays).not.toContain('/status');
+
+      // Preserved tabs and search routes have no broken push('/detail') calls
+      for (const relRoute of [
+        'src/app/(tabs)/discover.tsx',
+        'src/app/(tabs)/messages.tsx',
+        'src/app/(tabs)/profile.tsx',
+        'src/app/search.tsx',
+      ]) {
+        expect(fs.readFileSync(path.join(sandboxDir, relRoute), 'utf8')).not.toContain("'/detail'");
+      }
+
+      // Cleaned mock transport still serves /channels/:channelKey/items so Discover/Messages/Profile tabs do not 404
+      const cleanedMockTransport = fs.readFileSync(
+        path.join(sandboxDir, 'src/shared/mock/mock-http-transport.ts'),
+        'utf8',
+      );
+      expect(cleanedMockTransport).toContain('buildMockChannelPage');
 
       // Headless payment capability retained and zero closed-source payment SDKs in default dependencies
       expect(fs.existsSync(path.join(sandboxDir, 'src/core/capabilities/payment/index.ts'))).toBe(

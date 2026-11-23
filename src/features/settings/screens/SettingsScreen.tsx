@@ -45,18 +45,21 @@ export function SettingsScreen({
   onReplayWelcome,
 }: SettingsScreenProps = {}): React.JSX.Element {
   const { t } = useTranslation();
-  const { identity, env, httpClient, authSessionStore, devToolsStore } = useAppRuntime();
+  const { identity, env, httpClient, authSessionStore, privacyGateStore, devToolsStore } =
+    useAppRuntime();
   const { tokens, themePreference, setThemePreference } = useAppTheme();
   const authStatus = useAuthSession((state) => state.status);
   const user = useAuthSession((state) => state.user);
   const effectiveApiBaseUrl = useDevTools((state) => state.effectiveApiBaseUrl);
   const language = usePreferences((state) => state.language);
   const setLanguage = usePreferences((state) => state.setLanguage);
+  const biometricLockEnabled = usePreferences((state) => state.biometricLockEnabled);
+  const setBiometricLockEnabled = usePreferences((state) => state.setBiometricLockEnabled);
   const biometrics = useBiometricsCapability();
   const toast = useToast();
-  const [biometricLockEnabled, setBiometricLockEnabled] = useState(false);
   const [signOutDialogVisible, setSignOutDialogVisible] = useState(false);
   const [deleteAccountDialogVisible, setDeleteAccountDialogVisible] = useState(false);
+  const [revokePrivacyDialogVisible, setRevokePrivacyDialogVisible] = useState(false);
   const [changePwdVisible, setChangePwdVisible] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -114,6 +117,7 @@ export function SettingsScreen({
 
   const handleToggleBiometricLock = async (nextValue: boolean): Promise<void> => {
     if (!nextValue) {
+      await biometrics.clearBiometricSecret();
       setBiometricLockEnabled(false);
       return;
     }
@@ -196,6 +200,18 @@ export function SettingsScreen({
       iconBg: tokens.isDark ? 'rgba(139,92,246,0.18)' : '#EDE9FE',
       onPress: onReplayWelcome,
       testID: 'settings-replay-welcome-btn',
+    });
+  }
+  if (identity.compliance.requirePrivacyConsent) {
+    securityItems.push({
+      key: 'revoke-privacy',
+      kind: 'link',
+      label: '撤回隐私政策授权',
+      icon: 'hand-left-outline',
+      iconColor: tokens.colors.danger,
+      iconBg: tokens.colors.primarySoft,
+      onPress: () => setRevokePrivacyDialogVisible(true),
+      testID: 'settings-revoke-privacy-btn',
     });
   }
   if (authStatus === 'authenticated') {
@@ -492,6 +508,19 @@ export function SettingsScreen({
           onCancel={() => setDeleteAccountDialogVisible(false)}
           onConfirm={() => {
             void handleDeleteAccount();
+          }}
+        />
+
+        <ConfirmDialog
+          visible={revokePrivacyDialogVisible}
+          title="确认撤回隐私政策授权？"
+          description="撤回后将立即挂起第三方 SDK 与崩溃上报，并需要重新签署隐私协议方可继续使用。"
+          confirmLabel="确认撤回"
+          destructive
+          onCancel={() => setRevokePrivacyDialogVisible(false)}
+          onConfirm={() => {
+            setRevokePrivacyDialogVisible(false);
+            privacyGateStore.getState().resetPrivacyConsent();
           }}
         />
 

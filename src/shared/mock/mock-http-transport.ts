@@ -50,6 +50,14 @@ const MOCK_PAGE_2: MockFeedRecord[] = [
   },
 ];
 
+const MOCK_SEARCH_CORPUS = [
+  { id: 's-1', title: '企业级移动底座四层架构规范', category: '架构' },
+  { id: 's-2', title: 'Reanimated 抽屉手势与边缘冲突隔离', category: '交互' },
+  { id: 's-3', title: '弱网离线缓存与单飞刷新方案', category: '网络' },
+  { id: 's-4', title: 'Android 包体积守卫与基线管理', category: '性能' },
+  { id: 's-5', title: '零依赖 Design Token 亮暗主题切换', category: '样式' },
+] as const;
+
 interface MockAccount {
   id: string;
   username: string;
@@ -281,6 +289,39 @@ export function createMockHttpTransport(): HttpTransportDriver {
         data: {
           code: 0,
           data: buildMockChannelPage(channelKey, page),
+        },
+      };
+    }
+
+    if (req.url.endsWith('/search') && req.method === 'GET') {
+      const q = String(req.params?.q ?? '')
+        .trim()
+        .toLowerCase();
+      const items = q
+        ? MOCK_SEARCH_CORPUS.filter(
+            (item) =>
+              item.title.toLowerCase().includes(q) || item.category.toLowerCase().includes(q),
+          )
+        : [];
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          code: 0,
+          message: 'ok',
+          data: { items },
+        },
+      };
+    }
+
+    if (req.url.endsWith('/feedback') && req.method === 'POST') {
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          code: 0,
+          message: 'ok',
+          data: { ticketId: 'FB-2026-001', received: true },
         },
       };
     }

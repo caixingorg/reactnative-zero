@@ -46,6 +46,15 @@ for (const filePath of files) {
     errors.push(`${relPath}: missing Maestro frontmatter separator "---"`);
   }
 
+  const FORBIDDEN_LEGACY_STRINGS = ['业务动态列表', '能力实验室'];
+  for (const legacyStr of FORBIDDEN_LEGACY_STRINGS) {
+    if (content.includes(legacyStr)) {
+      errors.push(
+        `${relPath}: contains obsolete v1 UI selector "${legacyStr}" removed from current 4-tab shell`,
+      );
+    }
+  }
+
   for (let i = 0; i < lines.length; i += 1) {
     const match = lines[i].match(/^\s*-\s*runFlow:\s*['"]?([^'"#\s]+)['"]?/);
     if (match) {

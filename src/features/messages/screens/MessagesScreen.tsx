@@ -214,12 +214,14 @@ export function MessagesScreen({ onSelectRecord }: MessagesScreenProps = {}): Re
   const scrollProgress = useSharedValue(0);
   const unreadCounts = useMessagesUnreadStore((state) => state.unreadCounts);
   const allRead = useMessagesUnreadStore((state) => state.allRead);
+  const readItemIds = useMessagesUnreadStore((state) => state.readItemIds);
   const markAllRead = useMessagesUnreadStore((state) => state.markAllRead);
   const totalUnread = useMessagesTotalUnread();
+  const hasUnreadInteraction = !allRead && !readItemIds['interactions-p1-1'];
 
   const tabs: readonly TopTabItem[] = [
     { key: 'notifications', label: '通知', badgeCount: unreadCounts.notifications },
-    { key: 'interactions', label: '互动', showDot: !allRead },
+    { key: 'interactions', label: '互动', showDot: hasUnreadInteraction },
     { key: 'direct', label: '私信', badgeCount: unreadCounts.direct },
   ];
 

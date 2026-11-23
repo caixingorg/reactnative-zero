@@ -1,11 +1,16 @@
 appId: ${MAESTRO_APP_ID || 'com.enterprise.rntemplate.dev'}
-name: 03 - Protected Feed and Tab Navigation Flow
+name: 03 - 4-Tab Navigation and Settings Entry Flow
 ---
-# 1. 验证受保护首页信息流加载
-- assertVisible: '业务动态列表'
+# 1. 验证 4 栏底导切换（首页 -> 发现 -> 消息 -> 我的）
+- assertVisible: '推荐'
+- tapOn: '发现'
+- assertVisible: '广场'
+- tapOn: '消息'
+- assertVisible: '通知'
+- tapOn: '我的'
+- assertVisible: '收藏'
 
-# 2. 切换能力实验室与个人设置标签页
-- tapOn: '能力实验室'
-- assertVisible: '原生能力实验室'
-- tapOn: '个人设置'
+# 2. 从「我的」右上角进入个人设置页
+- tapOn:
+    id: 'profile-settings-button'
 - assertVisible: '个人设置'

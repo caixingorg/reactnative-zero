@@ -1,17 +1,8 @@
 appId: ${MAESTRO_APP_ID || 'com.enterprise.rntemplate.dev'}
-name: 02 - Auth Validation and Login Flow
+name: 02 - Privacy Consent Check and Demo Account Login Flow
 ---
-# 1. 验证前端实时表单校验
-- assertVisible: '账号登录'
-- tapOn: '请输入账号'
-- inputText: 'ab'
-- assertVisible: '请输入至少 3 位账号'
-
-# 2. 使用演示账号完成登录并进入受保护主页
-- eraseText: 2
-- inputText: 'admin'
-- tapOn: '请输入密码'
-- inputText: 'password123'
-- hideKeyboard
+# 勾选同意《用户协议》与《隐私政策》并完成登录，进入 4 栏受保护主页
+- tapOn:
+    id: 'login-privacy-checkbox'
 - tapOn: '登录'
-- assertVisible: '业务动态列表'
+- assertVisible: '推荐'

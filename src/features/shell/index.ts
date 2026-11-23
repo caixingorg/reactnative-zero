@@ -1,5 +1,6 @@
 export {
   AppDrawerShell,
+  BiometricLockOverlayGate,
   resolveDrawerRoute,
   WelcomeOverlayGate,
   type AppDrawerShellProps,

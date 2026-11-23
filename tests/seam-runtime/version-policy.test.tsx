@@ -265,4 +265,37 @@ describe('Seam: minimum version and kill-switch policy', () => {
     await noLink.getState().check();
     expect(noLink.getState().status).toBe('ok');
   });
+
+  it('automatically triggers version policy check in Phase 2 after privacy consent and blocks AppRuntimeProvider children via built-in ForceUpdateGate', async () => {
+    const seen: VersionPolicyRequest[] = [];
+    const runtime = createTestRuntime({
+      versionPolicy: {
+        currentVersion: '1.0.0',
+        platform: 'ios',
+        adapter: adapterReturning(
+          { minVersion: '2.0.0', updateUrl: 'https://example.com/upgrade' },
+          seen,
+        ),
+      },
+    });
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <Text>normal-app-shell</Text>
+      </AppRuntimeProvider>,
+    );
+
+    // Before privacy consent: zero network requests, children render normally
+    expect(seen).toHaveLength(0);
+    expect(screen.getByText('normal-app-shell')).toBeTruthy();
+
+    // Grant privacy consent -> Phase 2 deferred initializer automatically runs versionPolicyStore.getState().check()
+    await act(async () => {
+      runtime.privacyGateStore.getState().acceptPrivacyPolicy();
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(await screen.findByText('需要更新应用')).toBeTruthy();
+    expect(screen.queryByText('normal-app-shell')).toBeNull();
+  });
 });

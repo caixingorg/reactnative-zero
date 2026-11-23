@@ -31,7 +31,7 @@ import {
   type ResolvedPaymentChannel,
   type StoreProduct,
 } from '@/core/capabilities/payment';
-import { useAppRuntime, useAuthSession, useToast } from '@/core/runtime';
+import { useAppRuntime, useAuthSession, usePrivacyGate, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import { AppHeader, AppText, Button, HStack, Screen, Switch, TextField, VStack } from '@/core/ui';
 import { PaymentCashierSheet } from '../components/PaymentCashierSheet';
@@ -83,6 +83,7 @@ const DEFAULT_REMOTE_CHANNELS: readonly RemotePaymentChannel[] = [
 
 export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Element {
   const { identity, env, keyValueStorage, capabilityOverrides } = useAppRuntime();
+  const isPrivacyReady = usePrivacyGate((state) => state.phase === 'ready');
   const user = useAuthSession((state) => state.user);
   const toast = useToast();
   const { tokens } = useAppTheme();
@@ -191,6 +192,13 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
       });
     });
 
+    if (!isPrivacyReady) {
+      return () => {
+        active = false;
+        unsubscribe();
+      };
+    }
+
     void (async () => {
       await paymentService.initializeDrivers();
       const [resolvedChannels, subProducts, lifetimeProducts] = await Promise.all([
@@ -198,6 +206,7 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
         paymentService.billing.fetchProducts(['pro_monthly'], 'subscription'),
         paymentService.billing.fetchProducts(['pro_lifetime'], 'non_consumable'),
       ]);
+      await paymentService.checkout.recoverPendingSessions({ userId: currentUserId });
       if (!active) {
         return;
       }
@@ -212,7 +221,7 @@ export function CheckoutScreen({ onBack }: CheckoutScreenProps): React.JSX.Eleme
         paymentService.dispose();
       }
     };
-  }, [capabilityOverrides?.paymentService, paymentService, toast]);
+  }, [capabilityOverrides?.paymentService, currentUserId, isPrivacyReady, paymentService, toast]);
 
   const handleCheckoutConfirm = async (channel: ResolvedPaymentChannel): Promise<void> => {
     setSubmitting(true);

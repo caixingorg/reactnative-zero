@@ -13,7 +13,9 @@ import {
   type SettingsSection,
 } from '@/core/ui';
 import { StatusPageScreen } from '@/features/content';
+import { FeedbackFormScreen } from '@/features/feedback';
 import { SearchScreen } from '@/features/search';
+import { createMockHttpTransport } from '@/shared';
 import { createTestRuntime } from '../helpers/create-test-runtime';
 import { TEST_RUNTIME_ENV } from '../helpers/test-env';
 
@@ -325,5 +327,58 @@ describe('Seam: SearchScreen and StatusPageScreen stack templates', () => {
     expect(screen.getByText('404 · 页面不存在')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: '返回上一页' }));
     expect(backed).toBe(1);
+  });
+
+  it('routes SearchScreen queries and FeedbackFormScreen submissions through httpClient and mock gateway', async () => {
+    const runtime = createTestRuntime({
+      identity: {
+        ...appIdentity,
+        compliance: {
+          ...appIdentity.compliance,
+          requirePrivacyConsent: false,
+        },
+      },
+      env: TEST_RUNTIME_ENV,
+      overrides: {
+        httpTransport: createMockHttpTransport(),
+      },
+    });
+    const getSpy = jest.spyOn(runtime.httpClient, 'get');
+    const postSpy = jest.spyOn(runtime.httpClient, 'post');
+    let feedbackBacked = 0;
+
+    const searchMount = await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <SearchScreen />
+      </AppRuntimeProvider>,
+    );
+
+    await fireEvent.press(screen.getByText('抽屉手势'));
+    expect(getSpy).toHaveBeenCalledWith('/search', { params: { q: '抽屉手势' } });
+    await searchMount.unmount();
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <FeedbackFormScreen
+          onBack={() => {
+            feedbackBacked += 1;
+          }}
+        />
+      </AppRuntimeProvider>,
+    );
+
+    await fireEvent.changeText(screen.getByPlaceholderText('简述遇到的问题或建议'), '深色模式反馈');
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('请补充复现步骤或期望效果'),
+      '希望在抽屉菜单中支持一键切换深色与浅色主题',
+    );
+    await fireEvent.press(screen.getByRole('button', { name: '提交反馈' }));
+
+    expect(postSpy).toHaveBeenCalledWith('/feedback', {
+      subject: '深色模式反馈',
+      details: '希望在抽屉菜单中支持一键切换深色与浅色主题',
+    });
+    expect(await screen.findByText('反馈已提交，感谢您的建议')).toBeTruthy();
+    expect(feedbackBacked).toBe(1);
   });
 });

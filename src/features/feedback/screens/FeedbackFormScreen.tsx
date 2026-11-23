@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useToast } from '@/core/runtime';
+import { useAppRuntime, useToast } from '@/core/runtime';
 import { FormTemplate, TextField } from '@/core/ui';
 
 export interface FeedbackFormScreenProps {
@@ -7,15 +7,18 @@ export interface FeedbackFormScreenProps {
 }
 
 export function FeedbackFormScreen({ onBack }: FeedbackFormScreenProps = {}): React.JSX.Element {
+  const { httpClient } = useAppRuntime();
   const toast = useToast();
   const [subject, setSubject] = useState('');
   const [details, setDetails] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <FormTemplate
       title="意见反馈"
       onBack={onBack}
       submitLabel="提交反馈"
+      submitting={submitting}
       onValidate={() => {
         if (subject.trim().length < 2) {
           return '请输入至少 2 个字的反馈主题';
@@ -25,11 +28,25 @@ export function FeedbackFormScreen({ onBack }: FeedbackFormScreenProps = {}): Re
         }
         return null;
       }}
-      onSubmit={() => {
-        toast.show({ message: '反馈已提交，感谢您的建议', tone: 'success' });
-        setSubject('');
-        setDetails('');
-        onBack?.();
+      onSubmit={async () => {
+        setSubmitting(true);
+        try {
+          await httpClient.post('/feedback', {
+            subject: subject.trim(),
+            details: details.trim(),
+          });
+          toast.show({ message: '反馈已提交，感谢您的建议', tone: 'success' });
+          setSubject('');
+          setDetails('');
+          onBack?.();
+        } catch (err) {
+          toast.show({
+            message: err instanceof Error ? err.message : '反馈提交失败，请稍后重试',
+            tone: 'danger',
+          });
+        } finally {
+          setSubmitting(false);
+        }
       }}
     >
       <TextField
