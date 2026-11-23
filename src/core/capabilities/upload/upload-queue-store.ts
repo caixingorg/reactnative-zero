@@ -64,15 +64,20 @@ export function createUploadQueueStore(options: UploadQueueStoreOptions): Upload
   const cleanup = options.cleanupTemporaryFile ?? cleanupTemporaryUploadFile;
   const controllers = new Map<string, AbortController>();
   const pauseRequested = new Set<string>();
+  const cleanedTaskIds = new Set<string>();
   let sequence = 0;
 
   const cleanupTaskTempFile = (task: UploadQueueTask): void => {
+    if (cleanedTaskIds.has(task.id)) {
+      return;
+    }
     const isTemp =
-      task.isTemporaryFile === true ||
-      (task.sourceUri !== undefined && task.fileUri !== task.sourceUri);
+      (task.isTemporaryFile ?? (task.sourceUri !== undefined && task.fileUri !== task.sourceUri)) &&
+      !(task.sourceUri !== undefined && task.fileUri === task.sourceUri);
     if (!isTemp) {
       return;
     }
+    cleanedTaskIds.add(task.id);
     try {
       cleanup(task.fileUri, task.sourceUri);
     } catch {
@@ -224,6 +229,7 @@ export function createUploadQueueStore(options: UploadQueueStoreOptions): Upload
         );
         for (const item of finished) {
           cleanupTaskTempFile(item);
+          cleanedTaskIds.delete(item.id);
         }
         set((state) => ({
           tasks: state.tasks.filter(

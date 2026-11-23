@@ -36,6 +36,11 @@ export function ImageUploadCard(): React.JSX.Element {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      const activeController = controllerRef.current;
+      if (activeController) {
+        activeController.abort();
+        return;
+      }
       if (pendingTempUriRef.current) {
         cleanupTemporaryUploadFile(pendingTempUriRef.current, sourceUriRef.current ?? undefined);
         pendingTempUriRef.current = null;
@@ -49,8 +54,8 @@ export function ImageUploadCard(): React.JSX.Element {
       const controller = new AbortController();
       controllerRef.current = controller;
       const sourceUri = sourceUriRef.current ?? undefined;
-      pendingTempUriRef.current =
-        sourceUri !== undefined && image.uri === sourceUri ? null : image.uri;
+      const isTempFile = sourceUri !== undefined && image.uri !== sourceUri;
+      pendingTempUriRef.current = isTempFile ? image.uri : null;
       if (isMountedRef.current) {
         setState({ phase: 'uploading', percent: 0 });
       }
@@ -71,31 +76,55 @@ export function ImageUploadCard(): React.JSX.Element {
             );
           },
         });
-        cleanupTemporaryUploadFile(image.uri, sourceUriRef.current ?? undefined);
-        pendingTempUriRef.current = null;
-        sourceUriRef.current = null;
+        if (isTempFile) {
+          cleanupTemporaryUploadFile(image.uri, sourceUri);
+        }
+        if (pendingTempUriRef.current === image.uri) {
+          pendingTempUriRef.current = null;
+        }
+        if (sourceUriRef.current === sourceUri) {
+          sourceUriRef.current = null;
+        }
         if (isMountedRef.current) {
           setState({ phase: 'done', width: image.width, height: image.height });
         }
       } catch (error) {
         if (error instanceof UploadError && error.kind === 'cancelled') {
-          cleanupTemporaryUploadFile(image.uri, sourceUriRef.current ?? undefined);
-          pendingTempUriRef.current = null;
-          sourceUriRef.current = null;
+          if (isTempFile) {
+            cleanupTemporaryUploadFile(image.uri, sourceUri);
+          }
+          if (pendingTempUriRef.current === image.uri) {
+            pendingTempUriRef.current = null;
+          }
+          if (sourceUri !== undefined && sourceUriRef.current === sourceUri) {
+            sourceUriRef.current = null;
+          }
           if (isMountedRef.current) {
             setState({ phase: 'cancelled' });
           }
           return;
         }
-        if (isMountedRef.current) {
-          setState({
-            phase: 'failed',
-            reason: error instanceof Error ? error.message : String(error),
-            image,
-          });
+        if (!isMountedRef.current) {
+          if (isTempFile) {
+            cleanupTemporaryUploadFile(image.uri, sourceUri);
+          }
+          if (pendingTempUriRef.current === image.uri) {
+            pendingTempUriRef.current = null;
+          }
+          if (sourceUri !== undefined && sourceUriRef.current === sourceUri) {
+            sourceUriRef.current = null;
+          }
+          return;
         }
+        setState({
+          phase: 'failed',
+          reason: error instanceof Error ? error.message : String(error),
+          image,
+        });
       } finally {
-        controllerRef.current = null;
+        if (controllerRef.current === controller) {
+          controllerRef.current = null;
+        }
       }
     },
     [uploadService],
@@ -108,6 +137,10 @@ export function ImageUploadCard(): React.JSX.Element {
     });
     if (!asset || !isMountedRef.current) {
       return;
+    }
+    if (pendingTempUriRef.current) {
+      cleanupTemporaryUploadFile(pendingTempUriRef.current, sourceUriRef.current ?? undefined);
+      pendingTempUriRef.current = null;
     }
     sourceUriRef.current = asset.uri;
     setState({ phase: 'compressing' });

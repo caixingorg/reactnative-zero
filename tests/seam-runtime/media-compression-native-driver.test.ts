@@ -216,4 +216,69 @@ describe('Seam: react-native-compressor lazy native driver & temp file cleanup',
     mockShouldThrowOnDelete = true;
     expect(() => cleanupTemporaryUploadFile('file:///cache/locked.jpg')).not.toThrow();
   });
+
+  it('guards whitespace URIs, handles throwing Video.cancelCompression in abort listener, normalizes aborted Image.compress rejections, and returns undefined for empty getFileSize strings', async () => {
+    jest.clearAllMocks();
+    const driver = createCompressorMediaDriver();
+
+    // Whitespace-only URIs fail early without invoking native compressor
+    await expect(driver.compressVideo('   ')).rejects.toThrow(/empty/);
+    await expect(driver.compressImage('   ')).rejects.toThrow(/empty/);
+    await expect(driver.getFileSize?.('   ')).resolves.toBeUndefined();
+    expect(mockVideoCompress).not.toHaveBeenCalled();
+    expect(mockImageCompress).not.toHaveBeenCalled();
+    expect(mockGetFileSize).not.toHaveBeenCalled();
+
+    // Empty / whitespace strings returned from native getFileSize resolve to undefined (not 0)
+    mockGetFileSize.mockResolvedValueOnce('');
+    await expect(driver.getFileSize?.('file:///cache/out.mp4')).resolves.toBeUndefined();
+    mockGetFileSize.mockResolvedValueOnce('   ');
+    await expect(driver.getFileSize?.('file:///cache/out.mp4')).resolves.toBeUndefined();
+
+    // Synchronous throw in Video.cancelCompression inside AbortSignal listener must not crash
+    mockExistingFiles.add('file:///cache/throw-cancel.mp4');
+    const throwCancelController = new AbortController();
+    mockVideoCancelCompression.mockImplementationOnce(() => {
+      throw new Error('cancelCompression native failure');
+    });
+    mockVideoCompress.mockImplementationOnce(
+      async (_uri: string, options: { getCancellationId?: (id: string) => void }) => {
+        options.getCancellationId?.('job-throw-1');
+        throwCancelController.abort();
+        return 'file:///cache/throw-cancel.mp4';
+      },
+    );
+    await expect(
+      driver.compressVideo('file:///input/clip.mp4', { signal: throwCancelController.signal }),
+    ).rejects.toMatchObject({ kind: 'cancelled' });
+    expect(mockFileDelete).toHaveBeenCalledWith('file:///cache/throw-cancel.mp4');
+
+    // Synchronous throw in Video.cancelCompression inside getCancellationId when aborted earlier
+    const preCancelIdController = new AbortController();
+    mockVideoCancelCompression.mockImplementationOnce(() => {
+      throw new Error('cancelCompression inside getCancellationId failure');
+    });
+    mockVideoCompress.mockImplementationOnce(
+      async (_uri: string, options: { getCancellationId?: (id: string) => void }) => {
+        preCancelIdController.abort();
+        options.getCancellationId?.('job-throw-2');
+        throw new Error('native aborted');
+      },
+    );
+    await expect(
+      driver.compressVideo('file:///input/clip.mp4', { signal: preCancelIdController.signal }),
+    ).rejects.toMatchObject({ kind: 'cancelled' });
+
+    // Image.compress rejecting while signal.aborted normalizes to UploadError('cancelled')
+    const imgRejectAbortController = new AbortController();
+    mockImageCompress.mockImplementationOnce(async () => {
+      imgRejectAbortController.abort();
+      throw new Error('native image task failed after abort');
+    });
+    await expect(
+      driver.compressImage('file:///input/photo.heic', {
+        signal: imgRejectAbortController.signal,
+      }),
+    ).rejects.toMatchObject({ kind: 'cancelled' });
+  });
 });

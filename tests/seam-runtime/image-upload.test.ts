@@ -695,6 +695,44 @@ describe('Seam: image compression and single-file upload', () => {
       store.getState().clearFinished();
       expect(store.getState().tasks.map((t) => t.id)).toEqual([failPauseId]);
     });
+
+    it('respects explicit isTemporaryFile: false and avoids duplicate cleanup calls on clearFinished', async () => {
+      const cleaned: string[] = [];
+      const store = createUploadQueueStore({
+        concurrency: 2,
+        cleanupTemporaryFile: (uri) => {
+          cleaned.push(uri);
+        },
+        executeTask: async () => ({ resultUrl: 'https://cdn.example.com/ok' }),
+      });
+
+      const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      // Even when fileUri !== sourceUri, explicit isTemporaryFile: false must NOT delete fileUri
+      store.getState().enqueue({
+        fileUri: 'file:///dcim/copy-kept.mp4',
+        sourceUri: 'file:///dcim/original.mp4',
+        isTemporaryFile: false,
+        fileName: 'kept.mp4',
+        mimeType: 'video/mp4',
+      });
+
+      // Temp file cleaned once on 'done', NOT a second time on clearFinished()
+      store.getState().enqueue({
+        fileUri: 'file:///cache/once-temp.mp4',
+        sourceUri: 'file:///dcim/once-original.mp4',
+        isTemporaryFile: true,
+        fileName: 'once.mp4',
+        mimeType: 'video/mp4',
+      });
+
+      await flush();
+      expect(cleaned).toEqual(['file:///cache/once-temp.mp4']);
+
+      store.getState().clearFinished();
+      expect(cleaned).toEqual(['file:///cache/once-temp.mp4']);
+      expect(store.getState().tasks).toHaveLength(0);
+    });
   });
 
   describe('mediaCompression capability switch, driver override, and cleanup lifecycle', () => {

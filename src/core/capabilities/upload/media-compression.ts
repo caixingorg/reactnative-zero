@@ -69,7 +69,11 @@ export interface RunUploadWithMediaCleanupOptions<T> {
 const REMOTE_OR_DATA_URI_REGEX = /^(https?:|data:)/i;
 
 function isLocalTemporaryPath(resultUri: string, sourceUri: string): boolean {
-  return Boolean(resultUri) && resultUri !== sourceUri && !REMOTE_OR_DATA_URI_REGEX.test(resultUri);
+  return (
+    Boolean(resultUri.trim()) &&
+    resultUri !== sourceUri &&
+    !REMOTE_OR_DATA_URI_REGEX.test(resultUri)
+  );
 }
 
 // 原因：react-native-compressor/Main.js 在模块求值期即执行 NitroModules.createHybridObject('Compressor')，
@@ -77,7 +81,7 @@ function isLocalTemporaryPath(resultUri: string, sourceUri: string): boolean {
 export function createCompressorMediaDriver(): MediaCompressionDriver {
   return {
     async compressVideo(uri: string, options?: VideoCompressionOptions): Promise<string> {
-      if (!uri) {
+      if (!uri.trim()) {
         throw new Error('Video compression source URI is empty.');
       }
       if (options?.signal?.aborted) {
@@ -93,7 +97,11 @@ export function createCompressorMediaDriver(): MediaCompressionDriver {
       const handleAbort = (): void => {
         aborted = true;
         if (cancellationId) {
-          Video.cancelCompression(cancellationId);
+          try {
+            Video.cancelCompression(cancellationId);
+          } catch {
+            // 忽略原生取消失败
+          }
         }
       };
 
@@ -104,7 +112,11 @@ export function createCompressorMediaDriver(): MediaCompressionDriver {
           getCancellationId: (id: string) => {
             cancellationId = id;
             if (aborted || options?.signal?.aborted) {
-              Video.cancelCompression(id);
+              try {
+                Video.cancelCompression(id);
+              } catch {
+                // 忽略原生取消失败
+              }
             }
           },
         };
@@ -156,7 +168,7 @@ export function createCompressorMediaDriver(): MediaCompressionDriver {
     },
 
     async compressImage(uri: string, options?: HardwareImageCompressionOptions): Promise<string> {
-      if (!uri) {
+      if (!uri.trim()) {
         throw new Error('Image compression source URI is empty.');
       }
       if (options?.signal?.aborted) {
@@ -192,7 +204,18 @@ export function createCompressorMediaDriver(): MediaCompressionDriver {
         nativeOptions.progressDivider = options.progressDivider;
       }
 
-      const resultUri = await Image.compress(uri, nativeOptions);
+      let resultUri: string;
+      try {
+        resultUri = await Image.compress(uri, nativeOptions);
+      } catch (error) {
+        if (options?.signal?.aborted) {
+          if (error instanceof UploadError && error.kind === 'cancelled') {
+            throw error;
+          }
+          throw new UploadError('cancelled', '图片压缩已取消');
+        }
+        throw error;
+      }
 
       if (options?.signal?.aborted) {
         if (options.returnableOutputType !== 'base64' && isLocalTemporaryPath(resultUri, uri)) {
@@ -205,13 +228,17 @@ export function createCompressorMediaDriver(): MediaCompressionDriver {
     },
 
     async getFileSize(uri: string): Promise<number | undefined> {
-      if (!uri) {
+      if (!uri.trim()) {
         return undefined;
       }
       const Compressor =
         require('react-native-compressor') as typeof import('react-native-compressor');
       const raw = await Compressor.getFileSize(uri);
-      const parsed = Number(raw);
+      const trimmed = typeof raw === 'string' ? raw.trim() : String(raw).trim();
+      if (!trimmed) {
+        return undefined;
+      }
+      const parsed = Number(trimmed);
       return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
     },
   };

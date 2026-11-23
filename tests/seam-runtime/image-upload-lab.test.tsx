@@ -256,4 +256,202 @@ describe('Seam: image upload card in the Capabilities Lab', () => {
     expect(mockDeletedFiles).toEqual([]);
     expect(mockExistingFiles.has('file:///photo.heic')).toBe(true);
   });
+
+  it('preserves original source asset when unmounted while a passthrough upload is still in flight', async () => {
+    const user = userEvent.setup();
+    let resolveUpload!: (res: { status: number; body: string }) => void;
+    let capturedSignal: AbortSignal | undefined;
+    mockExistingFiles.add('file:///photo-original.heic');
+
+    const runtime = createTestRuntime({
+      identity: {
+        ...appIdentity,
+        compliance: { requirePrivacyConsent: false, requirePermissionRationale: false },
+      },
+      env: TEST_RUNTIME_ENV,
+      translations: appTranslationResources,
+      overrides: {
+        secretStorage: createMemorySecretStorage(),
+        keyValueStorage: createMemoryKeyValueStorage(),
+        initialDeviceLocale: 'zh-CN',
+        permissionDriver,
+        capabilities: {
+          media: {
+            pickImage: async () => ({
+              uri: 'file:///photo-original.heic',
+              width: 800,
+              height: 600,
+            }),
+            saveToLibrary: async (uri: string) => ({ saved: true, uri }),
+          },
+          uploadDriver: {
+            upload: (request) => {
+              capturedSignal = request.signal;
+              return new Promise((resolve) => {
+                resolveUpload = resolve;
+              });
+            },
+          },
+          imageCompressionDriver: {
+            compress: async () => ({
+              uri: 'file:///photo-original.heic',
+              width: 800,
+              height: 600,
+            }),
+          },
+        },
+      },
+    });
+
+    const view = await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <CapabilitiesLabScreen />
+      </AppRuntimeProvider>,
+    );
+    await user.press(screen.getByTestId('upload-pick'));
+    expect(await screen.findByText('上传中 0%')).toBeTruthy();
+
+    await view.unmount();
+    expect(capturedSignal?.aborted).toBe(true);
+
+    await act(async () => {
+      resolveUpload({ status: 200, body: JSON.stringify({ code: 0, message: 'ok', data: {} }) });
+      await Promise.resolve();
+    });
+
+    expect(mockDeletedFiles).toEqual([]);
+    expect(mockExistingFiles.has('file:///photo-original.heic')).toBe(true);
+  });
+
+  it('aborts active temp-file upload on unmount and cleans temp file only after settlement without deleting source asset', async () => {
+    const user = userEvent.setup();
+    let rejectUpload!: (error: Error) => void;
+    let capturedSignal: AbortSignal | undefined;
+    mockExistingFiles.add('file:///photo.heic');
+    mockExistingFiles.add('file:///out-inflight.jpg');
+
+    const runtime = createTestRuntime({
+      identity: {
+        ...appIdentity,
+        compliance: { requirePrivacyConsent: false, requirePermissionRationale: false },
+      },
+      env: TEST_RUNTIME_ENV,
+      translations: appTranslationResources,
+      overrides: {
+        secretStorage: createMemorySecretStorage(),
+        keyValueStorage: createMemoryKeyValueStorage(),
+        initialDeviceLocale: 'zh-CN',
+        permissionDriver,
+        capabilities: {
+          media: {
+            pickImage: async () => ({ uri: 'file:///photo.heic', width: 4000, height: 3000 }),
+            saveToLibrary: async (uri: string) => ({ saved: true, uri }),
+          },
+          uploadDriver: {
+            upload: (request) => {
+              capturedSignal = request.signal;
+              return new Promise((_resolve, reject) => {
+                rejectUpload = reject;
+              });
+            },
+          },
+          imageCompressionDriver: {
+            compress: async () => ({ uri: 'file:///out-inflight.jpg', width: 1600, height: 1200 }),
+          },
+        },
+      },
+    });
+
+    const view = await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <CapabilitiesLabScreen />
+      </AppRuntimeProvider>,
+    );
+    await user.press(screen.getByTestId('upload-pick'));
+    expect(await screen.findByText('上传中 0%')).toBeTruthy();
+
+    await view.unmount();
+    expect(capturedSignal?.aborted).toBe(true);
+    // Must not delete temp file mid-transfer before upload settles
+    expect(mockDeletedFiles).toEqual([]);
+    expect(mockExistingFiles.has('file:///out-inflight.jpg')).toBe(true);
+
+    await act(async () => {
+      const abortError = new Error('aborted');
+      abortError.name = 'AbortError';
+      rejectUpload(abortError);
+      await Promise.resolve();
+    });
+
+    expect(mockDeletedFiles).toEqual(['file:///out-inflight.jpg']);
+    expect(mockExistingFiles.has('file:///out-inflight.jpg')).toBe(false);
+    expect(mockExistingFiles.has('file:///photo.heic')).toBe(true);
+  });
+
+  it('cleans up the prior failed attempt temp file when picking a new image instead of retrying', async () => {
+    const user = userEvent.setup();
+    let pickAttempt = 0;
+    let uploadAttempt = 0;
+    mockExistingFiles.add('file:///photo1.heic');
+    mockExistingFiles.add('file:///photo2.heic');
+    mockExistingFiles.add('file:///out1.jpg');
+    mockExistingFiles.add('file:///out2.jpg');
+
+    const runtime = createTestRuntime({
+      identity: {
+        ...appIdentity,
+        compliance: { requirePrivacyConsent: false, requirePermissionRationale: false },
+      },
+      env: TEST_RUNTIME_ENV,
+      translations: appTranslationResources,
+      overrides: {
+        secretStorage: createMemorySecretStorage(),
+        keyValueStorage: createMemoryKeyValueStorage(),
+        initialDeviceLocale: 'zh-CN',
+        permissionDriver,
+        capabilities: {
+          media: {
+            pickImage: async () => {
+              pickAttempt += 1;
+              return pickAttempt === 1
+                ? { uri: 'file:///photo1.heic', width: 4000, height: 3000 }
+                : { uri: 'file:///photo2.heic', width: 4000, height: 3000 };
+            },
+            saveToLibrary: async (uri: string) => ({ saved: true, uri }),
+          },
+          uploadDriver: {
+            upload: async () => {
+              uploadAttempt += 1;
+              return uploadAttempt === 1
+                ? { status: 413, body: '' }
+                : { status: 200, body: JSON.stringify({ code: 0, message: 'ok', data: {} }) };
+            },
+          },
+          imageCompressionDriver: {
+            compress: async ({ uri }) => ({
+              uri: uri === 'file:///photo1.heic' ? 'file:///out1.jpg' : 'file:///out2.jpg',
+              width: 1600,
+              height: 1200,
+            }),
+          },
+        },
+      },
+    });
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <CapabilitiesLabScreen />
+      </AppRuntimeProvider>,
+    );
+    await user.press(screen.getByTestId('upload-pick'));
+    expect(await screen.findByText(/上传失败：上传被拒绝 413/)).toBeTruthy();
+    expect(mockExistingFiles.has('file:///out1.jpg')).toBe(true);
+
+    await user.press(screen.getByTestId('upload-pick'));
+    expect(await screen.findByText('上传成功（1600×1200，JPEG）')).toBeTruthy();
+
+    expect(mockDeletedFiles).toEqual(['file:///out1.jpg', 'file:///out2.jpg']);
+    expect(mockExistingFiles.has('file:///photo1.heic')).toBe(true);
+    expect(mockExistingFiles.has('file:///photo2.heic')).toBe(true);
+  });
 });
