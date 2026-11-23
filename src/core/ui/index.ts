@@ -6,7 +6,11 @@ export {
 } from './AppHeader';
 export { AppImage, type AppImageProps } from './AppImage';
 export { AppText, type AppTextProps, type TextTone, type TypographyVariant } from './AppText';
-export { BottomSheetModal, type BottomSheetModalProps } from './BottomSheetModal';
+export {
+  BottomSheetModal,
+  BottomSheetModalProvider,
+  type BottomSheetModalProps,
+} from './BottomSheetModal';
 export { Box, type BackgroundRole, type BoxProps, type RadiusKey, type SpacingKey } from './Box';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog';

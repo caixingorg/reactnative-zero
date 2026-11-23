@@ -4,6 +4,7 @@ import { appIdentity } from '@root/app.identity';
 import { AppRuntimeProvider, useToast } from '@/core/runtime';
 import {
   AppText,
+  BottomSheetModal,
   Button,
   ConfirmDialog,
   KeyboardStickyFooter,
@@ -173,6 +174,41 @@ describe('Seam 1 - Keyboard Controller Screen, Form Controls & Feedback Primitiv
     await user.press(screen.getByRole('button', { name: '删除草稿' }));
     await user.press(await screen.findByRole('button', { name: '确认删除' }));
     expect(onConfirmed).toHaveBeenCalledTimes(1);
+  });
+
+  it('mounts Gorhom BottomSheetModal inside BottomSheetModalProvider and supports backdrop dismissal & custom snapPoints', async () => {
+    const user = userEvent.setup();
+    const runtime = createTestRuntime(noPrivacyRuntimeOptions);
+
+    function SheetHarness(): React.JSX.Element {
+      const [open, setOpen] = useState(true);
+      return (
+        <Screen>
+          <BottomSheetModal
+            visible={open}
+            title="手势底部面板"
+            snapPoints={['50%', '85%']}
+            onClose={() => setOpen(false)}
+          >
+            <AppText>面板正文内容</AppText>
+          </BottomSheetModal>
+        </Screen>
+      );
+    }
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <SheetHarness />
+      </AppRuntimeProvider>,
+    );
+
+    expect(screen.getByTestId('bottom-sheet-modal-provider')).toBeTruthy();
+    expect(screen.getByTestId('gorhom-bottom-sheet-modal')).toBeTruthy();
+    expect(screen.getByText('手势底部面板')).toBeTruthy();
+    expect(screen.getByText('面板正文内容')).toBeTruthy();
+
+    await user.press(screen.getByRole('button', { name: '关闭蒙层' }));
+    expect(screen.queryByText('面板正文内容')).toBeNull();
   });
 
   it('shows global Toast via useToast and auto-dismisses after durationMs', async () => {

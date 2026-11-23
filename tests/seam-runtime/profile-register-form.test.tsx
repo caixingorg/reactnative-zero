@@ -30,6 +30,39 @@ describe('Seam: DatePickerField pure helpers', () => {
     expect(getDaysInMonth(2025, 2)).toBe(28);
     expect(formatDateYmd(1998, 5, 9)).toBe('1998-05-09');
   });
+
+  it('updates DatePickerField via native DateTimePicker onChange event and ignores dismissed events', async () => {
+    const runtime = createRuntime();
+    const submitted: RegisterFormValues[] = [];
+
+    await render(
+      <AppRuntimeProvider runtime={runtime}>
+        <RegisterScreen onSubmitted={(values) => submitted.push(values)} />
+      </AppRuntimeProvider>,
+    );
+
+    await fireEvent.press(screen.getByTestId('register-birthday-picker'));
+    const nativePicker = screen.getByTestId('register-birthday-picker-native');
+
+    // Dismissed event must not overwrite draft date
+    await fireEvent(
+      nativePicker,
+      'onChange',
+      { type: 'dismissed', nativeEvent: { timestamp: 0, utcOffset: 0 } },
+      new Date(2001, 1, 2, 12, 0, 0),
+    );
+
+    // Valid native 'set' event updates draft and confirms into YYYY-MM-DD
+    const pickedDate = new Date(1995, 9, 24, 12, 0, 0);
+    await fireEvent(
+      nativePicker,
+      'onChange',
+      { type: 'set', nativeEvent: { timestamp: pickedDate.getTime(), utcOffset: 0 } },
+      pickedDate,
+    );
+    await fireEvent.press(screen.getByTestId('register-birthday-picker-confirm'));
+    expect(screen.getByText('1995-10-24')).toBeTruthy();
+  });
 });
 
 describe('Seam: RegisterScreen', () => {

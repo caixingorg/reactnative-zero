@@ -1,13 +1,14 @@
 /**
  * @module core/ui/DatePickerField
- * 职责：零额外原生依赖的通用日期选择表单项，复用 BottomSheetModal 提供年/月/日三列滚动选择，天然适配 react-hook-form 受控模式。
- * 边界：仅处理 YYYY-MM-DD 本地日期字符串，不绑定具体业务含义。
+ * 职责：基于 `@react-native-community/datetimepicker` 与 `BottomSheetModal` 的通用日期选择表单项，调用系统原生日期选择器并保持 `YYYY-MM-DD` 受控字符串契约（天然适配 react-hook-form）。
+ * 边界：仅处理 `YYYY-MM-DD` 本地日期字符串，将第三方原生控件封装在 `src/core/ui` 内部。
  */
 import Ionicons from '@expo/vector-icons/Ionicons';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useMemo, useState } from 'react';
 import {
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
   type StyleProp,
@@ -17,7 +18,7 @@ import { useAppTheme } from '../theme/theme-context';
 import { AppText } from './AppText';
 import { BottomSheetModal } from './BottomSheetModal';
 import { Button } from './Button';
-import { HStack, VStack } from './Stack';
+import { VStack } from './Stack';
 
 export interface DatePickerFieldProps {
   label?: string;
@@ -44,21 +45,33 @@ export function formatDateYmd(year: number, month: number, day: number): string 
   return `${year}-${mm}-${dd}`;
 }
 
-function parseDateYmd(
+export function parseDateYmd(
   raw: string | null | undefined,
   fallbackYear: number,
+  minYear?: number,
+  maxYear?: number,
 ): { year: number; month: number; day: number } {
+  const clampYear = (y: number): number => {
+    const lower = minYear !== undefined ? Math.max(minYear, y) : y;
+    return maxYear !== undefined ? Math.min(maxYear, lower) : lower;
+  };
   if (raw) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
     if (match) {
-      const year = Number(match[1]);
+      const year = clampYear(Number(match[1]));
       const month = Math.min(12, Math.max(1, Number(match[2])));
       const maxDay = getDaysInMonth(year, month);
       const day = Math.min(maxDay, Math.max(1, Number(match[3])));
       return { year, month, day };
     }
   }
-  return { year: fallbackYear, month: 1, day: 1 };
+  return { year: clampYear(fallbackYear), month: 1, day: 1 };
+}
+
+// 原因：固定使用本地正午 12:00 构造 Date 对象，避免夏令时或时区偏移在跨午夜边界时造成日期回退一天
+function toLocalNoonDate(year: number, month: number, day: number): Date {
+  const safeDay = Math.min(day, getDaysInMonth(year, month));
+  return new Date(year, month - 1, safeDay, 12, 0, 0, 0);
 }
 
 export function DatePickerField({
@@ -78,26 +91,40 @@ export function DatePickerField({
   const [open, setOpen] = useState(false);
 
   const defaultYear = Math.min(maxYear, Math.max(minYear, 1996));
-  const initial = parseDateYmd(value, defaultYear);
+  const initial = parseDateYmd(value, defaultYear, minYear, maxYear);
   const [draftYear, setDraftYear] = useState(initial.year);
   const [draftMonth, setDraftMonth] = useState(initial.month);
   const [draftDay, setDraftDay] = useState(initial.day);
 
-  const years = useMemo(
-    () => Array.from({ length: Math.max(1, maxYear - minYear + 1) }, (_, idx) => maxYear - idx),
-    [maxYear, minYear],
-  );
-  const months = useMemo(() => Array.from({ length: 12 }, (_, idx) => idx + 1), []);
   const maxDay = getDaysInMonth(draftYear, draftMonth);
   const safeDraftDay = Math.min(draftDay, maxDay);
-  const days = useMemo(() => Array.from({ length: maxDay }, (_, idx) => idx + 1), [maxDay]);
+
+  const draftDate = useMemo(
+    () => toLocalNoonDate(draftYear, draftMonth, safeDraftDay),
+    [draftYear, draftMonth, safeDraftDay],
+  );
+  const minimumDate = useMemo(() => toLocalNoonDate(minYear, 1, 1), [minYear]);
+  const maximumDate = useMemo(() => toLocalNoonDate(maxYear, 12, 31), [maxYear]);
 
   const handleOpen = (): void => {
-    const parsed = parseDateYmd(value, defaultYear);
+    const parsed = parseDateYmd(value, defaultYear, minYear, maxYear);
     setDraftYear(parsed.year);
     setDraftMonth(parsed.month);
     setDraftDay(parsed.day);
     setOpen(true);
+  };
+
+  const handleNativeChange = (event: DateTimePickerEvent, selectedDate?: Date): void => {
+    if (event.type === 'dismissed' || !selectedDate || Number.isNaN(selectedDate.getTime())) {
+      return;
+    }
+    const nextYear = Math.min(maxYear, Math.max(minYear, selectedDate.getFullYear()));
+    const nextMonth = Math.min(12, Math.max(1, selectedDate.getMonth() + 1));
+    const nextMaxDay = getDaysInMonth(nextYear, nextMonth);
+    const nextDay = Math.min(nextMaxDay, Math.max(1, selectedDate.getDate()));
+    setDraftYear(nextYear);
+    setDraftMonth(nextMonth);
+    setDraftDay(nextDay);
   };
 
   const handleConfirm = (): void => {
@@ -157,91 +184,15 @@ export function DatePickerField({
             {formatDateYmd(draftYear, draftMonth, safeDraftDay)}
           </AppText>
 
-          <HStack gap="sm" style={styles.columns}>
-            <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
-              {years.map((y) => {
-                const selected = y === draftYear;
-                return (
-                  <Pressable
-                    key={y}
-                    testID={testID ? `${testID}-year-${y}` : undefined}
-                    onPress={() => setDraftYear(y)}
-                    style={[
-                      styles.option,
-                      {
-                        backgroundColor: selected ? tokens.colors.primarySoft : 'transparent',
-                        borderRadius: tokens.radii.sm,
-                      },
-                    ]}
-                  >
-                    <AppText
-                      variant="bodySm"
-                      tone={selected ? 'brand' : 'primary'}
-                      weight={selected ? '700' : '400'}
-                    >
-                      {y}年
-                    </AppText>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
-              {months.map((m) => {
-                const selected = m === draftMonth;
-                return (
-                  <Pressable
-                    key={m}
-                    testID={testID ? `${testID}-month-${m}` : undefined}
-                    onPress={() => setDraftMonth(m)}
-                    style={[
-                      styles.option,
-                      {
-                        backgroundColor: selected ? tokens.colors.primarySoft : 'transparent',
-                        borderRadius: tokens.radii.sm,
-                      },
-                    ]}
-                  >
-                    <AppText
-                      variant="bodySm"
-                      tone={selected ? 'brand' : 'primary'}
-                      weight={selected ? '700' : '400'}
-                    >
-                      {String(m).padStart(2, '0')}月
-                    </AppText>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
-              {days.map((d) => {
-                const selected = d === safeDraftDay;
-                return (
-                  <Pressable
-                    key={d}
-                    testID={testID ? `${testID}-day-${d}` : undefined}
-                    onPress={() => setDraftDay(d)}
-                    style={[
-                      styles.option,
-                      {
-                        backgroundColor: selected ? tokens.colors.primarySoft : 'transparent',
-                        borderRadius: tokens.radii.sm,
-                      },
-                    ]}
-                  >
-                    <AppText
-                      variant="bodySm"
-                      tone={selected ? 'brand' : 'primary'}
-                      weight={selected ? '700' : '400'}
-                    >
-                      {String(d).padStart(2, '0')}日
-                    </AppText>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </HStack>
+          <DateTimePicker
+            testID={testID ? `${testID}-native` : 'date-picker-native'}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            value={draftDate}
+            minimumDate={minimumDate}
+            maximumDate={maximumDate}
+            onChange={handleNativeChange}
+          />
 
           <Button
             label="确定"
@@ -268,16 +219,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-  },
-  columns: {
-    height: 220,
-  },
-  column: {
-    flex: 1,
-  },
-  option: {
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

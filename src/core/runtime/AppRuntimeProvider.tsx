@@ -19,6 +19,7 @@ import { AppErrorBoundary } from '../observability/AppErrorBoundary';
 import { installGlobalErrorHandlers } from '../observability/observability';
 import { PermissionPromptHost } from '../permissions/PermissionPromptHost';
 import { AppThemeProvider } from '../theme/theme-context';
+import { BottomSheetModalProvider } from '../ui/BottomSheetModal';
 import { ToastHost } from '../ui/ToastHost';
 import { ForceUpdateGate } from '../version-policy';
 import type { AppRuntime } from './runtime-types';
@@ -67,22 +68,24 @@ export function AppRuntimeProvider({
                 systemColorSchemeOverride={runtime.initialSystemColorScheme}
               >
                 <AppErrorBoundary logger={runtime.logger} errorReporter={runtime.errorReporter}>
-                  <OfflineBanner
-                    connectivityStore={runtime.connectivityStore}
-                    privacyGateStore={runtime.privacyGateStore}
-                  />
-                  <ForceUpdateGate store={runtime.versionPolicyStore}>{children}</ForceUpdateGate>
-                  <PermissionPromptHost promptStore={runtime.permissionPromptStore} />
-                  {isDevToolsEnabled(runtime.env) ? (
-                    <NonProdDevToolsBoundary
-                      env={runtime.env}
-                      devToolsStore={runtime.devToolsStore}
-                      authSessionStore={runtime.authSessionStore}
+                  <BottomSheetModalProvider>
+                    <OfflineBanner
                       connectivityStore={runtime.connectivityStore}
-                      logger={runtime.logger}
+                      privacyGateStore={runtime.privacyGateStore}
                     />
-                  ) : null}
-                  <ToastHost toastStore={runtime.toastStore} />
+                    <ForceUpdateGate store={runtime.versionPolicyStore}>{children}</ForceUpdateGate>
+                    <PermissionPromptHost promptStore={runtime.permissionPromptStore} />
+                    {isDevToolsEnabled(runtime.env) ? (
+                      <NonProdDevToolsBoundary
+                        env={runtime.env}
+                        devToolsStore={runtime.devToolsStore}
+                        authSessionStore={runtime.authSessionStore}
+                        connectivityStore={runtime.connectivityStore}
+                        logger={runtime.logger}
+                      />
+                    ) : null}
+                    <ToastHost toastStore={runtime.toastStore} />
+                  </BottomSheetModalProvider>
                 </AppErrorBoundary>
               </AppThemeProvider>
             </I18nextProvider>

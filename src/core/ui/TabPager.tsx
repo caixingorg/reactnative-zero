@@ -1,19 +1,16 @@
 /**
  * @module core/ui/TabPager
- * 职责：自研零额外原生依赖的横向分页容器，支持左右滑动切换、单一滚动偏移驱动 TopTabs 指示条、子页首次访问懒挂载且保活。
+ * 职责：基于 react-native-pager-view 的横向分页容器，支持左右滑动切换、连续进度驱动 TopTabs 指示条、子页首次访问懒挂载且窗口化保活。
  * 边界：不持有具体页面内容，纯下标/挂载决策委托给 page-shell-logic。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  StyleSheet,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
-import Animated, { useAnimatedScrollHandler, type SharedValue } from 'react-native-reanimated';
-import { markPageVisited, resolveActiveIndex, shouldMountPage } from './page-shell-logic';
+import { StyleSheet, View } from 'react-native';
+import PagerView, {
+  type PagerViewOnPageScrollEvent,
+  type PagerViewOnPageSelectedEvent,
+} from 'react-native-pager-view';
+import type { SharedValue } from 'react-native-reanimated';
+import { markPageVisited, shouldMountPage } from './page-shell-logic';
 
 export interface TabPagerProps {
   pageCount: number;
@@ -29,6 +26,40 @@ export interface TabPagerProps {
   testID?: string;
 }
 
+function clampPageIndex(index: number, pageCount: number): number {
+  if (pageCount <= 0 || !Number.isFinite(index)) {
+    return 0;
+  }
+  return Math.min(pageCount - 1, Math.max(0, Math.round(index)));
+}
+
+function reconcileVisitedPages(
+  visited: ReadonlySet<number>,
+  safePageCount: number,
+  resolvedActiveIndex: number,
+): ReadonlySet<number> {
+  if (safePageCount <= 0) {
+    return visited.size > 0 ? new Set<number>() : visited;
+  }
+  let hasOutOfRange = false;
+  for (const page of visited) {
+    if (page < 0 || page >= safePageCount) {
+      hasOutOfRange = true;
+      break;
+    }
+  }
+  if (!hasOutOfRange) {
+    return markPageVisited(visited, resolvedActiveIndex);
+  }
+  const pruned = new Set<number>();
+  for (const page of visited) {
+    if (page >= 0 && page < safePageCount) {
+      pruned.add(page);
+    }
+  }
+  return markPageVisited(pruned, resolvedActiveIndex);
+}
+
 export function TabPager({
   pageCount,
   activeIndex,
@@ -39,88 +70,120 @@ export function TabPager({
   renderPage,
   testID = 'tab-pager',
 }: TabPagerProps): React.JSX.Element {
-  const { width: windowWidth } = useWindowDimensions();
-  const scrollRef = useRef<React.ComponentRef<typeof Animated.ScrollView>>(null);
-  const [measuredWidth, setMeasuredWidth] = useState(0);
-  const pageWidth = measuredWidth > 0 ? measuredWidth : windowWidth;
-  const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([activeIndex]));
-  // 原因：渲染期同步补齐新激活页的访问记录，避免 useEffect 触发额外级联渲染
-  const effectiveVisited = markPageVisited(visited, activeIndex);
+  const safePageCount = Number.isFinite(pageCount) ? Math.max(0, Math.floor(pageCount)) : 0;
+  const resolvedActiveIndex = clampPageIndex(activeIndex, safePageCount);
+  const safeKeepAliveRadius = Number.isFinite(keepAliveRadius)
+    ? Math.trunc(keepAliveRadius) || 0
+    : 1;
+
+  const pagerRef = useRef<PagerView>(null);
+  // 原因：记录原生 PagerView 当前已知页码，区分“外部 activeIndex 变化”与“onPageSelected 回传”，避免 setPage 反馈循环
+  const nativePageRef = useRef<number | null>(null);
+
+  const [visited, setVisited] = useState<ReadonlySet<number>>(() =>
+    safePageCount > 0 ? new Set([resolvedActiveIndex]) : new Set(),
+  );
+  // 原因：渲染期同步补齐新激活页并裁剪越界页的访问记录，避免 useEffect 触发额外级联渲染
+  const effectiveVisited = reconcileVisitedPages(visited, safePageCount, resolvedActiveIndex);
   if (effectiveVisited !== visited) {
     setVisited(effectiveVisited);
   }
 
-  useEffect(() => {
-    if (pageWidth > 0) {
-      scrollRef.current?.scrollTo({ x: activeIndex * pageWidth, animated: true });
-    } else {
-      scrollProgress?.set(activeIndex);
-    }
-  }, [activeIndex, pageWidth, scrollProgress]);
-
-  const handleLayout = (event: LayoutChangeEvent): void => {
-    const nextWidth = event.nativeEvent.layout.width;
-    if (nextWidth > 0 && nextWidth !== measuredWidth) {
-      setMeasuredWidth(nextWidth);
-      scrollRef.current?.scrollTo({ x: activeIndex * nextWidth, animated: false });
-    }
-  };
-
-  // 原因：横向滑动进度在 UI 线程 worklet 中直写 SharedValue，避免每 16ms 跨 JS 线程触发桥接开销
-  const handleScroll = useAnimatedScrollHandler(
-    {
-      onScroll: (event) => {
-        if (pageWidth <= 0 || pageCount <= 0) {
-          return;
-        }
-        const raw = event.contentOffset.x / pageWidth;
-        const clamped = Math.min(pageCount - 1, Math.max(0, raw));
-        scrollProgress?.set(clamped);
-      },
+  useEffect(
+    () => () => {
+      nativePageRef.current = null;
     },
-    [pageCount, pageWidth, scrollProgress],
+    [],
   );
 
-  const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
-    const nextIndex = resolveActiveIndex(event.nativeEvent.contentOffset.x, pageWidth, pageCount);
+  useEffect(() => {
+    if (safePageCount <= 0) {
+      nativePageRef.current = null;
+      scrollProgress?.set(0);
+      return;
+    }
+    if (scrollProgress) {
+      const currentProgress = scrollProgress.get();
+      const maxIndex = safePageCount - 1;
+      if (!Number.isFinite(currentProgress)) {
+        scrollProgress.set(resolvedActiveIndex);
+      } else if (currentProgress < 0 || currentProgress > maxIndex) {
+        scrollProgress.set(Math.min(maxIndex, Math.max(0, currentProgress)));
+      }
+    }
+    if (nativePageRef.current === null) {
+      nativePageRef.current = resolvedActiveIndex;
+      return;
+    }
+    if (nativePageRef.current !== resolvedActiveIndex) {
+      nativePageRef.current = resolvedActiveIndex;
+      pagerRef.current?.setPage(resolvedActiveIndex);
+    }
+  }, [resolvedActiveIndex, safePageCount, scrollProgress]);
+
+  const handlePageScroll = (event: PagerViewOnPageScrollEvent): void => {
+    if (!scrollProgress || safePageCount <= 0) {
+      return;
+    }
+    const { position, offset } = event.nativeEvent;
+    if (!Number.isFinite(position) || !Number.isFinite(offset)) {
+      return;
+    }
+    const maxIndex = Math.max(0, safePageCount - 1);
+    const clamped = Math.min(maxIndex, Math.max(0, position + offset));
+    scrollProgress.set(clamped);
+  };
+
+  const handlePageSelected = (event: PagerViewOnPageSelectedEvent): void => {
+    if (safePageCount <= 0) {
+      return;
+    }
+    const rawPosition = event.nativeEvent.position;
+    if (!Number.isFinite(rawPosition)) {
+      return;
+    }
+    const nextIndex = clampPageIndex(rawPosition, safePageCount);
+    const prevNativePage = nativePageRef.current;
+    nativePageRef.current = nextIndex;
     setVisited((prev) => markPageVisited(prev, nextIndex));
-    if (nextIndex !== activeIndex) {
+    const hasNativeChanged =
+      prevNativePage !== null ? prevNativePage !== nextIndex : nextIndex !== resolvedActiveIndex;
+    if (hasNativeChanged) {
       onIndexChange(nextIndex);
     }
   };
 
-  const pageIndices = Array.from({ length: Math.max(0, pageCount) }, (_, idx) => idx);
+  if (safePageCount <= 0) {
+    return <View testID={testID} style={styles.container} />;
+  }
+
+  const pageIndices = Array.from({ length: safePageCount }, (_, idx) => idx);
+  const maxOffscreenLimit = Math.min(2147483647, Math.max(1, safePageCount - 1));
+  const offscreenPageLimit =
+    safeKeepAliveRadius < 0
+      ? maxOffscreenLimit
+      : Math.min(maxOffscreenLimit, Math.max(1, safeKeepAliveRadius));
 
   return (
     <View testID={testID} style={styles.container}>
-      <Animated.ScrollView
-        ref={scrollRef}
-        testID="tab-pager-scroll"
-        horizontal
-        pagingEnabled
-        scrollEnabled={scrollEnabled}
-        nestedScrollEnabled
-        bounces={false}
-        showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onLayout={handleLayout}
-        onScroll={handleScroll}
-        onMomentumScrollEnd={handleScrollEnd}
+      <PagerView
+        ref={pagerRef}
+        testID={`${testID}-view`}
         style={styles.flex}
-        contentContainerStyle={pageWidth > 0 ? undefined : styles.fallbackContent}
+        initialPage={resolvedActiveIndex}
+        scrollEnabled={scrollEnabled}
+        offscreenPageLimit={offscreenPageLimit}
+        onPageScroll={handlePageScroll}
+        onPageSelected={handlePageSelected}
       >
         {pageIndices.map((index) => (
-          <View
-            key={index}
-            testID={`tab-pager-page-${index}`}
-            style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.flex]}
-          >
-            {shouldMountPage(effectiveVisited, index, activeIndex, keepAliveRadius)
-              ? renderPage(index, index === activeIndex)
+          <View key={index} testID={`tab-pager-page-${index}`} style={styles.page}>
+            {shouldMountPage(effectiveVisited, index, resolvedActiveIndex, safeKeepAliveRadius)
+              ? renderPage(index, index === resolvedActiveIndex)
               : null}
           </View>
         ))}
-      </Animated.ScrollView>
+      </PagerView>
     </View>
   );
 }
@@ -131,9 +194,6 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-  },
-  fallbackContent: {
-    flexGrow: 1,
   },
   page: {
     flex: 1,
