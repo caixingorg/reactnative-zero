@@ -378,7 +378,13 @@ describe('Seam 2: Clone initializer (init-app) & --clean-starter verification', 
         cwd: sandboxDir,
         encoding: 'utf8',
       });
-      expect(jestRun.status).toBe(0);
+      expect({
+        status: jestRun.status,
+        output: jestRun.status === 0 ? '' : `${jestRun.stdout}\n${jestRun.stderr}`,
+      }).toEqual({
+        status: 0,
+        output: '',
+      });
     } finally {
       fs.rmSync(sandboxDir, { recursive: true, force: true });
     }

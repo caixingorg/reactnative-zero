@@ -65,6 +65,18 @@ export async function compressImageForUpload(
   return { ...result, mimeType: 'image/jpeg' };
 }
 
+export function cleanupTemporaryUploadFile(uri: string): void {
+  try {
+    const FileSystem = require('expo-file-system') as typeof import('expo-file-system');
+    const file = new FileSystem.File(uri);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // 临时缓存清理失败不阻断主流程
+  }
+}
+
 export function createNativeImageCompressionDriver(): ImageCompressionDriver {
   return {
     async compress({ uri, resize, quality }) {

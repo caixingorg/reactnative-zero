@@ -1,11 +1,12 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { FeedDetailScreen } from '@/features/home';
+import { useSafeBack } from '@/shared';
 
 export default function FeedDetailRoute(): React.JSX.Element {
-  const router = useRouter();
+  const safeBack = useSafeBack();
   const params = useLocalSearchParams<{ id?: string }>();
   const itemId = typeof params.id === 'string' ? params.id : '';
 
-  return <FeedDetailScreen itemId={itemId} onBack={() => router.back()} />;
+  return <FeedDetailScreen itemId={itemId} onBack={safeBack} />;
 }

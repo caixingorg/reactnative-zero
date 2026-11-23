@@ -121,6 +121,7 @@ export function createTestRuntime(options: Partial<AppRuntimeOptions> = {}): App
         gcTimeMs: 0,
         retry: false,
       },
+      queryPersistenceThrottleMs: callerOverrides.queryPersistenceThrottleMs ?? 0,
       networkMonitor: callerOverrides.networkMonitor ?? createControllableNetworkMonitor(true),
       permissionDriver: hasExplicitPermissionDriver
         ? callerOverrides.permissionDriver

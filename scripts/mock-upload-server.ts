@@ -19,6 +19,8 @@ const delayMs = Number(process.env.MOCK_UPLOAD_DELAY_MS ?? 0);
 const MAX_BYTES = 20 * 1024 * 1024;
 
 let requestCount = 0;
+let tusSequence = 0;
+const tusSessions = new Map<string, { length: number; offset: number }>();
 
 function sendJson(res: import('node:http').ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -26,7 +28,60 @@ function sendJson(res: import('node:http').ServerResponse, status: number, body:
 }
 
 const server = createServer((req, res) => {
-  if (req.method !== 'POST' || !req.url?.startsWith('/uploads')) {
+  // 轻量 TUS 1.0.0 本地联调端点（POST 创建、HEAD 查偏移、PATCH 分片续传）
+  if (req.url?.startsWith('/uploads/tus')) {
+    const tusHeaders = {
+      'Tus-Resumable': '1.0.0',
+      'Tus-Version': '1.0.0',
+      'Tus-Extension': 'creation',
+    };
+    if (req.method === 'POST' && req.url === '/uploads/tus') {
+      tusSequence += 1;
+      const id = `tus-${tusSequence}`;
+      const uploadLength = Number(req.headers['upload-length'] ?? 0);
+      tusSessions.set(id, { length: uploadLength, offset: 0 });
+      res.writeHead(201, {
+        ...tusHeaders,
+        Location: `http://${host}:${port}/uploads/tus/${id}`,
+      });
+      res.end();
+      return;
+    }
+    const id = req.url.replace(/^\/uploads\/tus\//, '');
+    const session = tusSessions.get(id);
+    if (!session) {
+      res.writeHead(404, tusHeaders);
+      res.end();
+      return;
+    }
+    if (req.method === 'HEAD') {
+      res.writeHead(200, {
+        ...tusHeaders,
+        'Upload-Offset': String(session.offset),
+        'Upload-Length': String(session.length),
+      });
+      res.end();
+      return;
+    }
+    if (req.method === 'PATCH') {
+      let chunkBytes = 0;
+      req.on('data', (chunk: Buffer) => {
+        chunkBytes += chunk.length;
+      });
+      req.on('end', () => {
+        session.offset += chunkBytes;
+        console.log(`[TUS ${id}] PATCH +${chunkBytes} -> ${session.offset}/${session.length}`);
+        res.writeHead(204, {
+          ...tusHeaders,
+          'Upload-Offset': String(session.offset),
+        });
+        res.end();
+      });
+      return;
+    }
+  }
+
+  if ((req.method !== 'POST' && req.method !== 'PUT') || !req.url?.startsWith('/uploads')) {
     sendJson(res, 404, { code: 404, message: 'Not found', data: null });
     return;
   }

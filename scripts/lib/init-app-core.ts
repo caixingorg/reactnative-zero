@@ -515,22 +515,24 @@ export default function ProfileTabRoute(): React.JSX.Element {
 
   writeRel(
     'src/app/search.tsx',
-    `import { useRouter } from 'expo-router';
-import React from 'react';
+    `import React from 'react';
 import { SearchScreen } from '@/features/search';
+import { useSafeBack } from '@/shared';
 
 export default function SearchStackRoute(): React.JSX.Element {
-  const router = useRouter();
-  return <SearchScreen onBack={() => router.back()} />;
+  const safeBack = useSafeBack();
+  return <SearchScreen onBack={safeBack} />;
 }
 `,
   );
 
-  // Surgical removal of developer-lab prop from src/app/settings.tsx
+  // Surgical removal of developer-lab prop (and now-unused useRouter) from src/app/settings.tsx
   const settingsRoutePath = path.join(projectRoot, 'src/app/settings.tsx');
   if (fs.existsSync(settingsRoutePath)) {
     const updatedSettingsRoute = fs
       .readFileSync(settingsRoutePath, 'utf8')
+      .replace(/^import \{ useRouter \} from 'expo-router';\r?\n/m, '')
+      .replace(/^\s*const router = useRouter\(\);\r?\n/m, '')
       .replace(/^\s*onOpenDeveloperLab=\{.*?\}\r?\n/m, '');
     writeRel('src/app/settings.tsx', updatedSettingsRoute);
   }

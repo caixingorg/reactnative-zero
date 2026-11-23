@@ -259,14 +259,24 @@ describe('Seam 1: Pluggable Backend Adapter, single-flight 401 refresh lock, and
     brokenKv.setBoolean('app.install_session_marker', true);
     brokenKv.setString(
       'query.offline_snapshots_v1',
-      JSON.stringify([
-        {
-          queryHash: '["feed","list"]',
-          queryKey: ['feed', 'list'],
-          data: { secretItem: 'previous-user-feed' },
-          dataUpdatedAt: Date.now(),
+      JSON.stringify({
+        timestamp: Date.now(),
+        buster: '1.0.0',
+        clientState: {
+          mutations: [],
+          queries: [
+            {
+              queryHash: '["feed","list"]',
+              queryKey: ['feed', 'list'],
+              state: {
+                status: 'success',
+                data: { secretItem: 'previous-user-feed' },
+                dataUpdatedAt: Date.now(),
+              },
+            },
+          ],
         },
-      ]),
+      }),
     );
     const brokenSecretStorage = {
       getSecret: async () => {

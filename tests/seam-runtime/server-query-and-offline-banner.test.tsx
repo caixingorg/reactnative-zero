@@ -1,7 +1,12 @@
+import { QueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { render, screen, userEvent, act } from '@testing-library/react-native';
 import { appIdentity } from '@root/app.identity';
 import { createControllableNetworkMonitor } from '@/core/network/network-monitor';
+import {
+  attachOptInQueryPersistence,
+  OFFLINE_QUERY_SNAPSHOT_KEY,
+} from '@/core/network/query-persistence';
 import type { RawHttpRequest, RawHttpResponse } from '@/core/network/types';
 import { AppRuntimeProvider } from '@/core/runtime';
 import {
@@ -239,5 +244,81 @@ describe('Seam 1: TanStack Query Starter Slice (pagination, retry, detail, cache
     expect(await screen.findByText('列表加载失败')).toBeTruthy();
     expect(screen.getByText('服务请求暂时异常，请检查网络或稍后重试')).toBeTruthy();
     expect(screen.queryByText(/10\.0\.4\.18/)).toBeNull();
+  });
+
+  it('invalidates persisted offline snapshots when buster version changes or maxAge expires, and throttles rapid writes', async () => {
+    const kv = createMemoryKeyValueStorage();
+    const setStringSpy = jest.spyOn(kv, 'setString');
+
+    // 1. Throttled persistence: rapid bursts coalesce into a single storage write
+    const makeClient = () => new QueryClient({ defaultOptions: { queries: { gcTime: 0 } } });
+    const clientA = makeClient();
+    const persistenceA = attachOptInQueryPersistence(clientA, kv, {
+      buster: '1.0.0',
+      maxAge: 60_000,
+      throttleTime: 50,
+    });
+    clientA.setQueryDefaults(['public', 'feed'], { meta: { persistOffline: true } });
+    clientA.setQueryData(['public', 'feed'], { title: 'v1-first' });
+    clientA.setQueryData(['public', 'feed'], { title: 'v1-second' });
+    expect(setStringSpy).toHaveBeenCalledTimes(0);
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(setStringSpy).toHaveBeenCalledTimes(1);
+    expect(kv.getString(OFFLINE_QUERY_SNAPSHOT_KEY)).toContain('v1-second');
+    persistenceA.unsubscribe();
+
+    // 2. Same buster & fresh timestamp restores cached data into a new QueryClient
+    const clientB = makeClient();
+    const persistenceB = attachOptInQueryPersistence(clientB, kv, {
+      buster: '1.0.0',
+      maxAge: 60_000,
+      throttleTime: 0,
+    });
+    await persistenceB.restoreReady;
+    expect(clientB.getQueryData(['public', 'feed'])).toEqual({ title: 'v1-second' });
+    persistenceB.unsubscribe();
+
+    // 3. Mismatched buster (app version upgrade) discards incompatible snapshot
+    const clientC = makeClient();
+    const persistenceC = attachOptInQueryPersistence(clientC, kv, {
+      buster: '2.0.0',
+      maxAge: 60_000,
+      throttleTime: 0,
+    });
+    await persistenceC.restoreReady;
+    expect(clientC.getQueryData(['public', 'feed'])).toBeUndefined();
+    expect(kv.getString(OFFLINE_QUERY_SNAPSHOT_KEY)).toBeUndefined();
+    persistenceC.unsubscribe();
+
+    // 4. Expired snapshot (older than maxAge) is discarded on restore
+    const expiredPayload = JSON.stringify({
+      timestamp: Date.now() - 120_000,
+      buster: '2.0.0',
+      clientState: {
+        mutations: [],
+        queries: [
+          {
+            queryKey: ['public', 'feed'],
+            queryHash: '["public","feed"]',
+            state: {
+              status: 'success',
+              data: { title: 'stale' },
+              dataUpdatedAt: Date.now() - 120_000,
+            },
+          },
+        ],
+      },
+    });
+    kv.setString(OFFLINE_QUERY_SNAPSHOT_KEY, expiredPayload);
+    const clientD = makeClient();
+    const persistenceD = attachOptInQueryPersistence(clientD, kv, {
+      buster: '2.0.0',
+      maxAge: 60_000,
+      throttleTime: 0,
+    });
+    await persistenceD.restoreReady;
+    expect(clientD.getQueryData(['public', 'feed'])).toBeUndefined();
+    persistenceD.unsubscribe();
   });
 });

@@ -1,8 +1,9 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useMediaCapability } from '@/core/capabilities/media';
 import {
+  cleanupTemporaryUploadFile,
   compressImageForUpload,
   UploadError,
   useUploadCapability,
@@ -27,11 +28,22 @@ export function ImageUploadCard(): React.JSX.Element {
   const { uploadService, compressionDriver } = useUploadCapability();
   const [state, setState] = useState<UploadState>({ phase: 'idle' });
   const controllerRef = useRef<AbortController | null>(null);
+  const pendingTempUriRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pendingTempUriRef.current) {
+        cleanupTemporaryUploadFile(pendingTempUriRef.current);
+        pendingTempUriRef.current = null;
+      }
+    };
+  }, []);
 
   const runUpload = useCallback(
     async (image: CompressedImage): Promise<void> => {
       const controller = new AbortController();
       controllerRef.current = controller;
+      pendingTempUriRef.current = image.uri;
       setState({ phase: 'uploading', percent: 0 });
       try {
         await uploadService.upload({
@@ -40,12 +52,20 @@ export function ImageUploadCard(): React.JSX.Element {
           signal: controller.signal,
           onProgress: ({ bytesSent, totalBytes }) => {
             const percent = totalBytes > 0 ? Math.round((bytesSent / totalBytes) * 100) : 0;
-            setState({ phase: 'uploading', percent: Math.min(100, percent) });
+            setState((prev) =>
+              prev.phase === 'uploading' && prev.percent === Math.min(100, percent)
+                ? prev
+                : { phase: 'uploading', percent: Math.min(100, percent) },
+            );
           },
         });
+        cleanupTemporaryUploadFile(image.uri);
+        pendingTempUriRef.current = null;
         setState({ phase: 'done', width: image.width, height: image.height });
       } catch (error) {
         if (error instanceof UploadError && error.kind === 'cancelled') {
+          cleanupTemporaryUploadFile(image.uri);
+          pendingTempUriRef.current = null;
           setState({ phase: 'cancelled' });
           return;
         }

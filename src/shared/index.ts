@@ -15,3 +15,4 @@ export { createMockHttpTransport } from './mock/mock-http-transport';
 export { useMockPaginatedFeed, type MockListRecord } from './mock/paginated-mock-feed';
 export { appTranslationResources } from './i18n/app-resources';
 export { useLegalDocumentOpener } from './navigation/use-legal-document-opener';
+export { useSafeBack } from './navigation/use-safe-back';

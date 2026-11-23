@@ -2,9 +2,11 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { useAppRuntime } from '@/core/runtime';
 import { RegisterScreen } from '@/features/auth';
+import { useSafeBack } from '@/shared';
 
 export default function RegisterRoute(): React.JSX.Element {
   const router = useRouter();
+  const safeBack = useSafeBack();
   const { authSessionStore } = useAppRuntime();
 
   const handleSubmitted = (): void => {
@@ -21,5 +23,5 @@ export default function RegisterRoute(): React.JSX.Element {
     router.replace('/login');
   };
 
-  return <RegisterScreen onBack={() => router.back()} onSubmitted={handleSubmitted} />;
+  return <RegisterScreen onBack={safeBack} onSubmitted={handleSubmitted} />;
 }

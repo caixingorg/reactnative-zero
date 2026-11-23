@@ -65,6 +65,8 @@ export interface AppRuntimeOverrides {
   networkMonitor?: NetworkMonitorDriver;
   permissionDriver?: PermissionOsDriver;
   queryClientOptions?: CreateAppQueryClientOptions;
+  /** 离线查询持久化节流间隔（毫秒）；测试环境可覆写为 0 避免悬挂定时器 */
+  queryPersistenceThrottleMs?: number;
   initialSystemColorScheme?: ResolvedColorScheme;
   initialDeviceLocale?: string;
   capabilities?: CapabilityOverrideMap;

@@ -1,8 +1,8 @@
-import { useRouter } from 'expo-router';
 import React from 'react';
 import { CheckoutScreen } from '@/features/payment';
+import { useSafeBack } from '@/shared';
 
 export default function CheckoutRoute(): React.JSX.Element {
-  const router = useRouter();
-  return <CheckoutScreen onBack={() => router.back()} />;
+  const safeBack = useSafeBack();
+  return <CheckoutScreen onBack={safeBack} />;
 }

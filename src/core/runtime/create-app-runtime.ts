@@ -110,7 +110,10 @@ function bootCoreServices(
   boot: BootStorageStage,
 ): CoreServicesStage {
   const queryClient = createAppQueryClient(options.overrides?.queryClientOptions);
-  const queryPersistence = attachOptInQueryPersistence(queryClient, boot.keyValueStorage);
+  const queryPersistence = attachOptInQueryPersistence(queryClient, boot.keyValueStorage, {
+    buster: Constants.expoConfig?.version ?? '1.0.0',
+    throttleTime: options.overrides?.queryPersistenceThrottleMs,
+  });
   const authSessionStore = createAuthSessionStore({
     secretStorage: boot.secretStorage,
     keyValueStorage: boot.keyValueStorage,
