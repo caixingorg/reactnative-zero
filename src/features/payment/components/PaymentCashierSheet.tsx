@@ -5,10 +5,12 @@
  */
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { ResolvedPaymentChannel } from '@/core/capabilities/payment';
 import { useAppTheme } from '@/core/theme/theme-context';
 import { AppText, BottomSheetModal, Button, HStack, VStack } from '@/core/ui';
+import { appTranslationResources } from '@/shared';
 
 export interface PaymentCashierSheetProps {
   visible: boolean;
@@ -20,13 +22,13 @@ export interface PaymentCashierSheetProps {
   onConfirm: (channel: ResolvedPaymentChannel) => void;
 }
 
-const UNAVAILABLE_REASON_TEXT: Record<
+const UNAVAILABLE_REASON_KEYS: Record<
   NonNullable<ResolvedPaymentChannel['unavailableReason']>,
   string
 > = {
-  APP_NOT_INSTALLED: '未安装客户端',
-  DRIVER_NOT_REGISTERED: '当前包未集成',
-  NOT_SUPPORTED: '当前设备不支持',
+  APP_NOT_INSTALLED: 'checkout.unavailableAppNotInstalled',
+  DRIVER_NOT_REGISTERED: 'checkout.unavailableDriverNotRegistered',
+  NOT_SUPPORTED: 'checkout.unavailableNotSupported',
 };
 
 function resolveChannelIcon(iconKey?: string): React.ComponentProps<typeof Ionicons>['name'] {
@@ -55,6 +57,11 @@ export function PaymentCashierSheet({
   onClose,
   onConfirm,
 }: PaymentCashierSheetProps): React.JSX.Element {
+  const { t, i18n } = useTranslation();
+  if (!i18n.exists('checkout.sheetTitle')) {
+    i18n.addResourceBundle('zh-CN', 'translation', appTranslationResources['zh-CN'], true, false);
+    i18n.addResourceBundle('en-US', 'translation', appTranslationResources['en-US'], true, false);
+  }
   const { tokens } = useAppTheme();
   const [selectedCode, setSelectedCode] = useState<string | undefined>(undefined);
 
@@ -63,7 +70,7 @@ export function PaymentCashierSheet({
     channels.find((item) => item.available);
 
   return (
-    <BottomSheetModal visible={visible} title="选择支付方式" onClose={onClose}>
+    <BottomSheetModal visible={visible} title={t('checkout.sheetTitle')} onClose={onClose}>
       <VStack gap="md">
         <VStack
           align="center"
@@ -89,8 +96,8 @@ export function PaymentCashierSheet({
             const isSelected = channel.channelCode === activeChannel?.channelCode;
             const disabled = !channel.available || submitting;
             const unavailableText = channel.unavailableReason
-              ? UNAVAILABLE_REASON_TEXT[channel.unavailableReason]
-              : '暂不可用';
+              ? t(UNAVAILABLE_REASON_KEYS[channel.unavailableReason])
+              : t('checkout.unavailableDefault');
 
             return (
               <Pressable
@@ -165,7 +172,11 @@ export function PaymentCashierSheet({
 
         <Button
           testID="cashier-confirm-pay"
-          label={submitting ? '支付处理中…' : `确认支付 ${amountLabel}`}
+          label={
+            submitting
+              ? t('checkout.confirmPaying')
+              : t('checkout.confirmPayButton', { amount: amountLabel })
+          }
           loading={submitting}
           disabled={!activeChannel || submitting}
           onPress={() => {

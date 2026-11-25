@@ -9,6 +9,7 @@ import type { LoginResult } from '@/core/network/types';
 import { useAppRuntime, usePrivacyGate, useToast } from '@/core/runtime';
 import { useAppTheme } from '@/core/theme/theme-context';
 import { AppText, BottomSheetModal, Button, HStack, Screen, TextField, VStack } from '@/core/ui';
+import { getDemoLoginCredentials } from '../demo-credentials';
 
 interface LoginFormValues {
   username: string;
@@ -82,7 +83,7 @@ export function LoginScreen({
 
   const onSubmit = handleSubmit(async (values) => {
     if (!effectiveConsent) {
-      setServerError('请先阅读并勾选同意《用户协议》与《隐私政策》');
+      setServerError(t('auth.consentRequiredError'));
       return;
     }
     if (privacyGateStore.getState().phase !== 'ready') {
@@ -99,20 +100,25 @@ export function LoginScreen({
     }
   });
 
+  const demoCredentials = getDemoLoginCredentials();
+
   const handleFillTestAccount = (): void => {
-    setValue('username', 'admin', { shouldValidate: true });
-    setValue('password', 'password123', { shouldValidate: true });
+    if (!demoCredentials) {
+      return;
+    }
+    setValue('username', demoCredentials.username, { shouldValidate: true });
+    setValue('password', demoCredentials.password, { shouldValidate: true });
   };
 
   const handleResetPassword = async (): Promise<void> => {
     const cleanUser = resetUsername.trim();
     const cleanPass = resetNewPassword.trim();
     if (cleanUser.length < 3) {
-      setResetError('请输入至少 3 位账号');
+      setResetError(t('auth.usernameMinError'));
       return;
     }
     if (cleanPass.length < 6) {
-      setResetError('新密码长度至少为 6 位');
+      setResetError(t('auth.resetNewPasswordMinError'));
       return;
     }
     setResetError(null);
@@ -126,9 +132,9 @@ export function LoginScreen({
       setResetVisible(false);
       setResetNewPassword('');
       setValue('username', cleanUser, { shouldValidate: true });
-      toast.show({ message: '密码已重置，请使用新密码登录', tone: 'success' });
+      toast.show({ message: t('auth.resetSuccess'), tone: 'success' });
     } catch (err) {
-      setResetError(err instanceof Error ? err.message : '重置失败，请稍后重试');
+      setResetError(err instanceof Error ? err.message : t('auth.resetFailed'));
     } finally {
       setResetSubmitting(false);
     }
@@ -148,7 +154,7 @@ export function LoginScreen({
               {t('auth.title')}
             </AppText>
             <AppText variant="bodySm" tone="secondary">
-              欢迎回来，请输入账号密码继续使用
+              {t('auth.welcomeSubtitle')}
             </AppText>
           </VStack>
 
@@ -276,7 +282,9 @@ export function LoginScreen({
                     />
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={passwordVisible ? '隐藏密码' : '显示密码'}
+                      accessibilityLabel={
+                        passwordVisible ? t('auth.hidePassword') : t('auth.showPassword')
+                      }
                       onPress={() => setPasswordVisible((prev) => !prev)}
                       hitSlop={10}
                       style={styles.eyeButton}
@@ -310,7 +318,7 @@ export function LoginScreen({
             {/* 轻量级辅助操作行：去除厚重灰底胶囊，左右自然对齐 */}
             <HStack justify="space-between" align="center" style={styles.auxRow}>
               <HStack gap="md" align="center">
-                {env.appVariant !== 'production' ? (
+                {env.appVariant !== 'production' && demoCredentials !== null ? (
                   <Pressable
                     testID="login-test-autofill"
                     accessibilityRole="button"
@@ -319,7 +327,7 @@ export function LoginScreen({
                     style={({ pressed }) => [pressed && styles.pressed]}
                   >
                     <AppText variant="caption" tone="secondary" weight="600">
-                      填入测试账号
+                      {t('auth.fillTestAccount')}
                     </AppText>
                   </Pressable>
                 ) : null}
@@ -334,7 +342,7 @@ export function LoginScreen({
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
                   <AppText variant="caption" tone="secondary" weight="600">
-                    忘记密码？
+                    {t('auth.forgotPassword')}
                   </AppText>
                 </Pressable>
               </HStack>
@@ -348,7 +356,7 @@ export function LoginScreen({
                   style={({ pressed }) => [pressed && styles.pressed]}
                 >
                   <AppText variant="caption" tone="brand" weight="700">
-                    注册新账号 →
+                    {t('auth.registerLink')}
                   </AppText>
                 </Pressable>
               ) : null}
@@ -360,7 +368,7 @@ export function LoginScreen({
           <Pressable
             testID="login-privacy-checkbox"
             accessibilityRole="checkbox"
-            accessibilityLabel="同意用户协议与隐私政策"
+            accessibilityLabel={t('auth.consentCheckboxLabel')}
             accessibilityState={{ checked: effectiveConsent }}
             onPress={handleToggleConsent}
             hitSlop={10}
@@ -373,18 +381,18 @@ export function LoginScreen({
             />
           </Pressable>
           <AppText variant="caption" tone="secondary" style={styles.consentText}>
-            我已阅读并同意{' '}
+            {t('auth.consentPrefix')}{' '}
             <AppText
               variant="caption"
               tone="brand"
               weight="600"
               onPress={onOpenUserAgreement ?? onOpenPrivacyPolicy}
             >
-              《用户协议》
+              {t('auth.userAgreementBook')}
             </AppText>{' '}
-            和{' '}
+            {t('auth.consentAnd')}{' '}
             <AppText variant="caption" tone="brand" weight="600" onPress={onOpenPrivacyPolicy}>
-              《隐私政策》
+              {t('auth.privacyPolicyBook')}
             </AppText>
           </AppText>
         </HStack>
@@ -392,7 +400,7 @@ export function LoginScreen({
 
       <BottomSheetModal
         visible={resetVisible}
-        title="找回 / 重置密码"
+        title={t('auth.resetTitle')}
         onClose={() => setResetVisible(false)}
       >
         <VStack gap="md">
@@ -403,23 +411,23 @@ export function LoginScreen({
           ) : null}
           <TextField
             testID="reset-username-input"
-            label="账号"
-            placeholder="请输入已注册的账号或手机号"
+            label={t('auth.usernameLabel')}
+            placeholder={t('auth.resetUsernamePlaceholder')}
             autoCapitalize="none"
             value={resetUsername}
             onChangeText={setResetUsername}
           />
           <TextField
             testID="reset-password-input"
-            label="新密码"
-            placeholder="请输入 6 位以上新密码"
+            label={t('auth.resetNewPasswordLabel')}
+            placeholder={t('auth.resetNewPasswordPlaceholder')}
             secureTextEntry
             value={resetNewPassword}
             onChangeText={setResetNewPassword}
           />
           <Button
             testID="reset-password-submit"
-            label="确认重置密码"
+            label={t('auth.resetSubmitButton')}
             loading={resetSubmitting}
             onPress={() => {
               void handleResetPassword();

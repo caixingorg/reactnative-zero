@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useFilesCapability } from '@/core/capabilities/files';
@@ -25,13 +26,50 @@ export interface ProfileScreenProps {
   onSelectRecord?: (record: MockListRecord) => void;
 }
 
-const PROFILE_TABS: readonly TopTabItem[] = [
-  { key: 'favorites', label: '收藏' },
-  { key: 'history', label: '历史' },
-  { key: 'activity', label: '动态' },
-];
+const PROFILE_TAB_KEYS = ['favorites', 'history', 'activity'] as const;
 
-function ProfileSubTab({
+const extractProfileKey = (item: MockListRecord): string => item.id;
+
+interface ProfileListRowProps {
+  item: MockListRecord;
+  onSelectRecord?: (record: MockListRecord) => void;
+}
+
+const ProfileListRow = memo(function ProfileListRow({
+  item,
+  onSelectRecord,
+}: ProfileListRowProps): React.JSX.Element {
+  const handlePress = useCallback(() => {
+    onSelectRecord?.(item);
+  }, [item, onSelectRecord]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={({ pressed }) => [pressed && styles.pressed]}
+    >
+      <VStack p="md" gap="xs" bg="surface" radius="lg" bordered>
+        <HStack justify="space-between" align="center">
+          <AppText variant="caption" tone="brand" weight="600">
+            {item.tag}
+          </AppText>
+          <AppText variant="caption" tone="secondary">
+            {item.meta}
+          </AppText>
+        </HStack>
+        <AppText variant="bodyMd" weight="600" numberOfLines={2}>
+          {item.title}
+        </AppText>
+        <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
+          {item.summary}
+        </AppText>
+      </VStack>
+    </Pressable>
+  );
+});
+
+const ProfileSubTab = memo(function ProfileSubTab({
   tabKey,
   isActive,
   onSelectRecord,
@@ -40,6 +78,7 @@ function ProfileSubTab({
   isActive: boolean;
   onSelectRecord?: (record: MockListRecord) => void;
 }): React.JSX.Element {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const user = useAuthSession((state) => state.user);
   const files = useFilesCapability();
@@ -48,7 +87,7 @@ function ProfileSubTab({
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [publishedItems, setPublishedItems] = useState<readonly MockListRecord[]>([]);
   const feed = useMockPaginatedFeed(tabKey);
-  const combinedItems = React.useMemo(
+  const combinedItems = useMemo(
     () => (publishedItems.length > 0 ? [...publishedItems, ...feed.items] : feed.items),
     [feed.items, publishedItems],
   );
@@ -62,171 +101,197 @@ function ProfileSubTab({
           ? 'empty'
           : 'ready';
 
-  const handleExportFavorites = async (): Promise<void> => {
+  const handleExportFavorites = useCallback(async (): Promise<void> => {
     const content = feed.items.map((item, idx) => `${idx + 1}. ${item.title}`).join('\n');
     const shared = await files.writeTextFileAndShare(
       'favorites-export.txt',
-      content || '暂无收藏记录',
+      content || t('profile.favoritesEmpty'),
     );
     if (shared) {
-      toast.show({ message: '已生成收藏清单供系统分享', tone: 'success' });
+      toast.show({ message: t('profile.favoritesExported'), tone: 'success' });
     }
-  };
+  }, [feed.items, files, t, toast]);
 
-  const handlePickAvatar = async (): Promise<void> => {
+  const handlePickAvatar = useCallback(async (): Promise<void> => {
     const picked = await media.pickImageWithPermission({
-      title: '相册权限说明',
-      description: '用于挑选本地图片更换个人头像。',
+      title: t('profile.avatarRationaleTitle'),
+      description: t('profile.avatarRationaleDesc'),
     });
     if (picked) {
       setAvatarUri(picked.uri);
-      toast.show({ message: '头像已更新（本地预览）', tone: 'success' });
+      toast.show({ message: t('profile.avatarUpdated'), tone: 'success' });
     }
-  };
+  }, [media, t, toast]);
 
-  const listHeader =
-    tabKey === 'favorites' && files.enabled ? (
-      <HStack
-        p="md"
-        bg="surface"
-        radius="lg"
-        bordered
-        align="center"
-        justify="space-between"
-        style={styles.headerBlock}
-      >
-        <VStack>
-          <AppText variant="bodySm" weight="600">
-            我的收藏清单
-          </AppText>
-          <AppText variant="caption" tone="secondary">
-            支持一键导出为文本并调用系统分享
-          </AppText>
-        </VStack>
-        <Pressable
-          testID="profile-export-favorites-btn"
-          accessibilityRole="button"
-          onPress={() => {
-            void handleExportFavorites();
-          }}
-          style={[
-            styles.pillBtn,
-            { backgroundColor: tokens.colors.primarySoft, borderRadius: tokens.radii.full },
-          ]}
+  const handleRefresh = useCallback(() => {
+    void feed.refetch();
+  }, [feed]);
+
+  const handleLoadMore = useCallback(() => {
+    void feed.fetchNextPage();
+  }, [feed]);
+
+  const renderItem = useCallback(
+    (item: MockListRecord) => <ProfileListRow item={item} onSelectRecord={onSelectRecord} />,
+    [onSelectRecord],
+  );
+
+  const listHeader = useMemo(
+    () =>
+      tabKey === 'favorites' && files.enabled ? (
+        <HStack
+          p="md"
+          bg="surface"
+          radius="lg"
+          bordered
+          align="center"
+          justify="space-between"
+          style={styles.headerBlock}
         >
-          <AppText variant="caption" tone="brand" weight="600">
-            导出分享
-          </AppText>
-        </Pressable>
-      </HStack>
-    ) : tabKey === 'activity' ? (
-      <VStack gap="sm" style={styles.headerBlock}>
-        <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
-          <Pressable
-            testID="profile-avatar-btn"
-            accessibilityRole="button"
-            accessibilityLabel="更换头像"
-            onPress={() => {
-              void handlePickAvatar();
-            }}
-          >
-            {avatarUri ? (
-              <AppImage uri={avatarUri} width={48} height={48} />
-            ) : (
-              <View
-                style={[
-                  styles.avatarFallback,
-                  { backgroundColor: tokens.colors.primary, borderRadius: tokens.radii.full },
-                ]}
-              >
-                <AppText variant="titleMd" tone="inverse" weight="700">
-                  {(user?.displayName ?? '我').slice(0, 1).toUpperCase()}
-                </AppText>
-              </View>
-            )}
-          </Pressable>
-          <VStack flex={1} gap="xs">
-            <AppText variant="titleMd">{user?.displayName ?? '未登录用户'}</AppText>
+          <VStack>
+            <AppText variant="bodySm" weight="600">
+              {t('profile.favoritesTitle')}
+            </AppText>
             <AppText variant="caption" tone="secondary">
-              点击头像可从相册更换 · 下方支持图文动态发布
+              {t('profile.favoritesSubtitle')}
             </AppText>
           </VStack>
+          <Pressable
+            testID="profile-export-favorites-btn"
+            accessibilityRole="button"
+            onPress={() => {
+              void handleExportFavorites();
+            }}
+            style={[
+              styles.pillBtn,
+              { backgroundColor: tokens.colors.primarySoft, borderRadius: tokens.radii.full },
+            ]}
+          >
+            <AppText variant="caption" tone="brand" weight="600">
+              {t('profile.exportShareButton')}
+            </AppText>
+          </Pressable>
         </HStack>
-        <QuickComposerCard
-          onPublished={(note) => {
-            setPublishedItems((prev) => [
-              {
-                id: `activity-pub-${prev.length + 1}`,
-                title: `我的最新动态 · ${note}`,
-                tag: '个人动态',
-                summary: `由 ${user?.displayName ?? '当前用户'} 通过快捷发布条发布（${note}）。`,
-                meta: '刚刚',
-              },
-              ...prev,
-            ]);
-          }}
-        />
-      </VStack>
-    ) : null;
+      ) : tabKey === 'activity' ? (
+        <VStack gap="sm" style={styles.headerBlock}>
+          <HStack p="md" gap="md" bg="surface" radius="lg" bordered align="center">
+            <Pressable
+              testID="profile-avatar-btn"
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.avatarLabel')}
+              onPress={() => {
+                void handlePickAvatar();
+              }}
+            >
+              {avatarUri ? (
+                <AppImage uri={avatarUri} width={48} height={48} />
+              ) : (
+                <View
+                  style={[
+                    styles.avatarFallback,
+                    { backgroundColor: tokens.colors.primary, borderRadius: tokens.radii.full },
+                  ]}
+                >
+                  <AppText variant="titleMd" tone="inverse" weight="700">
+                    {(user?.displayName ?? t('profile.avatarFallbackChar'))
+                      .slice(0, 1)
+                      .toUpperCase()}
+                  </AppText>
+                </View>
+              )}
+            </Pressable>
+            <VStack flex={1} gap="xs">
+              <AppText variant="titleMd">{user?.displayName ?? t('profile.guestUser')}</AppText>
+              <AppText variant="caption" tone="secondary">
+                {t('profile.avatarHint')}
+              </AppText>
+            </VStack>
+          </HStack>
+          <QuickComposerCard
+            onPublished={(note) => {
+              setPublishedItems((prev) => [
+                {
+                  id: `activity-pub-${prev.length + 1}`,
+                  title: t('profile.activityTitle', { note }),
+                  tag: t('profile.activityTag'),
+                  summary: t('profile.activitySummary', {
+                    author: user?.displayName ?? t('profile.currentUser'),
+                    note,
+                  }),
+                  meta: t('profile.justNow'),
+                },
+                ...prev,
+              ]);
+            }}
+          />
+        </VStack>
+      ) : null,
+    [
+      avatarUri,
+      files.enabled,
+      handleExportFavorites,
+      handlePickAvatar,
+      t,
+      tabKey,
+      tokens.colors.primary,
+      tokens.colors.primarySoft,
+      tokens.radii.full,
+      user?.displayName,
+    ],
+  );
 
   return (
     <View testID={`profile-tab-${tabKey}`} style={styles.flex}>
       <ListTemplate
         data={combinedItems}
-        keyExtractor={(item) => item.id}
+        keyExtractor={extractProfileKey}
         status={status}
         isActive={isActive}
         listHeader={listHeader}
         refreshing={feed.isRefetching}
-        onRefresh={() => {
-          void feed.refetch();
-        }}
+        onRefresh={handleRefresh}
         hasNextPage={feed.hasNextPage}
         isFetchingNextPage={feed.isFetchingNextPage}
-        onLoadMore={() => {
-          void feed.fetchNextPage();
-        }}
-        renderItem={(item) => (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onSelectRecord?.(item)}
-            style={({ pressed }) => [pressed && styles.pressed]}
-          >
-            <VStack p="md" gap="xs" bg="surface" radius="lg" bordered>
-              <HStack justify="space-between" align="center">
-                <AppText variant="caption" tone="brand" weight="600">
-                  {item.tag}
-                </AppText>
-                <AppText variant="caption" tone="secondary">
-                  {item.meta}
-                </AppText>
-              </HStack>
-              <AppText variant="bodyMd" weight="600" numberOfLines={2}>
-                {item.title}
-              </AppText>
-              <AppText variant="bodySm" tone="secondary" numberOfLines={2}>
-                {item.summary}
-              </AppText>
-            </VStack>
-          </Pressable>
-        )}
+        onLoadMore={handleLoadMore}
+        renderItem={renderItem}
       />
     </View>
   );
-}
+});
 
 export function ProfileScreen({
   onOpenSettings,
   onSelectRecord,
 }: ProfileScreenProps = {}): React.JSX.Element {
+  const { t } = useTranslation();
   const { tokens } = useAppTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
+  const tabs: readonly TopTabItem[] = useMemo(
+    () => [
+      { key: 'favorites', label: t('profile.tabFavorites') },
+      { key: 'history', label: t('profile.tabHistory') },
+      { key: 'activity', label: t('profile.tabActivity') },
+    ],
+    [t],
+  );
+
+  const renderPage = useCallback(
+    (index: number, isActive: boolean) => (
+      <ProfileSubTab
+        tabKey={PROFILE_TAB_KEYS[index] ?? 'favorites'}
+        isActive={isActive}
+        onSelectRecord={onSelectRecord}
+      />
+    ),
+    [onSelectRecord],
+  );
+
   return (
     <Screen statusBarBackgroundColor={tokens.colors.surface}>
       <TopTabs
-        tabs={PROFILE_TABS}
+        tabs={tabs}
         activeIndex={activeIndex}
         onSelect={setActiveIndex}
         scrollProgress={scrollProgress}
@@ -234,7 +299,7 @@ export function ProfileScreen({
           onOpenSettings ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="设置"
+              accessibilityLabel={t('profile.settingsLabel')}
               testID="profile-settings-button"
               onPress={onOpenSettings}
               hitSlop={8}
@@ -246,17 +311,11 @@ export function ProfileScreen({
         }
       />
       <TabPager
-        pageCount={PROFILE_TABS.length}
+        pageCount={tabs.length}
         activeIndex={activeIndex}
         onIndexChange={setActiveIndex}
         scrollProgress={scrollProgress}
-        renderPage={(index, isActive) => (
-          <ProfileSubTab
-            tabKey={PROFILE_TABS[index]?.key ?? 'favorites'}
-            isActive={isActive}
-            onSelectRecord={onSelectRecord}
-          />
-        )}
+        renderPage={renderPage}
       />
     </Screen>
   );

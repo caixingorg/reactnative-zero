@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDrawer } from '@/core/runtime';
@@ -33,6 +33,39 @@ export function HomeStarterScreen({
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollProgress = useSharedValue(0);
 
+  const renderPage = useCallback(
+    (index: number, isActive: boolean): React.JSX.Element => {
+      const tabKey = HOME_TABS[index]?.key;
+      if (tabKey === 'recommended') {
+        return (
+          <HomeRecommendTab
+            isActive={isActive}
+            onSelectItem={onSelectItem}
+            onSelectRecord={onSelectRecord}
+          />
+        );
+      }
+      if (tabKey === 'following') {
+        return (
+          <HomeFeedSubTab
+            channelKey="following"
+            isActive={isActive}
+            onSelectRecord={onSelectRecord}
+          />
+        );
+      }
+      return (
+        <HomeFeedSubTab
+          channelKey="trending"
+          isActive={isActive}
+          onSelectRecord={onSelectRecord}
+          onOpenWebView={onOpenWebView}
+        />
+      );
+    },
+    [onOpenWebView, onSelectItem, onSelectRecord],
+  );
+
   return (
     <Screen statusBarBackgroundColor={tokens.colors.surface}>
       <TopTabs
@@ -61,35 +94,7 @@ export function HomeStarterScreen({
         activeIndex={activeIndex}
         onIndexChange={setActiveIndex}
         scrollProgress={scrollProgress}
-        renderPage={(index, isActive) => {
-          const tabKey = HOME_TABS[index]?.key;
-          if (tabKey === 'recommended') {
-            return (
-              <HomeRecommendTab
-                isActive={isActive}
-                onSelectItem={onSelectItem}
-                onSelectRecord={onSelectRecord}
-              />
-            );
-          }
-          if (tabKey === 'following') {
-            return (
-              <HomeFeedSubTab
-                channelKey="following"
-                isActive={isActive}
-                onSelectRecord={onSelectRecord}
-              />
-            );
-          }
-          return (
-            <HomeFeedSubTab
-              channelKey="trending"
-              isActive={isActive}
-              onSelectRecord={onSelectRecord}
-              onOpenWebView={onOpenWebView}
-            />
-          );
-        }}
+        renderPage={renderPage}
       />
     </Screen>
   );

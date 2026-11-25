@@ -106,6 +106,8 @@ export interface RuntimePublicEnv {
   enableMockGateway?: boolean;
   /** 非生产环境下是否挂载悬浮调试抽屉（生产构建由 Metro 物理剔除）。 */
   enableDevTools?: boolean;
+  /** 可选的自建 Sentry / GlitchTip DSN（遵循 ADR-0006；未配置时崩溃上报默认关闭）。 */
+  sentryDsn?: string;
 }
 
 export interface LegalDocumentTarget {

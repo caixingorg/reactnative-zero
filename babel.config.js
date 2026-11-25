@@ -7,6 +7,8 @@ module.exports = function (api) {
     presets: ['babel-preset-expo'],
     // 原因：仅 production 变体在编译期移除 console；保留 error/warn 以便原生崩溃与告警仍可被系统日志采集，
     // 业务诊断走 observability 的环形日志，不受影响
-    plugins: isProduction ? [['transform-remove-console', { exclude: ['error', 'warn'] }]] : [],
+    plugins: isProduction
+      ? [[require.resolve('./config/babel-plugin-strip-console'), { exclude: ['error', 'warn'] }]]
+      : [],
   };
 };

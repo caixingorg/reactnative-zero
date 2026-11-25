@@ -24,9 +24,9 @@ const templateBuildGradle = readFileSync(
 );
 
 const validBaseEnv = {
-  EXPO_PUBLIC_API_BASE_URL: 'https://api.example.com',
-  EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.example.com/privacy',
-  EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.example.com/terms',
+  EXPO_PUBLIC_API_BASE_URL: 'https://api.acme.cn',
+  EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.acme.cn/privacy',
+  EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.acme.cn/terms',
 };
 
 // 原因：signingConfigs 与 buildTypes 里各有一个 release 块，这里只取 buildTypes 内的那个

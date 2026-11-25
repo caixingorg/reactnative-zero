@@ -1,5 +1,6 @@
 package expo.modules.paymentwechat
 
+import android.content.Context
 import com.tencent.mm.opensdk.modelpay.PayReq
 import com.tencent.mm.opensdk.openapi.WXAPIFactory
 import expo.modules.kotlin.Promise
@@ -7,35 +8,42 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class PaymentWechatModule : Module() {
+  private fun applicationContextOrNull(): Context? {
+    return try {
+      appContext.applicationContext
+    } catch (_: IllegalArgumentException) {
+      null
+    } catch (_: IllegalStateException) {
+      null
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("PaymentWechat")
 
     AsyncFunction("registerApp") { appId: String, _: String ->
-      val context = appContext.reactContext ?: return@AsyncFunction false
+      val context = applicationContextOrNull() ?: return@AsyncFunction false
       val api = WXAPIFactory.createWXAPI(context, appId, false)
       val registered = api.registerApp(appId)
-      WechatPayCallbackRegistry.api = api
+      WechatPayCallbackRegistry.setApi(api)
       registered
     }
 
     AsyncFunction("isWXAppInstalled") {
-      val context = appContext.reactContext ?: return@AsyncFunction false
+      val context = applicationContextOrNull() ?: return@AsyncFunction false
       val api = WechatPayCallbackRegistry.api ?: WXAPIFactory.createWXAPI(context, null)
       api.isWXAppInstalled
     }
 
     AsyncFunction("pay") { params: Map<String, String>, promise: Promise ->
-      val context = appContext.reactContext
+      val context = applicationContextOrNull()
       if (context == null) {
-        promise.reject("NO_CONTEXT", "Android React context is unavailable.", null)
+        promise.reject("NO_CONTEXT", "Android application context is unavailable.", null)
         return@AsyncFunction
       }
 
       val appId = params["appId"] ?: ""
-      val api = WechatPayCallbackRegistry.api ?: WXAPIFactory.createWXAPI(context, appId, false).also {
-        it.registerApp(appId)
-        WechatPayCallbackRegistry.api = it
-      }
+      val api = WechatPayCallbackRegistry.getOrCreateApi(context, appId)
 
       if (!api.isWXAppInstalled) {
         promise.resolve(mapOf("errCode" to -99, "errStr" to "WeChat app is not installed."))
@@ -53,9 +61,13 @@ class PaymentWechatModule : Module() {
       }
 
       WechatPayCallbackRegistry.setPending(promise)
-      val sent = api.sendReq(req)
+      val sent = try {
+        api.sendReq(req)
+      } catch (_: Throwable) {
+        false
+      }
       if (!sent) {
-        promise.resolve(mapOf("errCode" to -1, "errStr" to "Failed to launch WeChat Pay."))
+        WechatPayCallbackRegistry.resolveFailureIfPending(promise)
       }
     }
   }

@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..');
+const strictProduction = process.argv.includes('--strict-production');
 const variants = ['development', 'staging', 'production'];
 const modes = ['development', 'production'];
 const forbiddenRootEnvFiles = [
@@ -55,12 +56,15 @@ function cleanChildEnv(variant) {
     if (key === 'NODE_ENV' || key.startsWith('JEST_') || key.startsWith('EXPO_PUBLIC_')) {
       continue;
     }
-    if (key === 'APP_VARIANT') {
+    if (key === 'APP_VARIANT' || key === 'STRICT_PRODUCTION_ENV' || key === 'CI_RELEASE') {
       continue;
     }
     childEnv[key] = value;
   }
   childEnv.APP_VARIANT = variant;
+  if (strictProduction && variant === 'production') {
+    childEnv.STRICT_PRODUCTION_ENV = 'true';
+  }
   return childEnv;
 }
 

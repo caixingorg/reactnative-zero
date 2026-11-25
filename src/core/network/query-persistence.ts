@@ -9,6 +9,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import type { KeyValueStorageDriver } from '../storage/types';
 
 export const OFFLINE_QUERY_SNAPSHOT_KEY = 'query.offline_snapshots_v1';
+export const DEFAULT_MAX_TOTAL_BYTES = 256 * 1024;
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_THROTTLE_MS = 1000;
 
@@ -24,6 +25,26 @@ export interface AttachOptInQueryPersistenceOptions {
   buster?: string;
   /** 写入 MMKV 节流间隔（毫秒），默认 1000ms；设为 0 时同步立即写入（便于测试） */
   throttleTime?: number;
+  /** 离线快照序列化总字节预算上限（默认 256 KB），超限时写入裁剪旧条目、冷启安全丢弃以保护 TTI */
+  maxTotalBytes?: number;
+}
+
+function measureUtf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) {
+      bytes += 1;
+    } else if (code < 0x800) {
+      bytes += 2;
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+      bytes += 4;
+      i += 1;
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
 }
 
 export interface OptInQueryPersistenceHandle {
@@ -61,7 +82,7 @@ function boundOfflinePayload(data: unknown, maxOfflinePages: number): unknown {
   };
 }
 
-function boundPersistedClient(client: PersistedClient): PersistedClient {
+function boundPersistedClient(client: PersistedClient, maxTotalBytes: number): PersistedClient {
   const queries = client.clientState.queries.map((dehydratedQuery) => {
     const meta = dehydratedQuery.meta as OfflinePersistQueryMeta | undefined;
     const boundedData = boundOfflinePayload(dehydratedQuery.state.data, meta?.maxOfflinePages ?? 1);
@@ -77,17 +98,47 @@ function boundPersistedClient(client: PersistedClient): PersistedClient {
     };
   });
 
-  return {
+  const candidate: PersistedClient = {
     ...client,
     clientState: {
       ...client.clientState,
       queries,
     },
   };
+
+  if (measureUtf8ByteLength(JSON.stringify(candidate)) <= maxTotalBytes) {
+    return candidate;
+  }
+
+  // 原因：超预算时按最近更新时间优先保留最新查询，跳过单条超限查询，保证持久化体积与冷启同步解析耗时有硬上界
+  const sortedByNewest = [...queries].sort(
+    (a, b) => (b.state.dataUpdatedAt ?? 0) - (a.state.dataUpdatedAt ?? 0),
+  );
+  const kept: typeof queries = [];
+  for (const query of sortedByNewest) {
+    const trial: PersistedClient = {
+      ...client,
+      clientState: {
+        ...client.clientState,
+        queries: [...kept, query],
+      },
+    };
+    if (measureUtf8ByteLength(JSON.stringify(trial)) <= maxTotalBytes) {
+      kept.push(query);
+    }
+  }
+
+  return {
+    ...client,
+    clientState: {
+      ...client.clientState,
+      queries: kept,
+    },
+  };
 }
 
 // 原因：改用 TanStack 官方持久化引擎并适配 MMKV 同步存储，自动具备写入节流、maxAge 过期淘汰与发版 buster 爆破，
-// 同时保留仅 Opt-In 非敏感查询落盘、无限列表页数裁剪及登出后阻断旧定时器回写的安全边界
+// 同时保留仅 Opt-In 非敏感查询落盘、无限列表页数裁剪、总字节预算守卫及登出后阻断旧定时器回写的安全边界
 export function attachOptInQueryPersistence(
   queryClient: QueryClient,
   keyValueStorage: KeyValueStorageDriver,
@@ -96,6 +147,7 @@ export function attachOptInQueryPersistence(
   const maxAge = options.maxAge ?? DEFAULT_MAX_AGE_MS;
   const buster = options.buster ?? '1.0.0';
   const throttleTime = options.throttleTime ?? DEFAULT_THROTTLE_MS;
+  const maxTotalBytes = Math.max(1024, options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES);
 
   let clearedSinceLastWrite = false;
   let lastSavedSignature = '';
@@ -104,6 +156,9 @@ export function attachOptInQueryPersistence(
     getItem: (key: string): string | null => keyValueStorage.getString(key) ?? null,
     setItem: (key: string, value: string): void => {
       if (clearedSinceLastWrite) {
+        return;
+      }
+      if (measureUtf8ByteLength(value) > maxTotalBytes) {
         return;
       }
       keyValueStorage.setString(key, value);
@@ -117,7 +172,7 @@ export function attachOptInQueryPersistence(
     storage: mmkvAdapter,
     key: OFFLINE_QUERY_SNAPSHOT_KEY,
     throttleTime,
-    serialize: (client) => JSON.stringify(boundPersistedClient(client)),
+    serialize: (client) => JSON.stringify(boundPersistedClient(client, maxTotalBytes)),
   });
 
   // 原因：createSyncStoragePersister 内部 throttle(0) 仍走 setTimeout 宏任务；当显式设置 throttleTime=0 时直写存储，保证同步测试无悬挂定时器
@@ -129,7 +184,7 @@ export function attachOptInQueryPersistence(
             try {
               mmkvAdapter.setItem(
                 OFFLINE_QUERY_SNAPSHOT_KEY,
-                JSON.stringify(boundPersistedClient(client)),
+                JSON.stringify(boundPersistedClient(client, maxTotalBytes)),
               );
             } catch {
               // Ignore non-serializable payloads
@@ -154,20 +209,25 @@ export function attachOptInQueryPersistence(
     },
   };
 
-  // 原因：MMKV 读取完全同步，在启动阶段同步校验 buster/maxAge 并执行 TanStack hydrate，可确保冷启动首帧即展示缓存而无异步骨架闪烁
+  // 原因：MMKV 读取完全同步，在启动阶段先检查快照字节长度，超限时直接丢弃而不做 JSON.parse，确保冷启 TTI 受控且首帧无闪烁
   try {
-    const restored = basePersister.restoreClient() as PersistedClient | undefined;
-    if (restored && typeof restored === 'object' && restored.clientState) {
-      const isExpired =
-        typeof restored.timestamp === 'number' && Date.now() - restored.timestamp > maxAge;
-      const isBusted = restored.buster !== buster;
-      if (isExpired || isBusted) {
-        keyValueStorage.deleteKey(OFFLINE_QUERY_SNAPSHOT_KEY);
-      } else {
-        hydrate(queryClient, restored.clientState);
-      }
-    } else if (restored !== undefined) {
+    const rawSnapshot = keyValueStorage.getString(OFFLINE_QUERY_SNAPSHOT_KEY);
+    if (rawSnapshot !== undefined && measureUtf8ByteLength(rawSnapshot) > maxTotalBytes) {
       keyValueStorage.deleteKey(OFFLINE_QUERY_SNAPSHOT_KEY);
+    } else {
+      const restored = basePersister.restoreClient() as PersistedClient | undefined;
+      if (restored && typeof restored === 'object' && restored.clientState) {
+        const isExpired =
+          typeof restored.timestamp === 'number' && Date.now() - restored.timestamp > maxAge;
+        const isBusted = restored.buster !== buster;
+        if (isExpired || isBusted) {
+          keyValueStorage.deleteKey(OFFLINE_QUERY_SNAPSHOT_KEY);
+        } else {
+          hydrate(queryClient, restored.clientState);
+        }
+      } else if (restored !== undefined) {
+        keyValueStorage.deleteKey(OFFLINE_QUERY_SNAPSHOT_KEY);
+      }
     }
   } catch {
     keyValueStorage.deleteKey(OFFLINE_QUERY_SNAPSHOT_KEY);

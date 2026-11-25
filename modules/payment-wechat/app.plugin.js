@@ -109,24 +109,35 @@ function withWechatPay(config, options = {}) {
 
   // 原因：WechatOpenSDK-XCFramework 2.0.8 实际已含 arm64 模拟器二进制，但官方 podspec 残留 EXCLUDED_ARCHS[sdk=iphonesimulator*]=arm64，会在 Apple Silicon Mac 上屏蔽 iOS 模拟器架构
   config = withPodfile(config, (mod) => {
-    const marker = '# [payment-wechat] clear legacy EXCLUDED_ARCHS for Apple Silicon simulators';
-    if (!mod.modResults.contents.includes(marker)) {
-      const snippet = `
-    ${marker}
-    installer.aggregate_targets.each do |target|
-      target.xcconfigs.each do |_variant, xcconfig|
-        xcconfig.attributes.delete('EXCLUDED_ARCHS[sdk=iphonesimulator*]')
-      end
-    end`;
-      mod.modResults.contents = mod.modResults.contents.replace(
-        /post_install do \|installer\|/,
-        `post_install do |installer|${snippet}`,
-      );
-    }
+    mod.modResults.contents = injectWechatPodfilePostInstall(mod.modResults.contents);
     return mod;
   });
 
   return config;
 }
 
+const PODFILE_POST_INSTALL_MARKER =
+  '# [payment-wechat] clear legacy EXCLUDED_ARCHS for Apple Silicon simulators';
+const PODFILE_POST_INSTALL_ANCHOR = /post_install do \|installer\|/;
+
+function injectWechatPodfilePostInstall(contents) {
+  if (contents.includes(PODFILE_POST_INSTALL_MARKER)) {
+    return contents;
+  }
+  if (!PODFILE_POST_INSTALL_ANCHOR.test(contents)) {
+    throw new Error(
+      '[payment-wechat] Cannot inject Apple Silicon simulator EXCLUDED_ARCHS fix: expected `post_install do |installer|` anchor in ios/Podfile.',
+    );
+  }
+  const snippet = `
+    ${PODFILE_POST_INSTALL_MARKER}
+    installer.aggregate_targets.each do |target|
+      target.xcconfigs.each do |_variant, xcconfig|
+        xcconfig.attributes.delete('EXCLUDED_ARCHS[sdk=iphonesimulator*]')
+      end
+    end`;
+  return contents.replace(PODFILE_POST_INSTALL_ANCHOR, `post_install do |installer|${snippet}`);
+}
+
+withWechatPay.injectWechatPodfilePostInstall = injectWechatPodfilePostInstall;
 module.exports = withWechatPay;

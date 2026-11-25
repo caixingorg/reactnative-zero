@@ -14,6 +14,7 @@ import {
   createMemorySecretStorage,
 } from '@/core/storage/memory-storage';
 import { AppText, Box } from '@/core/ui';
+import { appTranslationResources } from '@/shared/i18n/app-resources';
 import { TEST_RUNTIME_ENV } from './test-env';
 
 // 原因：使用结构化局部契约而非静态导入 @/core/capabilities/*，确保派生项目物理删除任意能力子目录后测试工厂依然零修改通过类型检查
@@ -101,7 +102,7 @@ export function createTestRuntime(options: Partial<AppRuntimeOptions> = {}): App
   return createAppRuntime({
     identity: options.identity ?? appIdentity,
     env: options.env ?? TEST_RUNTIME_ENV,
-    translations: options.translations,
+    translations: options.translations ?? appTranslationResources,
     backendAdapter: options.backendAdapter,
     vendors: options.vendors,
     observability: {

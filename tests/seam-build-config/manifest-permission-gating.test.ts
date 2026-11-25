@@ -99,9 +99,9 @@ async function compilePrebuildManifests(
     {
       APP_VARIANT: variant,
       APP_CHANNEL: options?.appChannel,
-      EXPO_PUBLIC_API_BASE_URL: 'https://api.example.com',
-      EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.example.com/privacy',
-      EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.example.com/terms',
+      EXPO_PUBLIC_API_BASE_URL: 'https://api.acme.cn',
+      EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.acme.cn/privacy',
+      EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.acme.cn/terms',
     },
   );
 
@@ -320,9 +320,9 @@ describe('Seam 2: Compiled prebuild Info.plist & AndroidManifest permission gati
         },
         {
           APP_VARIANT: 'production',
-          EXPO_PUBLIC_API_BASE_URL: 'https://api.example.com',
-          EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.example.com/privacy',
-          EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.example.com/terms',
+          EXPO_PUBLIC_API_BASE_URL: 'https://api.acme.cn',
+          EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.acme.cn/privacy',
+          EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.acme.cn/terms',
         },
       ),
     ).toThrow(/"backgroundAudio: true" requires "audioVideo: true"/);
@@ -443,9 +443,9 @@ describe('Seam 2: Compiled prebuild Info.plist & AndroidManifest permission gati
           { ...appIdentity, capabilities },
           {
             APP_VARIANT: variant,
-            EXPO_PUBLIC_API_BASE_URL: 'https://api.example.com',
-            EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.example.com/privacy',
-            EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.example.com/terms',
+            EXPO_PUBLIC_API_BASE_URL: 'https://api.acme.cn',
+            EXPO_PUBLIC_PRIVACY_POLICY_URL: 'https://legal.acme.cn/privacy',
+            EXPO_PUBLIC_USER_AGREEMENT_URL: 'https://legal.acme.cn/terms',
           },
         );
 

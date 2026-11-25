@@ -6,6 +6,7 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 
 class PaymentAlipayModule : Module() {
   private val executor = Executors.newSingleThreadExecutor()
@@ -21,21 +22,25 @@ class PaymentAlipayModule : Module() {
         return@AsyncFunction
       }
 
-      executor.execute {
-        try {
-          EnvUtils.setEnv(if (sandbox) EnvUtils.EnvEnum.SANDBOX else EnvUtils.EnvEnum.ONLINE)
-          val payTask = PayTask(activity)
-          val rawResult = payTask.payV2(orderInfo, true)
-          promise.resolve(
-            mapOf(
-              "resultStatus" to (rawResult["resultStatus"] ?: ""),
-              "result" to (rawResult["result"] ?: ""),
-              "memo" to (rawResult["memo"] ?: ""),
-            ),
-          )
-        } catch (err: Throwable) {
-          promise.reject("ALIPAY_SDK_ERROR", err.message ?: "Alipay SDK call failed.", err)
+      try {
+        executor.execute {
+          try {
+            EnvUtils.setEnv(if (sandbox) EnvUtils.EnvEnum.SANDBOX else EnvUtils.EnvEnum.ONLINE)
+            val payTask = PayTask(activity)
+            val rawResult = payTask.payV2(orderInfo, true)
+            promise.resolve(
+              mapOf(
+                "resultStatus" to (rawResult?.get("resultStatus") ?: ""),
+                "result" to (rawResult?.get("result") ?: ""),
+                "memo" to (rawResult?.get("memo") ?: ""),
+              ),
+            )
+          } catch (err: Throwable) {
+            promise.reject("ALIPAY_SDK_ERROR", err.message ?: "Alipay SDK call failed.", err)
+          }
         }
+      } catch (err: RejectedExecutionException) {
+        promise.reject("EXECUTOR_SHUTDOWN", err.message ?: "Alipay payment executor has been shut down.", err)
       }
     }
 

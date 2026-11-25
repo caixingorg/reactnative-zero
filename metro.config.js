@@ -19,6 +19,14 @@ const PRODUCTION_MODULE_REPLACEMENTS = new Map([
     path.resolve(projectRoot, 'src/shared/mock/mock-http-transport.ts'),
     path.resolve(projectRoot, 'src/shared/mock/mock-http-transport.prod.ts'),
   ],
+  [
+    path.resolve(projectRoot, 'src/features/payment/checkout-sandbox.ts'),
+    path.resolve(projectRoot, 'src/features/payment/checkout-sandbox.prod.ts'),
+  ],
+  [
+    path.resolve(projectRoot, 'src/features/auth/demo-credentials.ts'),
+    path.resolve(projectRoot, 'src/features/auth/demo-credentials.prod.ts'),
+  ],
 ]);
 
 // 原因：将 APP_VARIANT 纳入 Metro 缓存版本键，防止跨变体（如 staging 切 production）打包时命中旧的模块解析缓存

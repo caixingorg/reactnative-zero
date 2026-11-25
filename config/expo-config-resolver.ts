@@ -173,12 +173,55 @@ function resolveCapabilityManifestPermissions(
   };
 }
 
+const DEFAULT_TEMPLATE_SLUG = 'enterprise-rn-template';
+
+function isPlaceholderExampleDomain(urlValue: string): boolean {
+  try {
+    const hostname = new URL(urlValue).hostname.toLowerCase();
+    return hostname === 'example.com' || hostname.endsWith('.example.com');
+  } catch {
+    return false;
+  }
+}
+
+// 原因：生产变体在已派生应用（slug 已改）或正式发版（CI_RELEASE / STRICT_PRODUCTION_ENV）下严禁携带 example.com 占位域名；模板仓库默认 CI 冒烟则保持通行
+export function assertNoProductionPlaceholderDomains(
+  identity: AppIdentity,
+  runtimeEnv: ReturnType<typeof parseRuntimeEnv>,
+  rawEnv: Record<string, string | undefined>,
+): void {
+  if (runtimeEnv.appVariant !== 'production') {
+    return;
+  }
+  const isDerivedApp = identity.slug !== DEFAULT_TEMPLATE_SLUG;
+  const isStrictRelease = rawEnv.CI_RELEASE === 'true' || rawEnv.STRICT_PRODUCTION_ENV === 'true';
+  if (!isDerivedApp && !isStrictRelease) {
+    return;
+  }
+
+  const checkedFields: readonly [string, string][] = [
+    ['EXPO_PUBLIC_API_BASE_URL', runtimeEnv.apiBaseUrl],
+    ['EXPO_PUBLIC_PRIVACY_POLICY_URL', runtimeEnv.privacyPolicyUrl],
+    ['EXPO_PUBLIC_USER_AGREEMENT_URL', runtimeEnv.userAgreementUrl],
+  ];
+  const invalidFields = checkedFields
+    .filter(([, url]) => isPlaceholderExampleDomain(url))
+    .map(([field, url]) => `${field}=${url}`);
+
+  if (invalidFields.length > 0) {
+    throw new Error(
+      `Production build blocked: placeholder example.com domain(s) detected [${invalidFields.join(', ')}]. Configure real production URLs in config/env/production.env before releasing.`,
+    );
+  }
+}
+
 // 原因：纯函数化原生配置推导（Seam 2），支持通过单测秒级验证多变体包名、自适应图标底色区分与最终编译态敏感权限剥离
 export function resolveExpoConfig(
   identity: AppIdentity,
   rawEnv: Record<string, string | undefined>,
 ): ExpoConfig {
   const runtimeEnv = parseRuntimeEnv(rawEnv);
+  assertNoProductionPlaceholderDomains(identity, runtimeEnv, rawEnv);
   const variant = getVariantMeta(identity)[runtimeEnv.appVariant];
   const manifestPermissions = resolveCapabilityManifestPermissions(
     identity.capabilities,

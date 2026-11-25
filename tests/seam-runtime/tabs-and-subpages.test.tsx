@@ -23,6 +23,7 @@ function createRuntime() {
     },
     env: TEST_RUNTIME_ENV,
     overrides: {
+      initialDeviceLocale: 'zh-CN',
       httpTransport: createMockHttpTransport(),
     },
   });

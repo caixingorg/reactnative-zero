@@ -25,7 +25,7 @@ export interface CapabilityManifestSanitizerProps {
 
 const TOOLS_NAMESPACE = 'http://schemas.android.com/tools';
 
-const UNUSED_LOCATION_FGS_SERVICES = [
+export const UNUSED_LOCATION_FGS_SERVICES = [
   'expo.modules.location.services.LocationTaskService',
   'expo.modules.location.next.locationForegroundService.LocationForegroundService',
 ] as const;

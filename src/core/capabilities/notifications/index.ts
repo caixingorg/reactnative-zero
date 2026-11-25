@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Platform } from 'react-native';
+import type { AppVariant } from '../../config/types';
 import {
   mapExpoPermissionResponse,
   type CapabilityPermissionProbe,
@@ -12,10 +13,28 @@ import { useAppRuntime } from '../../runtime';
 export interface LocalNotificationPayload {
   title: string;
   body: string;
+  data?: Record<string, unknown>;
 }
 
 export interface ScheduledNotificationResult {
   notificationId: string;
+}
+
+export interface NotificationTapPayload {
+  readonly notificationId?: string;
+  readonly route?: string;
+  readonly data: Record<string, unknown>;
+}
+
+export interface RawExpoNotificationResponse {
+  notification?: {
+    request?: {
+      identifier?: string;
+      content?: {
+        data?: unknown;
+      };
+    };
+  };
 }
 
 export interface NotificationsCapabilityDriver {
@@ -24,6 +43,8 @@ export interface NotificationsCapabilityDriver {
   ): Promise<ScheduledNotificationResult>;
   setBadgeCount(count: number): Promise<boolean>;
   getDevicePushToken(): Promise<string>;
+  subscribeNotificationResponses?(handler: (payload: NotificationTapPayload) => void): () => void;
+  getInitialNotificationResponse?(): Promise<NotificationTapPayload | null>;
 }
 
 declare module '../../runtime/app-runtime' {
@@ -49,11 +70,15 @@ export interface ExpoNotificationsSdkLike {
   getPermissionsAsync(): Promise<RawExpoPermissionShape>;
   requestPermissionsAsync(): Promise<RawExpoPermissionShape>;
   scheduleNotificationAsync(request: {
-    content: { title: string; body: string };
+    content: { title: string; body: string; data?: Record<string, unknown> };
     trigger: null;
   }): Promise<string>;
   setBadgeCountAsync(count: number): Promise<boolean>;
   getDevicePushTokenAsync(): Promise<{ data: unknown }>;
+  addNotificationResponseReceivedListener?(
+    listener: (response: RawExpoNotificationResponse) => void,
+  ): { remove(): void };
+  getLastNotificationResponseAsync?(): Promise<RawExpoNotificationResponse | null>;
 }
 
 export interface NotificationsCapability {
@@ -64,6 +89,65 @@ export interface NotificationsCapability {
   ): Promise<ScheduledNotificationResult | null>;
   setBadgeCount(count: number): Promise<boolean>;
   getDevicePushTokenWithPermission(rationale: PermissionRationaleCopy): Promise<string | null>;
+  subscribeNotificationResponses(handler: (payload: NotificationTapPayload) => void): () => void;
+  getInitialNotificationResponse(): Promise<NotificationTapPayload | null>;
+}
+
+const PRODUCTION_BLOCKED_NOTIFICATION_PREFIXES = ['/developer-lab'] as const;
+
+// 原因：严格校验通知载荷携带的跳转路径，只允许以单斜杠开头的站内相对路径，拦截外链、协议相对路径（//evil.com）与生产禁用的演示路由
+export function sanitizeNotificationRoute(
+  rawRoute: unknown,
+  options: { appVariant?: AppVariant } = {},
+): string | null {
+  if (typeof rawRoute !== 'string') {
+    return null;
+  }
+  const trimmed = rawRoute.trim();
+  if (
+    !trimmed.startsWith('/') ||
+    trimmed.startsWith('//') ||
+    trimmed.includes('://') ||
+    /[\r\n\t\s]/.test(trimmed)
+  ) {
+    return null;
+  }
+
+  const normalizedPath = trimmed.split(/[?#]/)[0]?.toLowerCase() ?? '';
+  if (options.appVariant === 'production') {
+    for (const prefix of PRODUCTION_BLOCKED_NOTIFICATION_PREFIXES) {
+      if (normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)) {
+        return null;
+      }
+    }
+  }
+
+  return trimmed;
+}
+
+function normalizeNotificationResponse(
+  response: RawExpoNotificationResponse | null | undefined,
+): NotificationTapPayload | null {
+  if (!response || typeof response !== 'object') {
+    return null;
+  }
+  const request = response.notification?.request;
+  const rawData = request?.content?.data;
+  const data =
+    rawData && typeof rawData === 'object' && !Array.isArray(rawData)
+      ? (rawData as Record<string, unknown>)
+      : {};
+  const routeValue =
+    typeof data.route === 'string'
+      ? data.route
+      : typeof data.url === 'string'
+        ? data.url
+        : undefined;
+  return {
+    notificationId: request?.identifier,
+    route: routeValue,
+    data,
+  };
 }
 
 // 原因：遵循 ADR-0004 严禁顶层导入期副作用；以单飞 Promise 惰性配置前台横幅与 Android 13+ 通知渠道，若渠道创建失败则重置锁允许下次重试
@@ -137,6 +221,44 @@ function createLazyNotificationsRuntime(sdkOverride?: ExpoNotificationsSdkLike):
         const token = await Notifications.getDevicePushTokenAsync();
         return String(token.data);
       },
+
+      subscribeNotificationResponses(handler): () => void {
+        let disposed = false;
+        let subscription: { remove(): void } | null = null;
+        void ensureConfigured()
+          .then((Notifications) => {
+            if (disposed || !Notifications.addNotificationResponseReceivedListener) {
+              return;
+            }
+            subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+              const normalized = normalizeNotificationResponse(response);
+              if (normalized) {
+                handler(normalized);
+              }
+            });
+          })
+          .catch(() => {
+            // 通知模块在当前运行环境不可用时静默降级，不中断主界面渲染
+          });
+        return () => {
+          disposed = true;
+          subscription?.remove();
+          subscription = null;
+        };
+      },
+
+      async getInitialNotificationResponse(): Promise<NotificationTapPayload | null> {
+        try {
+          const Notifications = await ensureConfigured();
+          if (!Notifications.getLastNotificationResponseAsync) {
+            return null;
+          }
+          const raw = await Notifications.getLastNotificationResponseAsync();
+          return normalizeNotificationResponse(raw);
+        } catch {
+          return null;
+        }
+      },
     },
   };
 }
@@ -181,6 +303,18 @@ export function createNotificationsCapability(options: {
         },
         () => activeDriver.getDevicePushToken(),
       );
+    },
+    subscribeNotificationResponses(handler) {
+      if (!options.enabled || !activeDriver.subscribeNotificationResponses) {
+        return () => {};
+      }
+      return activeDriver.subscribeNotificationResponses(handler);
+    },
+    async getInitialNotificationResponse() {
+      if (!options.enabled || !activeDriver.getInitialNotificationResponse) {
+        return null;
+      }
+      return activeDriver.getInitialNotificationResponse();
     },
   };
 }

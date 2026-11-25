@@ -3,9 +3,50 @@ default_platform(:android)
 
 require 'json'
 require File.expand_path('lib/ios_signing', __dir__)
+require File.expand_path('lib/debug_symbols', __dir__)
 
 VALID_VARIANTS = %w[development staging production].freeze
 DEFAULT_DOMESTIC_CHANNELS = %w[official huawei xiaomi oppo vivo honor yingyongbao].freeze
+
+def verify_production_domains!(variant)
+  return unless variant == 'production'
+
+  project_root = File.expand_path('..', __dir__)
+  env_file = File.join(project_root, 'config', 'env', 'production.env')
+  merged = DebugSymbols.parse_env_file(env_file).merge(ENV.to_h)
+  offending = DebugSymbols.find_placeholder_domains(merged)
+  return if offending.empty?
+
+  UI.user_error!(
+    "Production build blocked: placeholder example.com domain(s) detected [#{offending.join(', ')}]. " \
+    'Replace them in config/env/production.env before releasing.'
+  )
+end
+
+def run_debug_symbol_upload(platform:, options:, dsym_path: nil)
+  dry_run = options[:dry_run] == true || options[:dry_run].to_s == 'true'
+  project_root = File.expand_path('..', __dir__)
+  plan = DebugSymbols.plan_upload(
+    platform: platform,
+    project_root: project_root,
+    env: ENV,
+    dry_run: dry_run,
+    dsym_path: dsym_path
+  )
+
+  UI.important(plan.warning) if plan.warning
+
+  if plan.status == :dry_run
+    UI.message("🧪 [DebugSymbols dry-run] platform=#{platform} artifacts=#{plan.artifacts.map { |a| a[:path] }.join(', ')}")
+    plan.commands.each { |cmd| UI.message("  would run: #{cmd.join(' ')}") }
+    return plan
+  end
+
+  return plan unless plan.status == :ready
+
+  plan.commands.each { |cmd| sh(*cmd) }
+  plan
+end
 
 def resolve_variant(options)
   variant = (options[:variant] || ENV['APP_VARIANT'] || 'staging').to_s
@@ -41,17 +82,21 @@ platform :android do
   desc '生成指定变体与渠道号的 Android 原生工程并执行本地 Gradle Release 打包'
   lane :build_channel do |options|
     variant = resolve_variant(options)
+    verify_production_domains!(variant)
     channel = resolve_channel(options, 'official')
     use_china_mirrors = options[:china_mirrors].nil? ? (ENV['EXPO_USE_CHINA_MIRRORS'] || 'true') : options[:china_mirrors].to_s
 
     UI.message("🚀 [Android] Prebuilding variant=#{variant} channel=#{channel} china_mirrors=#{use_china_mirrors}")
 
     apk_target = nil
-    with_scoped_env(
+    scoped_env = {
       'APP_VARIANT' => variant,
       'APP_CHANNEL' => channel,
       'EXPO_USE_CHINA_MIRRORS' => use_china_mirrors
-    ) do
+    }
+    scoped_env['CI_RELEASE'] = 'true' if variant == 'production'
+
+    with_scoped_env(scoped_env) do
       sh('pnpm', 'exec', 'expo', 'prebuild', '--platform', 'android', '--clean', '--no-install')
 
       gradle(
@@ -68,6 +113,10 @@ platform :android do
 
       apk_target = File.join(output_dir, "app-#{variant}-#{channel}-release.apk")
       FileUtils.cp(apk_source, apk_target)
+
+      if options[:upload_symbols] != false
+        run_debug_symbol_upload(platform: 'android', options: options)
+      end
 
       if options[:distribute]
         with_scoped_env(
@@ -105,6 +154,7 @@ platform :ios do
   desc '生成指定变体的 iOS 原生工程并执行本地 Xcode 归档出包（无需 EAS 云服务）'
   lane :build_archive do |options|
     variant = resolve_variant(options)
+    verify_production_domains!(variant)
     channel = resolve_channel(options, 'app_store')
     export_method = (options[:export_method] || 'ad-hoc').to_s
     use_china_mirrors = options[:china_mirrors].nil? ? (ENV['EXPO_USE_CHINA_MIRRORS'] || 'true') : options[:china_mirrors].to_s
@@ -120,11 +170,14 @@ platform :ios do
     UI.message("🚀 [iOS] Prebuilding variant=#{variant} channel=#{channel} china_mirrors=#{use_china_mirrors} signing=#{signing.mode}")
 
     ipa_target = nil
-    with_scoped_env(
+    scoped_env = {
       'APP_VARIANT' => variant,
       'APP_CHANNEL' => channel,
       'EXPO_USE_CHINA_MIRRORS' => use_china_mirrors
-    ) do
+    }
+    scoped_env['CI_RELEASE'] = 'true' if variant == 'production'
+
+    with_scoped_env(scoped_env) do
       sh('pnpm', 'exec', 'expo', 'prebuild', '--platform', 'ios', '--clean')
 
       workspace = Dir[File.expand_path('../ios/*.xcworkspace', __dir__)].first
@@ -200,6 +253,11 @@ platform :ios do
 
       ipa_target = File.join(output_dir, ipa_name)
       UI.user_error!("Expected Release IPA not found at #{ipa_target}") unless File.exist?(ipa_target)
+
+      if options[:upload_symbols] != false
+        dsym_path = lane_context[SharedValues::DSYM_OUTPUT_PATH]
+        run_debug_symbol_upload(platform: 'ios', options: options, dsym_path: dsym_path)
+      end
 
       if options[:distribute]
         with_scoped_env(

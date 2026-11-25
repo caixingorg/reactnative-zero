@@ -17,6 +17,12 @@ const httpUrlSchema = z
     { message: '必须是合法的 http 或 https URL' },
   );
 
+// 原因：可选的 http/https URL（空串视为未配置），用于自建 Sentry / GlitchTip DSN 等按需启用的外接地址
+const optionalHttpUrlSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  httpUrlSchema.optional(),
+);
+
 // 原因：渠道号（如 official / huawei / xiaomi / oppo / vivo / google_play）将写入 AndroidManifest，仅允许字母、数字、下划线或连字符
 const appChannelSchema = z
   .string()
@@ -63,6 +69,7 @@ const rawEnvSchema = z
     EXPO_PUBLIC_USER_AGREEMENT_URL: httpUrlSchema,
     EXPO_PUBLIC_ENABLE_MOCK_GATEWAY: z.enum(['true', 'false']).optional(),
     EXPO_PUBLIC_ENABLE_DEVTOOLS: z.enum(['true', 'false']).optional(),
+    EXPO_PUBLIC_SENTRY_DSN: optionalHttpUrlSchema,
   })
   .superRefine((data, ctx) => {
     enforceProductionHttps(
@@ -72,6 +79,7 @@ const rawEnvSchema = z
         'EXPO_PUBLIC_API_BASE_URL',
         'EXPO_PUBLIC_PRIVACY_POLICY_URL',
         'EXPO_PUBLIC_USER_AGREEMENT_URL',
+        'EXPO_PUBLIC_SENTRY_DSN',
       ],
       ctx,
     );
@@ -86,12 +94,13 @@ const runtimePublicEnvSchema = z
     userAgreementUrl: httpUrlSchema,
     enableMockGateway: z.boolean().optional(),
     enableDevTools: z.boolean().optional(),
+    sentryDsn: optionalHttpUrlSchema,
   })
   .superRefine((data, ctx) => {
     enforceProductionHttps(
       data.appVariant,
       data,
-      ['apiBaseUrl', 'privacyPolicyUrl', 'userAgreementUrl'],
+      ['apiBaseUrl', 'privacyPolicyUrl', 'userAgreementUrl', 'sentryDsn'],
       ctx,
     );
   });
@@ -137,6 +146,7 @@ export function parseRuntimeEnv(rawEnv: Record<string, string | undefined>): Run
     enableDevTools:
       result.data.APP_VARIANT !== 'production' &&
       result.data.EXPO_PUBLIC_ENABLE_DEVTOOLS !== 'false',
+    sentryDsn: result.data.EXPO_PUBLIC_SENTRY_DSN,
   };
 }
 
@@ -156,5 +166,6 @@ export function parseRuntimePublicEnv(raw: unknown): RuntimePublicEnv {
     enableMockGateway:
       result.data.appVariant !== 'production' && result.data.enableMockGateway === true,
     enableDevTools: result.data.appVariant !== 'production' && result.data.enableDevTools !== false,
+    sentryDsn: result.data.sentryDsn,
   };
 }
